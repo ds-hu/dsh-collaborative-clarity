@@ -50,7 +50,8 @@ waiting. If the tool call is aborted, the waiter resolves `{status:"cancelled"}`
 
 ## Cold build
 
-Run from the repository root on 2026-10-29 at 22:29 +08:00, exit 0:
+Run from the repository root on 2026-10-29 at 23:08 +08:00, exit 0 (6 store, 4 client,
+3 API tests):
 
 ```powershell
 node --check plugin/client.js && node --check plugin/index.js && node --input-type=module -e "import('./plugin/index.js').then(() => console.log('host loads'))" && node plugin/test/store.test.mjs && node plugin/test/client.test.mjs && node plugin/test/api.test.mjs
