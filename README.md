@@ -23,9 +23,12 @@ The repository root is not the package.
 Use the plugin manager; do not hand-edit the profile.
 
 ```text
-plugin_manager install_bundle  target: link:D:/Projects/dsh-collaborative-clarity/plugin
+plugin_manager install_bundle  target: link:<path-to-this-repo>/plugin
 plugin_manager remove_bundle   target: "@ds-hu/dsh-collaborative-clarity"
 ```
+
+Replace `<path-to-this-repo>` with the checkout path. The plugin manager installs the
+package from `plugin/`; no build step is required.
 
 The client half hot-reloads. Host changes need a restart of the DSH web process.
 
