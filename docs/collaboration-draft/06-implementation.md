@@ -48,6 +48,18 @@ clarity_round / clarity_test
 The model is blocked on the tool promise; there is no polling and no token cost while
 waiting. If the tool call is aborted, the waiter resolves `{status:"cancelled"}`.
 
+## Cold build
+
+Run from the repository root on 2026-10-29 at 22:29 +08:00, exit 0:
+
+```powershell
+node --check plugin/client.js && node --check plugin/index.js && node --input-type=module -e "import('./plugin/index.js').then(() => console.log('host loads'))" && node plugin/test/store.test.mjs && node plugin/test/client.test.mjs && node plugin/test/api.test.mjs
+```
+
+The client half is a classic script with no bundler, so the check is syntax plus the
+contract tests; the host is actually imported so a missing export fails the build. This is
+a cold build for a no-build package, not a claim that the browser surface was exercised.
+
 ## What was verified
 
 ### Contract checks
