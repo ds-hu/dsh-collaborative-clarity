@@ -14,7 +14,7 @@ not as prose.
 
 ## What to do
 
-1. With the round open, press **Annotate**.
+1. The round opens with **Annotating** on. If it does not, press **Annotate**.
 2. Click **Test connection** in A. The comment should attach to that button, not the whole
    variant.
 3. Select a phrase in the intro paragraph. The comment should carry the selected quote.

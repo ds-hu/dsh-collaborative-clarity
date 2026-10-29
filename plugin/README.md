@@ -57,7 +57,8 @@ gets a yellow leading dot when it is otherwise idle. There is no bottom-right pi
 
 ### Annotating an artifact
 
-Press **Annotate** above the variants, then point at what should change:
+Annotation is on when the round opens. Press **Annotating** above the variants to turn it
+off, or turn it back on, then point at what should change:
 
 - click an element (or an ancestor with `data-anchor` / `data-clarity-anchor`) to anchor to
   its selector;

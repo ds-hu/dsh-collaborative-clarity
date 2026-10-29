@@ -599,7 +599,7 @@ window.__ModuleLoader__.load({
       const [commentText, setCommentText] = React.useState('')
       const [commentVariant, setCommentVariant] = React.useState(round.recommendation)
       const [pendingAnchor, setPendingAnchor] = React.useState(null)
-      const [annotate, setAnnotate] = React.useState(false)
+      const [annotate, setAnnotate] = React.useState(true)
       const [note, setNote] = React.useState('')
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
@@ -620,7 +620,14 @@ window.__ModuleLoader__.load({
           setPendingAnchor({ variantId: variant.id, anchor: data.anchor })
           setSelected(variant.id)
           setError(null)
-          if (composerRef.current) composerRef.current.focus()
+          if (composerRef.current) {
+            composerRef.current.focus()
+            try {
+              composerRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            } catch {
+              // Older engines scroll on focus alone.
+            }
+          }
         }
         window.addEventListener('message', onMessage)
         return () => window.removeEventListener('message', onMessage)
@@ -722,13 +729,19 @@ window.__ModuleLoader__.load({
             },
             annotate ? 'Annotating' : 'Annotate',
           ),
-          annotate
+          pendingAnchor
             ? h(
                 'span',
                 { style: { color: 'var(--dsw-alias-label-secondary)' } },
-                'Click an element, select text, or click a line in a code block.',
+                'Anchored: ' + anchorLabel(pendingAnchor.anchor) + '. Write the comment below.',
               )
-            : h('span', { style: { color: MUTED } }, 'Comment on the whole variant, or annotate a target.'),
+            : annotate
+              ? h(
+                  'span',
+                  { style: { color: 'var(--dsw-alias-label-secondary)' } },
+                  'Click an element, drag-select text, or click a code line in either card.',
+                )
+              : h('span', { style: { color: MUTED } }, 'Comment on the whole variant, or turn on Annotate.'),
         ),
         h(
           'div',

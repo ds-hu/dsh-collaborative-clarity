@@ -144,8 +144,9 @@ valid; silence is not.
 
 The plugin implements the first three anchors and keeps `variant` as the default:
 
-- **Annotate** is a toggle. While it is on, clicking an element or a line in a `<pre>`
-  captures an anchor; dragging across text captures a quote.
+- **Annotate** is a toggle and starts on. While it is on, clicking an element or a line in
+  a `<pre>` captures an anchor; dragging across text captures a quote. The bar above the
+  cards says what is clickable, and the comment field below the cards receives the anchor.
 - A line range is a click plus Shift-click. Dragging line numbers is still a target; the
   artifact needs line-number gutters for that, so the current form uses the code block
   itself and an optional `data-line-start` / `data-path` on the `<pre>`.
