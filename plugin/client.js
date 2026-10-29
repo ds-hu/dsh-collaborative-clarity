@@ -141,6 +141,43 @@ window.__ModuleLoader__.load({
       background: 'var(--dsw-alias-bg-layer-1)',
     }
     const commentVariant = { flex: 'none', color: BRAND, fontWeight: 600, fontSize: '10px', lineHeight: '16px' }
+    const annotationBar = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      flexWrap: 'wrap',
+      padding: '6px 8px',
+      background: 'var(--dsw-alias-bg-layer-1)',
+      border: HAIRLINE,
+      borderRadius: 'var(--dsw-radius-md)',
+    }
+    const anchorTag = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      minWidth: 0,
+      maxWidth: '100%',
+      padding: '0 6px',
+      border: '0.5px solid var(--dsw-alias-border-l2)',
+      borderRadius: '99px',
+      color: 'var(--dsw-alias-label-secondary)',
+      fontSize: '10px',
+      lineHeight: '17px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    }
+    const linkButton = {
+      font: 'inherit',
+      fontSize: '10px',
+      lineHeight: '16px',
+      padding: 0,
+      border: 0,
+      background: 'transparent',
+      color: MUTED,
+      cursor: 'pointer',
+      textDecoration: 'underline',
+      textUnderlineOffset: '2px',
+    }
     const errorText = { color: ERROR }
     const successText = { color: 'var(--dsw-alias-state-success-primary)' }
     const pill = {
@@ -211,6 +248,314 @@ window.__ModuleLoader__.load({
       return found ? found.label : id
     }
 
+    function contentHash(html) {
+      let hash = 2166136261
+      for (let i = 0; i < html.length; i += 1) {
+        hash ^= html.charCodeAt(i)
+        hash = Math.imul(hash, 16777619)
+      }
+      return (hash >>> 0).toString(16).padStart(8, '0')
+    }
+
+    function shortText(value, limit) {
+      const text = String(value || '').trim()
+      return text.length > limit ? text.slice(0, limit - 1) + '…' : text
+    }
+
+    function anchorLabel(anchor) {
+      if (!anchor || anchor.kind === 'variant') return 'Whole variant'
+      if (anchor.kind === 'element') {
+        return anchor.text ? 'Element · ' + shortText(anchor.text, 42) : 'Element · ' + shortText(anchor.selector, 42)
+      }
+      if (anchor.kind === 'text') return '“' + shortText(anchor.quote, 40) + '”'
+      if (anchor.kind === 'line') {
+        return anchor.start === anchor.end ? 'Line ' + anchor.start : 'Lines ' + anchor.start + '–' + anchor.end
+      }
+      return 'Anchor'
+    }
+
+    function isAnchor(anchor) {
+      if (!anchor || typeof anchor !== 'object' || Array.isArray(anchor)) return false
+      if (anchor.kind === 'variant') return true
+      if (anchor.kind === 'element') {
+        return typeof anchor.selector === 'string' && anchor.selector !== '' && anchor.selector.length <= 500
+      }
+      if (anchor.kind === 'text') {
+        return typeof anchor.quote === 'string' && anchor.quote !== '' && anchor.quote.length <= 500
+      }
+      if (anchor.kind === 'line') {
+        return (
+          typeof anchor.path === 'string' &&
+          anchor.path !== '' &&
+          Number.isInteger(anchor.start) &&
+          Number.isInteger(anchor.end) &&
+          anchor.start >= 1 &&
+          anchor.end >= anchor.start
+        )
+      }
+      return false
+    }
+
+    function safeJson(value) {
+      return JSON.stringify(value).replace(/</g, '\\u003c')
+    }
+
+    function withBridge(html, variantId) {
+      const config = '<script>window.__CLARITY_VARIANT__=' + safeJson(variantId) + ';</script>'
+      const bridge = '<script>(' + clarityBridge.toString() + ')();</script>'
+      const injection = config + bridge
+      const close = html.toLowerCase().lastIndexOf('</body>')
+      if (close === -1) return html + injection
+      return html.slice(0, close) + injection + html.slice(close)
+    }
+
+    /**
+     * Runs inside the sandboxed artifact iframe. It must stay self-contained: the
+     * client half has no build step, so this function is serialised with toString().
+     */
+    // clarity-bridge:start
+    function clarityBridge() {
+      var variantId = window.__CLARITY_VARIANT__ || ''
+      var enabled = false
+      var hovered = null
+      var suppressClick = false
+      var lastLine = null
+      var highlightTimer = null
+      var pressed = false
+      var dragged = false
+      var pressX = 0
+      var pressY = 0
+
+      function send(payload) {
+        payload.__clarity = true
+        payload.variantId = variantId
+        try {
+          parent.postMessage(payload, '*')
+        } catch (error) {
+          // The tab was torn down mid-message.
+        }
+      }
+
+      function cssEscape(value) {
+        if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value))
+        return String(value).replace(/["\\]/g, '\\$&')
+      }
+
+      function selectorFor(element) {
+        if (!element || element.nodeType !== 1) return ''
+        var anchored = element.closest('[data-anchor], [data-clarity-anchor]')
+        if (anchored) {
+          var name = anchored.hasAttribute('data-anchor') ? 'data-anchor' : 'data-clarity-anchor'
+          return '[' + name + '="' + cssEscape(anchored.getAttribute(name)) + '"]'
+        }
+        if (element.id && document.querySelectorAll('#' + cssEscape(element.id)).length === 1) {
+          return '#' + cssEscape(element.id)
+        }
+        var parts = []
+        var node = element
+        while (node && node.nodeType === 1 && node !== document.body) {
+          var tag = node.tagName.toLowerCase()
+          var parentElement = node.parentElement
+          if (!parentElement) break
+          var index = 1
+          var sibling = node
+          while ((sibling = sibling.previousElementSibling)) {
+            if (sibling.tagName === node.tagName) index += 1
+          }
+          parts.unshift(tag + ':nth-of-type(' + index + ')')
+          node = parentElement
+        }
+        return parts.length === 0 ? 'body' : 'body > ' + parts.join(' > ')
+      }
+
+      function elementAnchor(target) {
+        if (!target || target.nodeType !== 1) return null
+        var element =
+          target.closest(
+            '[data-anchor], [data-clarity-anchor], button, a, input, select, textarea, h1, h2, h3, h4, p, li, td, th, label, [role="button"]',
+          ) || target
+        if (element === document.body || element === document.documentElement) return null
+        var selector = selectorFor(element)
+        if (!selector) return null
+        var text = String(element.innerText || element.textContent || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 120)
+        return { kind: 'element', selector: selector, text: text }
+      }
+
+      function textAnchor() {
+        var selection = window.getSelection ? window.getSelection() : null
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null
+        var quote = String(selection.toString() || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        if (quote === '') return null
+        var range = selection.getRangeAt(0)
+        var container = range.commonAncestorContainer
+        var element = container.nodeType === 1 ? container : container.parentElement
+        if (!element) return null
+        var full = String(element.textContent || '').replace(/\s+/g, ' ')
+        var at = full.indexOf(quote)
+        return {
+          kind: 'text',
+          quote: quote.slice(0, 300),
+          prefix: at > 0 ? full.slice(Math.max(0, at - 40), at) : '',
+          suffix: at >= 0 ? full.slice(at + quote.length, at + quote.length + 40) : '',
+        }
+      }
+
+      function lineAnchor(event, target) {
+        var pre = target && target.closest ? target.closest('pre') : null
+        if (!pre) return null
+        var rect = pre.getBoundingClientRect()
+        var style = window.getComputedStyle(pre)
+        var lineHeight = parseFloat(style.lineHeight)
+        if (!isFinite(lineHeight) || lineHeight <= 0) lineHeight = (parseFloat(style.fontSize) || 14) * 1.5
+        var padTop = parseFloat(style.paddingTop) || 0
+        var offset = event.clientY - rect.top - padTop
+        var line = Math.max(1, Math.floor(offset / lineHeight) + 1)
+        var total = String(pre.textContent || '').split('\n').length
+        line = Math.min(line, Math.max(1, total))
+        var base = parseInt(pre.getAttribute('data-line-start') || '1', 10)
+        if (!isFinite(base) || base < 1) base = 1
+        var start = base + line - 1
+        var end = start
+        var path = pre.getAttribute('data-path') || selectorFor(pre) || 'code'
+        if (event.shiftKey && lastLine && lastLine.path === path) {
+          start = Math.min(lastLine.start, start)
+          end = Math.max(lastLine.end, end)
+        }
+        lastLine = { path: path, start: start, end: end }
+        return { kind: 'line', path: path, start: start, end: end }
+      }
+
+      function clearHover() {
+        if (!hovered) return
+        if (hovered.__clarityOutline !== undefined) {
+          hovered.style.outline = hovered.__clarityOutline
+          hovered.style.outlineOffset = hovered.__clarityOffset
+          delete hovered.__clarityOutline
+          delete hovered.__clarityOffset
+        }
+        hovered = null
+      }
+
+      function hover(event) {
+        if (!enabled) return
+        if (pressed && (Math.abs(event.clientX - pressX) > 3 || Math.abs(event.clientY - pressY) > 3)) {
+          dragged = true
+        }
+        var target = event.target
+        if (!target || target.nodeType !== 1 || target === hovered) return
+        clearHover()
+        if (target === document.body || target === document.documentElement) return
+        target.__clarityOutline = target.style.outline
+        target.__clarityOffset = target.style.outlineOffset
+        target.style.outline = '2px solid #f59e0b'
+        target.style.outlineOffset = '1px'
+        hovered = target
+      }
+
+      function flash(element) {
+        if (!element) return
+        var previous = element.style.boxShadow
+        element.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, .55)'
+        try {
+          element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        } catch (error) {
+          element.scrollIntoView()
+        }
+        clearTimeout(highlightTimer)
+        highlightTimer = setTimeout(function () {
+          element.style.boxShadow = previous
+        }, 1800)
+      }
+
+      function focusAnchor(anchor) {
+        if (!anchor || !anchor.kind) return
+        if (anchor.kind === 'element') {
+          try {
+            flash(document.querySelector(anchor.selector))
+          } catch (error) {
+            // The selector may no longer resolve after an edit.
+          }
+          return
+        }
+        if (anchor.kind === 'line') {
+          try {
+            flash(document.querySelector(anchor.path))
+          } catch (error) {
+            // A file path is not necessarily a selector.
+          }
+          return
+        }
+        if (anchor.kind === 'text') {
+          var nodes = document.querySelectorAll('body *')
+          for (var i = 0; i < nodes.length; i += 1) {
+            if (String(nodes[i].textContent || '').replace(/\s+/g, ' ').indexOf(anchor.quote) !== -1) {
+              flash(nodes[i])
+              return
+            }
+          }
+        }
+      }
+
+      function onClick(event) {
+        if (!enabled) return
+        if (suppressClick) {
+          suppressClick = false
+          return
+        }
+        var anchor = lineAnchor(event, event.target) || elementAnchor(event.target)
+        if (!anchor) return
+        event.preventDefault()
+        event.stopPropagation()
+        clearHover()
+        send({ type: 'anchor', anchor: anchor })
+      }
+
+      function onMouseDown(event) {
+        if (!enabled) return
+        pressed = true
+        dragged = false
+        suppressClick = false
+        pressX = event.clientX
+        pressY = event.clientY
+      }
+
+      function onMouseUp() {
+        if (!enabled) return
+        var wasDragged = dragged
+        pressed = false
+        dragged = false
+        if (!wasDragged) return
+        var anchor = textAnchor()
+        if (!anchor) return
+        suppressClick = true
+        send({ type: 'anchor', anchor: anchor })
+      }
+
+      function onMessage(event) {
+        var data = event.data
+        if (!data || data.__clarity !== true) return
+        if (data.type === 'mode') {
+          enabled = data.enabled === true
+          document.documentElement.style.cursor = enabled ? 'crosshair' : ''
+          if (!enabled) clearHover()
+          return
+        }
+        if (data.type === 'focus') focusAnchor(data.anchor)
+      }
+
+      document.addEventListener('click', onClick, true)
+      document.addEventListener('mousedown', onMouseDown, true)
+      document.addEventListener('mouseup', onMouseUp, true)
+      document.addEventListener('mousemove', hover, true)
+      window.addEventListener('message', onMessage)
+    }
+    // clarity-bridge:end
+
     function Header(props) {
       const round = props.round
       const isTest = round.kind === 'test'
@@ -253,11 +598,47 @@ window.__ModuleLoader__.load({
       const [comments, setComments] = React.useState([])
       const [commentText, setCommentText] = React.useState('')
       const [commentVariant, setCommentVariant] = React.useState(round.recommendation)
+      const [pendingAnchor, setPendingAnchor] = React.useState(null)
+      const [annotate, setAnnotate] = React.useState(false)
       const [note, setNote] = React.useState('')
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
+      const frameRefs = React.useRef(new Map())
+      const composerRef = React.useRef(null)
 
       const disabled = busy || sent !== null
+
+      React.useEffect(() => {
+        function onMessage(event) {
+          const data = event.data
+          if (!data || data.__clarity !== true || data.type !== 'anchor') return
+          const variant = round.variants.find((entry) => entry.id === data.variantId)
+          if (!variant) return
+          const iframe = frameRefs.current.get(variant.id)
+          if (!iframe || event.source !== iframe.contentWindow) return
+          if (!isAnchor(data.anchor)) return
+          setPendingAnchor({ variantId: variant.id, anchor: data.anchor })
+          setSelected(variant.id)
+          setError(null)
+          if (composerRef.current) composerRef.current.focus()
+        }
+        window.addEventListener('message', onMessage)
+        return () => window.removeEventListener('message', onMessage)
+      }, [round])
+
+      React.useEffect(() => {
+        for (const iframe of frameRefs.current.values()) {
+          postMode(iframe)
+        }
+      }, [annotate])
+
+      function postMode(iframe) {
+        try {
+          iframe.contentWindow.postMessage({ __clarity: true, type: 'mode', enabled: annotate }, '*')
+        } catch {
+          // The iframe is between loads.
+        }
+      }
 
       function addComment() {
         const text = commentText.trim()
@@ -265,9 +646,37 @@ window.__ModuleLoader__.load({
           setError('Write a comment first.')
           return
         }
-        setComments((current) => [...current, { variantId: commentVariant, text }])
+        const variantId = pendingAnchor ? pendingAnchor.variantId : commentVariant
+        const variant = round.variants.find((entry) => entry.id === variantId)
+        if (!variant) {
+          setError('Choose a variant first.')
+          return
+        }
+        setComments((current) => [
+          ...current,
+          {
+            variantId,
+            text,
+            anchor: pendingAnchor ? pendingAnchor.anchor : { kind: 'variant' },
+            artifactHash: contentHash(variant.html),
+          },
+        ])
+        setPendingAnchor(null)
         setCommentText('')
         setError(null)
+      }
+
+      function focusComment(comment) {
+        const iframe = frameRefs.current.get(comment.variantId)
+        if (!iframe) return
+        try {
+          iframe.contentWindow.postMessage(
+            { __clarity: true, type: 'focus', anchor: comment.anchor || { kind: 'variant' } },
+            '*',
+          )
+        } catch {
+          // The artifact is between loads.
+        }
       }
 
       function removeComment(index) {
@@ -299,6 +708,28 @@ window.__ModuleLoader__.load({
       return h(
         React.Fragment,
         null,
+        h(
+          'div',
+          { style: annotationBar },
+          h(
+            'button',
+            {
+              type: 'button',
+              style: annotate ? { ...buttonPrimary, padding: '2px 8px' } : { ...buttonBase, padding: '2px 8px' },
+              'aria-pressed': annotate,
+              onClick: () => setAnnotate((current) => !current),
+              disabled,
+            },
+            annotate ? 'Annotating' : 'Annotate',
+          ),
+          annotate
+            ? h(
+                'span',
+                { style: { color: 'var(--dsw-alias-label-secondary)' } },
+                'Click an element, select text, or click a line in a code block.',
+              )
+            : h('span', { style: { color: MUTED } }, 'Comment on the whole variant, or annotate a target.'),
+        ),
         h(
           'div',
           { style: variantGrid },
@@ -334,10 +765,15 @@ window.__ModuleLoader__.load({
                 variant.id === round.recommendation ? h('span', { style: badge }, 'recommended') : null,
               ),
               h('iframe', {
-                srcDoc: variant.html,
+                ref: (node) => {
+                  if (node) frameRefs.current.set(variant.id, node)
+                  else frameRefs.current.delete(variant.id)
+                },
+                srcDoc: withBridge(variant.html, variant.id),
                 sandbox: 'allow-scripts',
                 title: variant.label,
-                style: frame,
+                style: annotate ? { ...frame, cursor: 'crosshair' } : frame,
+                onLoad: (event) => postMode(event.currentTarget),
               }),
               variant.note ? h('div', { style: { ...fidelity, color: 'var(--dsw-alias-label-secondary)' } }, variant.note) : null,
               h(Fidelity, { variant }),
@@ -348,24 +784,70 @@ window.__ModuleLoader__.load({
           'div',
           { style: section },
           h('div', { style: sectionTitle }, 'Comments'),
+          pendingAnchor
+            ? h(
+                'div',
+                { style: { ...card, gap: '3px', padding: '6px 8px', borderColor: BRAND } },
+                h(
+                  'div',
+                  { style: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } },
+                  h('span', { style: eyebrow }, 'Commenting on'),
+                  h('span', { style: anchorTag }, anchorLabel(pendingAnchor.anchor)),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      style: linkButton,
+                      onClick: () => setPendingAnchor(null),
+                      disabled,
+                    },
+                    'Clear',
+                  ),
+                ),
+                h('div', { style: { color: MUTED, fontSize: '10px' } }, variantLabel(round, pendingAnchor.variantId)),
+              )
+            : null,
           comments.length === 0
-            ? h('div', { style: { color: MUTED } }, 'No comments yet. Add one to a variant if something should change.')
+            ? h(
+                'div',
+                { style: { color: MUTED } },
+                pendingAnchor
+                  ? 'Write the comment that belongs at that spot.'
+                  : 'No comments yet. Use Annotate to point at an element, text, or code line.',
+              )
             : h(
                 'div',
                 { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
                 comments.map((comment, index) =>
                   h(
                     'div',
-                    { key: String(index), style: commentItem },
-                    h('span', { style: commentVariant }, variantLabel(round, comment.variantId)),
-                    h('span', { style: { flex: 1, minWidth: 0, overflowWrap: 'anywhere' } }, comment.text),
+                    {
+                      key: String(index),
+                      style: { ...commentItem, cursor: 'pointer' },
+                      title: 'Show this spot in the artifact',
+                      onClick: () => focusComment(comment),
+                    },
+                    h(
+                      'div',
+                      { style: { display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, minWidth: 0 } },
+                      h(
+                        'div',
+                        { style: { display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' } },
+                        h('span', { style: commentVariant }, variantLabel(round, comment.variantId)),
+                        h('span', { style: { color: MUTED, fontSize: '10px' } }, anchorLabel(comment.anchor)),
+                      ),
+                      h('span', { style: { overflowWrap: 'anywhere' } }, comment.text),
+                    ),
                     h(
                       'button',
                       {
                         type: 'button',
                         title: 'Remove comment',
                         style: { ...buttonBase, padding: '0 4px', border: 0, background: 'transparent', color: MUTED },
-                        onClick: () => removeComment(index),
+                        onClick: (event) => {
+                          event.stopPropagation()
+                          removeComment(index)
+                        },
                         disabled,
                       },
                       '×',
@@ -376,18 +858,21 @@ window.__ModuleLoader__.load({
           h(
             'div',
             { style: { display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' } },
-            h(
-              'select',
-              {
-                value: commentVariant,
-                onChange: (event) => setCommentVariant(event.target.value),
-                style: { ...input, width: 'auto', flex: 'none' },
-                'aria-label': 'Comment on variant',
-                disabled,
-              },
-              round.variants.map((variant) => h('option', { key: variant.id, value: variant.id }, variant.label)),
-            ),
+            pendingAnchor
+              ? null
+              : h(
+                  'select',
+                  {
+                    value: commentVariant,
+                    onChange: (event) => setCommentVariant(event.target.value),
+                    style: { ...input, width: 'auto', flex: 'none' },
+                    'aria-label': 'Comment on variant',
+                    disabled,
+                  },
+                  round.variants.map((variant) => h('option', { key: variant.id, value: variant.id }, variant.label)),
+                ),
             h('input', {
+              ref: composerRef,
               value: commentText,
               onChange: (event) => setCommentText(event.target.value),
               onKeyDown: (event) => {
@@ -396,7 +881,7 @@ window.__ModuleLoader__.load({
                   addComment()
                 }
               },
-              placeholder: 'What should change?',
+              placeholder: pendingAnchor ? 'What should change here?' : 'What should change?',
               style: { ...input, flex: '1 1 140px', width: 'auto' },
               disabled,
             }),
@@ -753,7 +1238,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    return {
+    const pluginApi = {
       inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'uiSession'],
       apply(ctx) {
         publishPendingInteraction = ctx.uiSession.registerPendingInteraction(() => 5)
@@ -859,5 +1344,10 @@ window.__ModuleLoader__.load({
         }, 'clarity events')
       },
     }
+    Object.defineProperty(pluginApi, '__test', {
+      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor },
+      enumerable: false,
+    })
+    return pluginApi
   },
 })

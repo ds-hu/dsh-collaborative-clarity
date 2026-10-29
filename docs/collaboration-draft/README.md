@@ -29,6 +29,8 @@ artifact set, one blocking wait, one durable record.
 | — | [adr/0001](adr/0001-artifact-first-grilling.md) | The hard-to-reverse decision: artifacts replace prose questions in grilling. |
 | — | [example/](example/) | One mocked round, two variants, annotations, a decision, and a clickable shell. |
 | — | [rounds/0001](rounds/0001-tab-variant-budget/round.md) | The first real round, run through the plugin. |
+| — | [rounds/0002](rounds/0002-session-attention/round.md) | The session-row attention mark, including the two failed gates. |
+| — | [rounds/0003](rounds/0003-anchors/round.md) | The anchor round: element, text, and line comments. |
 
 Read 01 for the argument, 02–05 for the rules, and 06 for what actually runs. The example
 is the shortest explanation of what the mode feels like.

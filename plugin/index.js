@@ -47,6 +47,57 @@ const VARIANT_SCHEMA = {
   required: ['id', 'label', 'html'],
 }
 
+/**
+ * Where a comment points inside an artifact.
+ *
+ * `variant` is the whole draft; the other three name a location so the agent does
+ * not have to infer which element, phrase, or line the user meant.
+ */
+const ANCHOR_SCHEMA = {
+  oneOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        kind: { type: 'string', enum: ['element'] },
+        selector: { type: 'string' },
+        text: { type: 'string' },
+      },
+      required: ['kind', 'selector'],
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        kind: { type: 'string', enum: ['text'] },
+        quote: { type: 'string' },
+        prefix: { type: 'string' },
+        suffix: { type: 'string' },
+      },
+      required: ['kind', 'quote'],
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        kind: { type: 'string', enum: ['line'] },
+        path: { type: 'string' },
+        start: { type: 'number' },
+        end: { type: 'number' },
+      },
+      required: ['kind', 'path', 'start', 'end'],
+    },
+    {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        kind: { type: 'string', enum: ['variant'] },
+      },
+      required: ['kind'],
+    },
+  ],
+}
+
 /** One comment the user attached to a variant (or to the round when variantId is absent). */
 const COMMENT_SCHEMA = {
   type: 'object',
@@ -54,6 +105,8 @@ const COMMENT_SCHEMA = {
   properties: {
     variantId: { type: 'string' },
     text: { type: 'string' },
+    anchor: ANCHOR_SCHEMA,
+    artifactHash: { type: 'string' },
   },
   required: ['text'],
 }
@@ -684,18 +737,115 @@ function requireVerdict(value, allowed) {
 /**
  * Validate and copy comments.
  * @param {unknown} value - the candidate array.
- * @returns {{variantId?: string, text: string}[]} clean comments.
+ * @returns {{variantId?: string, text: string, anchor?: object, artifactHash?: string}[]} clean comments.
  */
 function normaliseComments(value) {
   if (value === undefined) return []
   if (!Array.isArray(value)) throw new HttpError(400, 'bad-request', 'comments must be an array')
   if (value.length > 40) throw new HttpError(400, 'bad-request', 'too many comments (max 40)')
   return value.map((comment, index) => {
-    if (comment === null || typeof comment !== 'object') {
+    if (comment === null || typeof comment !== 'object' || Array.isArray(comment)) {
       throw new HttpError(400, 'bad-request', `comments[${index}] must be an object`)
     }
-    const text = requireString(comment.text, `comments[${index}].text`, 4_000)
-    if (comment.variantId === undefined) return { text }
-    return { variantId: requireString(comment.variantId, `comments[${index}].variantId`, 40), text }
+    rejectUnknown(comment, ['variantId', 'text', 'anchor', 'artifactHash'], `comments[${index}]`)
+    const clean = { text: requireString(comment.text, `comments[${index}].text`, 4_000) }
+    if (comment.variantId !== undefined) {
+      clean.variantId = requireString(comment.variantId, `comments[${index}].variantId`, 40)
+    }
+    if (comment.anchor !== undefined) {
+      clean.anchor = normaliseAnchor(comment.anchor, `comments[${index}].anchor`)
+    }
+    if (comment.artifactHash !== undefined) {
+      clean.artifactHash = requireString(comment.artifactHash, `comments[${index}].artifactHash`, 128)
+    }
+    return clean
   })
+}
+
+/**
+ * Validate one anchor and copy only its known fields.
+ * @param {unknown} value - the candidate anchor.
+ * @param {string} name - diagnostic name.
+ * @returns {object} a clean anchor.
+ */
+function normaliseAnchor(value, name) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new HttpError(400, 'bad-request', `${name} must be an object`)
+  }
+  const kind = value.kind
+  if (kind === 'variant') {
+    rejectUnknown(value, ['kind'], name)
+    return { kind: 'variant' }
+  }
+  if (kind === 'element') {
+    rejectUnknown(value, ['kind', 'selector', 'text'], name)
+    const anchor = {
+      kind: 'element',
+      selector: requireString(value.selector, `${name}.selector`, 500),
+    }
+    if (value.text !== undefined) anchor.text = optionalString(value.text, `${name}.text`, 500)
+    return anchor
+  }
+  if (kind === 'text') {
+    rejectUnknown(value, ['kind', 'quote', 'prefix', 'suffix'], name)
+    const anchor = {
+      kind: 'text',
+      quote: requireString(value.quote, `${name}.quote`, 500),
+    }
+    if (value.prefix !== undefined) anchor.prefix = optionalString(value.prefix, `${name}.prefix`, 200)
+    if (value.suffix !== undefined) anchor.suffix = optionalString(value.suffix, `${name}.suffix`, 200)
+    return anchor
+  }
+  if (kind === 'line') {
+    rejectUnknown(value, ['kind', 'path', 'start', 'end'], name)
+    const start = positiveInteger(value.start, `${name}.start`)
+    const end = positiveInteger(value.end, `${name}.end`)
+    if (end < start) throw new HttpError(400, 'bad-request', `${name}.end must be at least ${name}.start`)
+    return {
+      kind: 'line',
+      path: requireString(value.path, `${name}.path`, 500),
+      start,
+      end,
+    }
+  }
+  throw new HttpError(400, 'bad-request', `${name}.kind must be one of: element, text, line, variant`)
+}
+
+/**
+ * Refuse fields the anchor shape does not own.
+ * @param {Record<string, unknown>} value - the candidate object.
+ * @param {string[]} allowed - the field names.
+ * @param {string} name - diagnostic name.
+ * @returns {void}
+ */
+function rejectUnknown(value, allowed, name) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) throw new HttpError(400, 'bad-request', `${name}.${key} is not allowed`)
+  }
+}
+
+/**
+ * Read an optional string and keep it bounded.
+ * @param {unknown} value - the candidate.
+ * @param {string} name - diagnostic name.
+ * @param {number} maxLength - maximum length.
+ * @returns {string} the string.
+ */
+function optionalString(value, name, maxLength) {
+  if (typeof value !== 'string') throw new HttpError(400, 'bad-request', `${name} must be a string`)
+  if (value.length > maxLength) throw new HttpError(400, 'bad-request', `${name} is too long (max ${maxLength} characters)`)
+  return value
+}
+
+/**
+ * Read a positive integer.
+ * @param {unknown} value - the candidate.
+ * @param {string} name - diagnostic name.
+ * @returns {number} the integer.
+ */
+function positiveInteger(value, name) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw new HttpError(400, 'bad-request', `${name} must be a positive integer`)
+  }
+  return value
 }

@@ -94,6 +94,93 @@ test('health, round read, and decision write go through the routes', async () =>
   assert.equal(store.get('r1').status, 'accepted')
 })
 
+test('anchored comments pass validation and malformed anchors are refused', async () => {
+  const store = new RoundStore()
+  const base = {
+    kind: 'decision',
+    sessionId: 's1',
+    decision: 'A or B?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>' }],
+    recommendation: 'a',
+    foreclosures: ['B is lost.'],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  store.open({ ...base, id: 'r2' })
+  const handler = mount(store)
+  const comments = [
+    {
+      variantId: 'a',
+      text: 'This label should say Save.',
+      anchor: { kind: 'element', selector: '[data-anchor="save"]', text: 'Save' },
+      artifactHash: 'a1b2c3d4',
+    },
+    {
+      variantId: 'a',
+      text: 'Too vague.',
+      anchor: { kind: 'text', quote: 'Continue', prefix: 'Press ', suffix: ' to go on' },
+      artifactHash: 'a1b2c3d4',
+    },
+    {
+      variantId: 'a',
+      text: 'This loop never backs off.',
+      anchor: { kind: 'line', path: 'src/retry.ts', start: 12, end: 14 },
+      artifactHash: 'a1b2c3d4',
+    },
+    { variantId: 'a', text: 'Whole variant.', anchor: { kind: 'variant' }, artifactHash: 'a1b2c3d4' },
+  ]
+  const accepted = fakeResponse()
+  await handler(
+    fakeRequest(
+      'POST',
+      '/clarity/api/decide',
+      JSON.stringify({ roundId: 'r2', verdict: 'accept', selected: 'a', comments, note: '' }),
+    ),
+    accepted,
+  )
+  assert.equal(accepted.status, 200, JSON.stringify(json(accepted)))
+  assert.deepEqual(json(accepted).result.comments, comments)
+  assert.equal(json(accepted).result.comments[2].anchor.end, 14)
+
+  store.open({ ...base, id: 'r3' })
+  const badAnchor = fakeResponse()
+  await handler(
+    fakeRequest(
+      'POST',
+      '/clarity/api/decide',
+      JSON.stringify({
+        roundId: 'r3',
+        verdict: 'accept',
+        selected: 'a',
+        comments: [{ variantId: 'a', text: 'No selector.', anchor: { kind: 'element', text: 'Save' } }],
+      }),
+    ),
+    badAnchor,
+  )
+  assert.equal(badAnchor.status, 400)
+  assert.equal(json(badAnchor).error.code, 'bad-request')
+  assert.match(json(badAnchor).error.message, /selector/)
+
+  store.open({ ...base, id: 'r4' })
+  const badField = fakeResponse()
+  await handler(
+    fakeRequest(
+      'POST',
+      '/clarity/api/decide',
+      JSON.stringify({
+        roundId: 'r4',
+        verdict: 'accept',
+        selected: 'a',
+        comments: [{ variantId: 'a', text: 'Extra.', anchor: { kind: 'text', quote: 'Continue', color: 'red' } }],
+      }),
+    ),
+    badField,
+  )
+  assert.equal(badField.status, 400)
+  assert.match(json(badField).error.message, /not allowed/)
+})
+
 test('unknown rounds and failed cold builds are refused with the API error shape', async () => {
   const store = new RoundStore()
   store.open({

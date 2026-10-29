@@ -43,6 +43,39 @@ test('a decision round resolves with the selected variant and comments', async (
   assert.deepEqual(result.comments, [{ variantId: 'a', text: 'Keep the word "New".' }])
 })
 
+test('a decision result keeps element, text, and line anchors', async () => {
+  const store = new RoundStore()
+  const pending = decisionTool(store).execute(decisionArgs(), exec())
+  const round = store.openRounds()[0]
+  const comments = [
+    {
+      variantId: 'a',
+      text: 'Rename this button.',
+      anchor: { kind: 'element', selector: '[data-anchor="save"]', text: 'Save' },
+      artifactHash: 'a1b2c3d4',
+    },
+    {
+      variantId: 'a',
+      text: 'This phrase is vague.',
+      anchor: { kind: 'text', quote: 'New project', prefix: '', suffix: ' and start' },
+      artifactHash: 'a1b2c3d4',
+    },
+    {
+      variantId: 'b',
+      text: 'This loop never backs off.',
+      anchor: { kind: 'line', path: 'src/retry.ts', start: 12, end: 14 },
+      artifactHash: 'e5f6a7b8',
+    },
+  ]
+  store.decide(round.id, { verdict: 'revise', selected: 'a', comments, note: '' })
+  const result = await pending
+  assert.equal(result.verdict, 'revise')
+  assert.deepEqual(result.comments, comments)
+  assert.equal(result.comments[0].anchor.kind, 'element')
+  assert.equal(result.comments[1].anchor.quote, 'New project')
+  assert.equal(result.comments[2].anchor.start, 12)
+})
+
 test('a round rejects a recommendation that names no variant', async () => {
   const store = new RoundStore()
   const args = decisionArgs()

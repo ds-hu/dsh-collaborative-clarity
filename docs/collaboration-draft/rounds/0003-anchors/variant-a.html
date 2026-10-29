@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connection settings — inline retry policy</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f2328; background: #f6f7f9; }
+  .card { max-width: 360px; margin: 0 auto; background: #fff; border: 1px solid #d8dee4; border-radius: 10px; overflow: hidden; }
+  .head { padding: 14px 16px 10px; border-bottom: 1px solid #eaeef2; }
+  h1 { margin: 0 0 4px; font-size: 16px; line-height: 1.3; }
+  p { margin: 0; color: #59636e; font-size: 13px; }
+  .body { padding: 14px 16px; display: grid; gap: 12px; }
+  label { font-weight: 600; font-size: 12px; }
+  .field { display: grid; gap: 5px; }
+  input { width: 100%; padding: 7px 9px; border: 1px solid #d8dee4; border-radius: 7px; font: inherit; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; font-weight: 600; padding: 7px 11px; border-radius: 7px; border: 1px solid #1f2328; background: #1f2328; color: #fff; }
+  .ghost { background: #fff; color: #1f2328; border-color: #d8dee4; font-weight: 500; }
+  .hint { font-size: 12px; color: #59636e; }
+  .policy { border: 1px solid #eaeef2; border-radius: 7px; overflow: hidden; }
+  .policy-head { padding: 6px 9px; background: #f6f8fa; font-size: 11px; color: #59636e; border-bottom: 1px solid #eaeef2; }
+  pre { margin: 0; padding: 8px 9px; background: #fff; font: 11px/1.6 ui-monospace, Consolas, monospace; overflow-x: auto; }
+  .foot { padding: 10px 16px 14px; border-top: 1px solid #eaeef2; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .status { font-size: 12px; color: #59636e; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="head">
+      <h1>Connection settings</h1>
+      <p data-anchor="intro">Check the endpoint before saving. The retry policy below applies to background sync.</p>
+    </div>
+    <div class="body">
+      <div class="field">
+        <label for="endpoint">Endpoint</label>
+        <input id="endpoint" value="https://api.example.test/v1" spellcheck="false">
+      </div>
+      <div class="row">
+        <button data-anchor="test">Test connection</button>
+        <span class="hint">Uses the current draft, not the saved value.</span>
+      </div>
+      <div class="policy">
+        <div class="policy-head">Retry policy · applied after a failed test</div>
+        <pre data-path="src/sync/retry.ts" data-line-start="12">const policy = {
+  attempts: 3,
+  backoff: "exponential",
+  jitter: true,
+}</pre>
+      </div>
+    </div>
+    <div class="foot">
+      <span class="status">Not saved</span>
+      <div class="row">
+        <button class="ghost" data-anchor="cancel">Cancel</button>
+        <button data-anchor="save">Save</button>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

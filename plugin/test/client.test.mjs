@@ -114,6 +114,25 @@ test('the bundle registers a multiple tab, a body, a title, and a guide entry', 
   assert.equal(calls.titles[0].options.key, 'dsh-collaborative-clarity')
 })
 
+test('the artifact bridge is injected and anchor labels are stable', () => {
+  const client = loadClient()
+  const internals = client.__test
+  assert.ok(internals)
+  const html = internals.withBridge('<html><body><h1>Save</h1></body></html>', 'a')
+  assert.match(html, /window\.__CLARITY_VARIANT__="a"/)
+  assert.equal((html.match(/<script>/g) || []).length, 2)
+  assert.match(html, /function clarityBridge/)
+  assert.equal(internals.contentHash('abc'), internals.contentHash('abc'))
+  assert.notEqual(internals.contentHash('abc'), internals.contentHash('abd'))
+  assert.equal(internals.anchorLabel({ kind: 'variant' }), 'Whole variant')
+  assert.equal(internals.anchorLabel({ kind: 'element', text: 'Save' }), 'Element · Save')
+  assert.equal(internals.anchorLabel({ kind: 'text', quote: 'Continue' }), '“Continue”')
+  assert.equal(internals.anchorLabel({ kind: 'line', start: 12, end: 14 }), 'Lines 12–14')
+  assert.equal(internals.isAnchor({ kind: 'element', selector: '#save' }), true)
+  assert.equal(internals.isAnchor({ kind: 'element', text: 'Save' }), false)
+  assert.equal(internals.isAnchor({ kind: 'line', path: 'src/a.ts', start: 3, end: 2 }), false)
+})
+
 test('a round event opens a tab only for the mounted conversation', () => {
   const client = loadClient()
   const { ctx, calls } = makeCtx()

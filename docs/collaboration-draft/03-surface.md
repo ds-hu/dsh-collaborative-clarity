@@ -140,6 +140,24 @@ The composer has four fields:
 The agent must answer every annotation. "Applied" and "declined with a reason" are both
 valid; silence is not.
 
+### As built
+
+The plugin implements the first three anchors and keeps `variant` as the default:
+
+- **Annotate** is a toggle. While it is on, clicking an element or a line in a `<pre>`
+  captures an anchor; dragging across text captures a quote.
+- A line range is a click plus Shift-click. Dragging line numbers is still a target; the
+  artifact needs line-number gutters for that, so the current form uses the code block
+  itself and an optional `data-line-start` / `data-path` on the `<pre>`.
+- The composer stays in the panel: the click selects the spot, then the one comment field
+  at the bottom of the tab writes the comment. The artifact is not given a second editor.
+- The returned comment carries `anchor` and `artifactHash`. The host validates the shape and
+  returns it with the decision, so the agent receives the selector, quote, or line range.
+
+The iframe is sandboxed without same-origin; the bridge posts to the parent and the parent
+checks `event.source`. See [06](06-implementation.md) for the remaining
+reconciliation gap.
+
 ### Why the annotations live in files
 
 Each round writes `annotations.jsonl`, append-only, next to the artifacts. The tab renders

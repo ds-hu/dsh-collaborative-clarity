@@ -2,8 +2,10 @@
 
 **Status:** prototype · 2026-10-29
 **Package:** [plugin/](../../plugin/) · `dsh-collaborative-clarity@0.1.0`
-**Verified:** one decision round accepted, one real-test gate passed (third attempt)
-**Not yet:** preset-level `ask_user_question` removal, element/text anchors, command-running test trigger
+**Verified:** one decision round accepted, one real-test gate passed (third attempt),
+anchors captured in a contract test and a browser harness
+**Not yet:** preset-level `ask_user_question` removal, anchor reconciliation across
+versions, command-running test trigger, a human pass on the anchor round
 
 This document records what exists in the repository, what was actually observed, and
 what remains a gap. It is written after the build, not as a promise before it.
@@ -52,9 +54,9 @@ waiting. If the tool call is aborted, the waiter resolves `{status:"cancelled"}`
 
 | Check | Command | Result |
 |---|---|---|
-| Host store and tool bodies | `node plugin/test/store.test.mjs` | 5 passed |
-| Client facade and slot registrations | `node plugin/test/client.test.mjs` | 2 passed |
-| HTTP routes and error shapes | `node plugin/test/api.test.mjs` | 2 passed |
+| Host store and tool bodies | `node plugin/test/store.test.mjs` | 6 passed |
+| Client facade, bridge injection, anchor labels | `node plugin/test/client.test.mjs` | 3 passed |
+| HTTP routes, anchor validation, error shapes | `node plugin/test/api.test.mjs` | 3 passed |
 | Syntax | `node --check plugin/index.js`, `node --check plugin/client.js` | passed |
 
 `node --test` cannot run in this sandbox (it spawns a child process and dies with
@@ -101,6 +103,56 @@ The final implementation does two things:
 
 No bottom-right pill remains.
 
+## Anchors
+
+A comment can now point at a location instead of only at a variant. The four kinds match
+[03 §Annotation](03-surface.md#annotation):
+
+```ts
+type Anchor =
+  | { kind: "element"; selector: string; text?: string }
+  | { kind: "text"; quote: string; prefix?: string; suffix?: string }
+  | { kind: "line"; path: string; start: number; end: number }
+  | { kind: "variant" }
+```
+
+The client injects a bridge into each `srcDoc` before the iframe loads. The iframe is
+sandboxed with `allow-scripts` and no same-origin, so the bridge cannot read the parent and
+the parent cannot read the iframe. They use `postMessage`:
+
+- parent → iframe: `{ __clarity: true, type: "mode", enabled }`
+- iframe → parent: `{ __clarity: true, type: "anchor", variantId, anchor }`
+- parent → iframe: `{ __clarity: true, type: "focus", anchor }` to flash a comment's spot
+
+The parent accepts a message only when `event.source` is the iframe it rendered for that
+variant. It does not trust `event.origin`: a sandboxed iframe has an opaque origin, so the
+source comparison is the identity check.
+
+The host validates every anchor before it reaches the model. An element needs a non-empty
+`selector`; text needs a non-empty `quote`; a line needs a `path` and `start <= end`; a
+variant has no fields beyond `kind`. Unknown fields are refused, so a malformed anchor is a
+`400` rather than a silent drop. Each comment also carries an 8-hex `artifactHash` computed
+from the variant HTML.
+
+### What the browser harness proved
+
+A generated harness embedded the **exact** `clarityBridge` source extracted from
+`client.js`, opened it in Chromium through the Playwright MCP, and logged the messages:
+
+| Action | Message |
+|---|---|
+| Click `<button data-anchor="save">` | `{kind:"element", selector:"[data-anchor=\"save\"]", text:"Save"}` |
+| Drag-select the intro | `{kind:"text", quote:"Press Continue to go on.", prefix:"", suffix:""}` |
+| Click line 1, Shift-click line 2 | `{kind:"line", path:"src/retry.ts", start:10, end:11}` |
+
+The harness is generated, not committed; the generator is the `clarity-bridge` markers in
+`client.js` plus the same `withBridge` used by the panel. The unit test asserts that the
+injection adds the config and bridge scripts and that the labels stay stable.
+
+What this does **not** prove: the parent panel's message handler, the composer, and the
+`/decide` round-trip in the actual DSH page. Those need the human gate in
+[rounds/0003-anchors](rounds/0003-anchors/round.md).
+
 ## What is not built
 
 These are gaps against the specification, not hidden features:
@@ -109,19 +161,26 @@ These are gaps against the specification, not hidden features:
   preset that removes the old one. The tool descriptions tell the agent not to use it for
   a round, but the composition does not enforce that. Closing this needs a preset (or a
   scoped restriction) that swaps the two.
-- **Annotations are variant-level only.** The panel supports comments on a variant and a
-  note to the agent; it does not yet support element, text-quote, or line anchors, and it
-  does not reconcile anchors across versions.
+- **Anchors are captured but not reconciled.** A revised variant is a new artifact, so an
+  anchor from the previous version is not re-found, not shown as orphaned, and does not
+  block accept. The reconciliation order in [03](03-surface.md#annotation) is still a
+  target. `annotations.jsonl` is also not written automatically; the anchors live in the
+  decision result.
+- **The line anchor is click, not gutter drag.** It needs a `<pre>` in the artifact (with
+  optional `data-path` and `data-line-start`); a UI-only artifact has no line anchor.
+- **The text anchor needs a drag.** A plain click on text becomes an element anchor, which
+  is deliberate: a click should not silently become a one-word quote.
 - **The test gate records a result; it does not run a command.** The agent supplies the
   cold-build record and the scenario; the user presses the trigger and records pass, fail,
   or blocked. The "run the recorded command" part of [03](03-surface.md) and
   [04](04-verification.md) is still a target.
 - **Rounds are in-memory.** A restart loses open rounds. The decision remains in the
   session log and the tracked round folder, but the live tab cannot survive a restart.
-- **Host changes need a restart.** Client changes hot-reload. The `/clarity/api/rounds`
-  route was added after the installed host started and is therefore not live in the
-  current process; the client does not depend on it. It uses `/round` and a localStorage
-  fallback for the guide tab.
+- **Host changes need a restart.** Client changes hot-reload. The anchor schema was added
+  to `plugin/index.js` after the installed host started, so the current process validates
+  comments with the old schema and drops `anchor` and `artifactHash` from the result. The
+  client will show the controls after a browser reload, but the round-trip is only complete
+  after the DSH web process is restarted.
 - **Single-user, single-browser.** There is no multi-user presence or assignment.
 - **No real cold-build runner.** "Cold build" is evidence passed to `clarity_test`; the
   plugin does not execute it.
@@ -151,9 +210,12 @@ node plugin/test/api.test.mjs
 
 1. Add a grilling preset that hides `ask_user_question` and exposes `clarity_round` /
    `clarity_test`, so the agent cannot take the prose path.
-2. Add element and text anchors to the artifact iframe, using the `postMessage` protocol
-   described in [03](03-surface.md).
-3. Make the test trigger run the recorded cold-build command in a terminal tab and write
+2. Reconcile anchors when a variant is revised: exact selector/quote/line, then same text or
+   prefix/suffix, then fuzzy, then show the anchor as orphaned. A blocking orphan must stop
+   accept instead of disappearing.
+3. Write `annotations.jsonl` next to the round's tracked artifacts, append-only, and cite the
+   annotation ids in the decision record.
+4. Make the test trigger run the recorded cold-build command in a terminal tab and write
    `test.md`.
-4. Persist round manifests and decisions to `docs/collaboration/rounds/` automatically.
-5. Re-test the session-row dot in a second workspace and while another agent is running.
+5. Persist round manifests and decisions to `docs/collaboration/rounds/` automatically.
+6. Re-test the session-row dot in a second workspace and while another agent is running.

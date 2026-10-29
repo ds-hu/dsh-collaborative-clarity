@@ -23,6 +23,7 @@ through the plugin. The plugin's verified scope is in
 | D12 | The first deliverable is documents plus a mock, not a plugin | superseded | The plugin was built first; see [06](06-implementation.md) and [OPEN-QUESTIONS](OPEN-QUESTIONS.md) Q2 |
 | D13 | A waiting round is marked on the session row, not with a bottom-right pill | agreed | User feedback in real test 1; implemented as the runtime warning dot + `Answer` |
 | D14 | The waiting mark is the runtime `pendingInteraction` of kind `question`, so it appears even when the row is busy | agreed | Real test 3 passed with "Good!" |
+| D15 | A comment can anchor to an element, a text quote, a line range, or the whole variant, and the anchor is returned with the decision | built | [03 §As built](03-surface.md#as-built), [06 §Anchors](06-implementation.md#anchors), `node plugin/test/*.test.mjs` |
 
 ## Round ledger
 
