@@ -25,7 +25,7 @@ class FakeEventSource {
   }
 }
 
-function loadClient() {
+function loadClient(ReactOverride) {
   let registration
   const sandbox = {
     window: {
@@ -43,7 +43,7 @@ function loadClient() {
   assert.ok(registration, 'the bundle registers itself')
   assert.equal(registration.id, 'dsh-collaborative-clarity')
 
-  const React = {
+  const React = ReactOverride || {
     createElement: () => null,
     Fragment: 'Fragment',
     useState: () => [undefined, () => {}],
@@ -53,6 +53,68 @@ function loadClient() {
     if (specifier === 'react') return React
     throw new Error(`unexpected require: ${specifier}`)
   })
+}
+
+/**
+ * A very small hook runtime for one component. It validates the `style` prop on
+ * every element, which is the failure React reports as error #62.
+ */
+function statefulReact() {
+  const hooks = []
+  let cursor = 0
+  function element(type, props, ...children) {
+    if (props && props.style !== undefined && props.style !== null && typeof props.style !== 'object') {
+      const name = typeof type === 'string' ? type : type && type.name ? type.name : 'component'
+      throw new Error(`style prop on <${name}> is ${typeof props.style}, not an object`)
+    }
+    return { type, props: props || {}, children }
+  }
+  const React = {
+    Fragment: 'Fragment',
+    createElement: element,
+    useState(initial) {
+      const index = cursor++
+      if (!(index in hooks)) hooks[index] = initial
+      return [
+        hooks[index],
+        (next) => {
+          hooks[index] = typeof next === 'function' ? next(hooks[index]) : next
+        },
+      ]
+    },
+    useRef(initial) {
+      const index = cursor++
+      if (!(index in hooks)) hooks[index] = { current: initial }
+      return hooks[index]
+    },
+    useEffect() {
+      cursor += 1
+    },
+  }
+  return {
+    React,
+    render(component, props) {
+      cursor = 0
+      return component(props)
+    },
+  }
+}
+
+function findNode(tree, predicate) {
+  if (tree === null || tree === undefined || typeof tree !== 'object') return null
+  if (Array.isArray(tree)) {
+    for (const child of tree) {
+      const found = findNode(child, predicate)
+      if (found) return found
+    }
+    return null
+  }
+  if (predicate(tree)) return tree
+  for (const child of tree.children || []) {
+    const found = findNode(child, predicate)
+    if (found) return found
+  }
+  return null
 }
 
 function makeCtx() {
@@ -131,6 +193,38 @@ test('the artifact bridge is injected and anchor labels are stable', () => {
   assert.equal(internals.isAnchor({ kind: 'element', selector: '#save' }), true)
   assert.equal(internals.isAnchor({ kind: 'element', text: 'Save' }), false)
   assert.equal(internals.isAnchor({ kind: 'line', path: 'src/a.ts', start: 3, end: 2 }), false)
+})
+
+test('adding a comment never passes a string style to a host element', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 'session-1',
+    decision: 'Should this ship?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [] }],
+    recommendation: 'a',
+    foreclosures: ['B is lost.'],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const props = { round, sent: null, onSent() {} }
+  let tree = runtime.render(client.__test.DecisionView, props)
+  const input = findNode(tree, (node) => node.type === 'input' && node.props.placeholder === 'What should change?')
+  assert.ok(input, 'the comment input is rendered')
+  input.props.onChange({ target: { value: 'This should change.' } })
+  tree = runtime.render(client.__test.DecisionView, props)
+  const add = findNode(
+    tree,
+    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('Add'),
+  )
+  assert.ok(add, 'the Add button is rendered')
+  add.props.onClick()
+  assert.doesNotThrow(() => {
+    runtime.render(client.__test.DecisionView, props)
+  })
 })
 
 test('a round event opens a tab only for the mounted conversation', () => {

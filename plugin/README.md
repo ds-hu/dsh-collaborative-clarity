@@ -57,14 +57,18 @@ gets a yellow leading dot when it is otherwise idle. There is no bottom-right pi
 
 ### Annotating an artifact
 
-Annotation is on when the round opens. Press **Annotating** above the variants to turn it
-off, or turn it back on, then point at what should change:
+Annotation is on when the round opens. Point at what should change:
 
 - click an element (or an ancestor with `data-anchor` / `data-clarity-anchor`) to anchor to
   its selector;
 - drag-select text to anchor to the quote;
-- click a line in a `<pre>`, then Shift-click another line for a range. Put `data-path` and
-  `data-line-start` on the `<pre>` for a file path and a real first line number.
+- click a line in a `<pre>` for one line. For a range, press **Annotate** again and
+  Shift-click a second line. Put `data-path` and `data-line-start` on the `<pre>` for a file
+  path and a real first line number.
+
+After the click, the target keeps a 2px outline and **Annotate turns off**. The artifact is
+then released for normal clicking, so the user can test the control they just commented on.
+Press **Annotate** to pick another target.
 
 The click does not open a second editor inside the artifact. The comment field at the
 bottom of the tab shows the anchor chip and sends the comment with the decision. Clicking a

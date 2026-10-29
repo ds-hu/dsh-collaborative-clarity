@@ -318,6 +318,7 @@ window.__ModuleLoader__.load({
       var variantId = window.__CLARITY_VARIANT__ || ''
       var enabled = false
       var hovered = null
+      var locked = null
       var suppressClick = false
       var lastLine = null
       var highlightTimer = null
@@ -381,7 +382,7 @@ window.__ModuleLoader__.load({
           .replace(/\s+/g, ' ')
           .trim()
           .slice(0, 120)
-        return { kind: 'element', selector: selector, text: text }
+        return { anchor: { kind: 'element', selector: selector, text: text }, element: element }
       }
 
       function textAnchor() {
@@ -398,10 +399,13 @@ window.__ModuleLoader__.load({
         var full = String(element.textContent || '').replace(/\s+/g, ' ')
         var at = full.indexOf(quote)
         return {
-          kind: 'text',
-          quote: quote.slice(0, 300),
-          prefix: at > 0 ? full.slice(Math.max(0, at - 40), at) : '',
-          suffix: at >= 0 ? full.slice(at + quote.length, at + quote.length + 40) : '',
+          anchor: {
+            kind: 'text',
+            quote: quote.slice(0, 300),
+            prefix: at > 0 ? full.slice(Math.max(0, at - 40), at) : '',
+            suffix: at >= 0 ? full.slice(at + quote.length, at + quote.length + 40) : '',
+          },
+          element: element,
         }
       }
 
@@ -427,7 +431,31 @@ window.__ModuleLoader__.load({
           end = Math.max(lastLine.end, end)
         }
         lastLine = { path: path, start: start, end: end }
-        return { kind: 'line', path: path, start: start, end: end }
+        return { anchor: { kind: 'line', path: path, start: start, end: end }, element: pre }
+      }
+
+      function clearLock() {
+        if (!locked) return
+        if (locked.__clarityLockOutline !== undefined) {
+          locked.style.outline = locked.__clarityLockOutline
+          locked.style.outlineOffset = locked.__clarityLockOffset
+          delete locked.__clarityLockOutline
+          delete locked.__clarityLockOffset
+        }
+        locked = null
+      }
+
+      function lockTarget(element) {
+        if (!element || element.nodeType !== 1) return
+        if (hovered === element) hovered = null
+        if (locked && locked !== element) clearLock()
+        if (!locked) {
+          element.__clarityLockOutline = element.style.outline
+          element.__clarityLockOffset = element.style.outlineOffset
+          locked = element
+        }
+        element.style.outline = '2px solid #f59e0b'
+        element.style.outlineOffset = '2px'
       }
 
       function clearHover() {
@@ -507,12 +535,13 @@ window.__ModuleLoader__.load({
           suppressClick = false
           return
         }
-        var anchor = lineAnchor(event, event.target) || elementAnchor(event.target)
-        if (!anchor) return
+        var picked = lineAnchor(event, event.target) || elementAnchor(event.target)
+        if (!picked) return
         event.preventDefault()
         event.stopPropagation()
         clearHover()
-        send({ type: 'anchor', anchor: anchor })
+        lockTarget(picked.element)
+        send({ type: 'anchor', anchor: picked.anchor })
       }
 
       function onMouseDown(event) {
@@ -530,10 +559,11 @@ window.__ModuleLoader__.load({
         pressed = false
         dragged = false
         if (!wasDragged) return
-        var anchor = textAnchor()
-        if (!anchor) return
+        var picked = textAnchor()
+        if (!picked) return
         suppressClick = true
-        send({ type: 'anchor', anchor: anchor })
+        lockTarget(picked.element)
+        send({ type: 'anchor', anchor: picked.anchor })
       }
 
       function onMessage(event) {
@@ -597,7 +627,7 @@ window.__ModuleLoader__.load({
       const [selected, setSelected] = React.useState(round.recommendation)
       const [comments, setComments] = React.useState([])
       const [commentText, setCommentText] = React.useState('')
-      const [commentVariant, setCommentVariant] = React.useState(round.recommendation)
+      const [commentVariantId, setCommentVariantId] = React.useState(round.recommendation)
       const [pendingAnchor, setPendingAnchor] = React.useState(null)
       const [annotate, setAnnotate] = React.useState(true)
       const [note, setNote] = React.useState('')
@@ -619,6 +649,7 @@ window.__ModuleLoader__.load({
           if (!isAnchor(data.anchor)) return
           setPendingAnchor({ variantId: variant.id, anchor: data.anchor })
           setSelected(variant.id)
+          setAnnotate(false)
           setError(null)
           if (composerRef.current) {
             composerRef.current.focus()
@@ -653,7 +684,7 @@ window.__ModuleLoader__.load({
           setError('Write a comment first.')
           return
         }
-        const variantId = pendingAnchor ? pendingAnchor.variantId : commentVariant
+        const variantId = pendingAnchor ? pendingAnchor.variantId : commentVariantId
         const variant = round.variants.find((entry) => entry.id === variantId)
         if (!variant) {
           setError('Choose a variant first.')
@@ -733,7 +764,7 @@ window.__ModuleLoader__.load({
             ? h(
                 'span',
                 { style: { color: 'var(--dsw-alias-label-secondary)' } },
-                'Anchored: ' + anchorLabel(pendingAnchor.anchor) + '. Write the comment below.',
+                'Anchored: ' + anchorLabel(pendingAnchor.anchor) + '. Interaction is unlocked; press Annotate to pick another.',
               )
             : annotate
               ? h(
@@ -876,8 +907,8 @@ window.__ModuleLoader__.load({
               : h(
                   'select',
                   {
-                    value: commentVariant,
-                    onChange: (event) => setCommentVariant(event.target.value),
+                    value: commentVariantId,
+                    onChange: (event) => setCommentVariantId(event.target.value),
                     style: { ...input, width: 'auto', flex: 'none' },
                     'aria-label': 'Comment on variant',
                     disabled,
@@ -1358,7 +1389,7 @@ window.__ModuleLoader__.load({
       },
     }
     Object.defineProperty(pluginApi, '__test', {
-      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor },
+      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, DecisionView },
       enumerable: false,
     })
     return pluginApi

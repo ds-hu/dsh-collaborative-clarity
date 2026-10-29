@@ -18,9 +18,11 @@ not as prose.
 2. Click **Test connection** in A. The comment should attach to that button, not the whole
    variant.
 3. Select a phrase in the intro paragraph. The comment should carry the selected quote.
-4. Click a line in the retry policy code block, then Shift-click a second line. The comment
-   should carry the line range and `src/sync/retry.ts`.
-5. Add a note if the decision needs one, then accept A.
+4. Click a line in the retry policy code block. For a range, press **Annotate** again and
+   Shift-click a second line. The comment should carry the line range and
+   `src/sync/retry.ts`.
+5. Add a note if the decision needs one, then accept A. After each anchor the target keeps
+   its outline and annotation turns off, so the card can be clicked normally.
 
 ## What the result must show
 

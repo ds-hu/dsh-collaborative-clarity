@@ -67,7 +67,7 @@ a cold build for a no-build package, not a claim that the browser surface was ex
 | Check | Command | Result |
 |---|---|---|
 | Host store and tool bodies | `node plugin/test/store.test.mjs` | 6 passed |
-| Client facade, bridge injection, anchor labels | `node plugin/test/client.test.mjs` | 3 passed |
+| Client facade, bridge injection, anchor labels, Add render | `node plugin/test/client.test.mjs` | 4 passed |
 | HTTP routes, anchor validation, error shapes | `node plugin/test/api.test.mjs` | 3 passed |
 | Syntax | `node --check plugin/index.js`, `node --check plugin/client.js` | passed |
 
@@ -157,9 +157,31 @@ A generated harness embedded the **exact** `clarityBridge` source extracted from
 | Drag-select the intro | `{kind:"text", quote:"Press Continue to go on.", prefix:"", suffix:""}` |
 | Click line 1, Shift-click line 2 | `{kind:"line", path:"src/retry.ts", start:10, end:11}` |
 
+The same harness then checked the toggle contract: the first click emitted the anchor, the
+parent's toggle read `Annotate`, the button kept `outline: 2px solid rgb(245, 158, 11)`, and
+the artifact did **not** receive the click. The second click, with annotation off, added no
+message and ran the artifact's own `onclick` (`window.clicked === 1`).
+
 The harness is generated, not committed; the generator is the `clarity-bridge` markers in
 `client.js` plus the same `withBridge` used by the panel. The unit test asserts that the
 injection adds the config and bridge scripts and that the labels stay stable.
+
+### The blank page after Add
+
+The first real attempt selected an element and then pressed **Add**; the whole page went
+blank with React error #62 ("The `style` prop expects a mapping from style properties to
+values, not a string"). The cause was a shadowed name:
+
+```js
+const commentVariant = { ... }                  // the style object at module scope
+const [commentVariant, setCommentVariant] = ... // the state string inside DecisionView
+```
+
+The comment row passed the state string as `style`. The state is now
+`commentVariantId`; the style object keeps its name. The regression test
+`adding a comment never passes a string style to a host element` renders `DecisionView`
+through a small hook runtime, types a comment, presses Add, and fails on any non-object
+`style` prop. The test failed on the old code and passes now.
 
 What this does **not** prove: the parent panel's message handler, the composer, and the
 `/decide` round-trip in the actual DSH page. Those need the human gate in
