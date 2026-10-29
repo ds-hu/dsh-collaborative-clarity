@@ -82,3 +82,7 @@ The two questions that shaped the first build are settled: the round tab embeds 
 artifacts itself, and the first implementation is a DSH plugin, not documents alone. The
 remaining questions in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) are smaller; each still has
 a recommendation.
+
+## License
+
+Apache License 2.0. See [LICENSE](../../LICENSE).

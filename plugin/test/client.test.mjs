@@ -41,7 +41,7 @@ function loadClient(ReactOverride) {
   }
   vm.runInNewContext(code, sandbox, { filename: 'client.js' })
   assert.ok(registration, 'the bundle registers itself')
-  assert.equal(registration.id, 'dsh-collaborative-clarity')
+  assert.equal(registration.id, '@ds-hu/dsh-collaborative-clarity')
 
   const React = ReactOverride || {
     createElement: () => null,

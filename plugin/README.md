@@ -1,4 +1,4 @@
-# dsh-collaborative-clarity
+# @ds-hu/dsh-collaborative-clarity
 
 Artifact rounds in the DSH right Sidebar. The agent calls a tool, the round opens beside
 the conversation, and the tool waits until the user chooses, comments, or records a real
@@ -13,7 +13,7 @@ Use the plugin manager; do not hand-edit the profile.
 
 ```text
 plugin_manager install_bundle  target: link:D:/Projects/dsh-collaborative-clarity/plugin
-plugin_manager remove_bundle   target: dsh-collaborative-clarity
+plugin_manager remove_bundle   target: "@ds-hu/dsh-collaborative-clarity"
 ```
 
 The package is a bundle (`dsh.bundle.patch`) and a Web Client half (`dsh.client`), with no
@@ -90,3 +90,7 @@ node plugin/test/api.test.mjs
 ```
 
 `node --test` is avoided because this sandbox denies the child process it spawns.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

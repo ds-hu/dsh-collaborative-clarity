@@ -1,7 +1,7 @@
 # 06 — Implementation
 
 **Status:** prototype · 2026-10-29
-**Package:** [plugin/](../../plugin/) · `dsh-collaborative-clarity@0.1.0`
+**Package:** [plugin/](../../plugin/) · `@ds-hu/dsh-collaborative-clarity@0.1.0`
 **Verified:** one decision round accepted, one real-test gate passed (third attempt),
 anchors captured in a contract test and a browser harness
 **Not yet:** preset-level `ask_user_question` removal, anchor reconciliation across
@@ -79,7 +79,7 @@ harness.
 ### Live checks
 
 - The bundle is installed in the web profile as
-  `dsh-collaborative-clarity: link:D:/Projects/dsh-collaborative-clarity/plugin`.
+  `@ds-hu/dsh-collaborative-clarity: link:D:/Projects/dsh-collaborative-clarity/plugin`.
 - The Loader row `include:collaborative-clarity` is `active`.
 - `Tool.listTools` returns `clarity_round` and `clarity_test` with their schemas.
 - `Slots.listSubTree` shows the body under `sidebar.right.pane.tab`, the chip under
@@ -226,7 +226,7 @@ The sanctioned path is the plugin manager, not hand-editing the profile:
 
 ```text
 plugin_manager install_bundle  target: link:D:/Projects/dsh-collaborative-clarity/plugin
-plugin_manager remove_bundle   target: dsh-collaborative-clarity
+plugin_manager remove_bundle   target: "@ds-hu/dsh-collaborative-clarity"
 ```
 
 The profile currently contains the link and the bundle in `dsh.profile.bundles`.
