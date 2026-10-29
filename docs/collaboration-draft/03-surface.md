@@ -72,6 +72,15 @@ without reading it, that is a failure of the surface, not of the user.
 The artifact must be designed at 360px first. A round tab that only works fullscreen is a
 desktop-only decision pretending to be general.
 
+### Attention
+
+A waiting round marks the **session row**, not a floating toast or a bottom-right pill:
+the runtime's warning dot and the trailing word `Answer` replace the row's idle state,
+and a yellow leading dot covers the case where the row is otherwise idle. The mark
+survives a row that is busy, which is exactly when a user multitasking would miss it. The
+plugin publishes the runtime `pendingInteraction` of kind `question`; it does not invent a
+second status system.
+
 ## What the user can do
 
 | Action | Result |

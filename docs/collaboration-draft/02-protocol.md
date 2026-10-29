@@ -43,7 +43,10 @@ no decision; a later submission is still valid.
 
 ## The `grill` tool
 
-Working name: `grill`. The name is open; see [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
+Working name: `grill`. The prototype implements it as two tools, `clarity_round` for
+`kind: "decision"` and `clarity_test` for `kind: "test"`. The union below is the
+conceptual contract; splitting the call changes the call shape, not the semantics. See
+[06-implementation.md](06-implementation.md).
 
 ### Visibility and supersession
 

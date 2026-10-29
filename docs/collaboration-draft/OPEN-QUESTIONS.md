@@ -17,7 +17,11 @@ but collides with `present`).
 
 ## Q2 — Is the first deliverable a plugin, or documents plus a mock?
 
-**Recommendation:** documents plus a mock first. Build the plugin only after one real
+**Settled 2026-10-29:** the plugin was built first, contrary to the recommendation below.
+The first real round ran through the plugin, not through the hand-run mock. The mock
+remains the surface reference; see [06-implementation.md](06-implementation.md).
+
+**Recommendation at the time:** documents plus a mock first. Build the plugin only after one real
 round has been run by hand with the HTML artifacts and the sidecar annotations. The mock
 is how we learn whether the surface is right before paying for the tab type, the tool
 seam, and the host service.
@@ -29,7 +33,10 @@ become a specification for something nobody has used.
 
 ## Q3 — Does the round tab embed the artifacts, or delegate to the stock preview?
 
-**Recommendation:** embed, with a sandboxed iframe per variant and an injected annotation
+**Settled 2026-10-29:** embedded. The plugin's tab mounts each variant in a sandboxed
+iframe; see [06-implementation.md](06-implementation.md).
+
+**Recommendation at the time:** embed, with a sandboxed iframe per variant and an injected annotation
 channel.
 
 The stock document preview is read-only and cannot host the decision bar, the two-up

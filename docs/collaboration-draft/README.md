@@ -1,8 +1,8 @@
 # Collaborative Clarity
 
-**Status:** draft, open for grilling · 2026-10-29
+**Status:** draft + prototype · 2026-10-29
 **Grounding:** DSH 0.2.1-rc.2, as shipped in this machine's profile
-**Implementation:** none. Everything here is a proposal. The HTML in `example/` is a mock.
+**Implementation:** [plugin/](../../plugin/) — the decision and test paths work; the gaps are listed in [06-implementation.md](06-implementation.md).
 
 Collaborative Clarity is a working mode for human–agent product work. It replaces the
 interview with a decision surface: the agent shows the smallest artifact that makes one
@@ -22,14 +22,16 @@ artifact set, one blocking wait, one durable record.
 | 3 | [03-surface.md](03-surface.md) | What does the side tab look like, and what is an artifact? |
 | 4 | [04-verification.md](04-verification.md) | What counts as a real test, and how does the trigger work? |
 | 5 | [05-draft-integrity.md](05-draft-integrity.md) | How are drafts tracked so the docs cannot lie? |
+| 6 | [06-implementation.md](06-implementation.md) | What was built, what was verified, and what is still a gap? |
 | — | [CONTEXT.md](CONTEXT.md) | The vocabulary, normative for this directory. |
 | — | [LEDGER.md](LEDGER.md) | Every decision made while writing these docs. |
 | — | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | What is still genuinely undecided, with recommendations. |
 | — | [adr/0001](adr/0001-artifact-first-grilling.md) | The hard-to-reverse decision: artifacts replace prose questions in grilling. |
 | — | [example/](example/) | One mocked round, two variants, annotations, a decision, and a clickable shell. |
+| — | [rounds/0001](rounds/0001-tab-variant-budget/round.md) | The first real round, run through the plugin. |
 
-Read 01 for the argument, 02–05 for the rules. The example is the shortest explanation
-of what the mode feels like.
+Read 01 for the argument, 02–05 for the rules, and 06 for what actually runs. The example
+is the shortest explanation of what the mode feels like.
 
 ## The four failures this mode answers
 
@@ -44,7 +46,7 @@ of what the mode feels like.
 
 1. **Inspect.** The agent reads the code and the existing decisions before asking anything.
 2. **Open a round.** It writes one to two minimal artifacts, names a recommendation, and states what that choice forecloses.
-3. **Wait.** It calls `grill`. The round opens in the right sidebar. The tool call blocks; waiting costs no tokens.
+3. **Wait.** It calls `clarity_round` (or `clarity_test`). The round opens in the right sidebar. The tool call blocks; waiting costs no tokens.
 4. **Annotate.** The user selects a word, an element, or a line; comments, proposes replacement text, or edits the file. They choose a variant or ask for a revision.
 5. **Decide.** The tool returns a structured decision, not prose. The agent resolves every annotation and writes the decision and ledger row.
 6. **Build, then prove.** The agent implements, runs the cold build, and enables the page's **I'm ready to test** trigger. A recorded human test is the only path to `done`.
@@ -68,17 +70,13 @@ This draft tries to practise what it specifies. A claim is only as strong as its
 - **Tested** — a human ran the recorded scenario and observed the result.
 - **Verified** — tested for a named scenario, not for everything.
 
-Nothing in this directory is `built`. The DSH capabilities referenced in 02 and 03 are
-read from the shipped package documentation, not from a plugin written here.
+The plugin is `built`, and one decision round plus one test gate are `tested` by the user:
+see [06-implementation.md](06-implementation.md). Everything else here is still
+`proposed`. The HTML in `example/` is a mock; the round in `rounds/0001/` is real.
 
 ## Open decisions
 
-Nine questions remain; each has a recommendation and a blocking status in
-[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md). The two that change the shape of the work:
-
-1. Does the round tab embed artifacts itself, or delegate each to the stock document
-   preview? The draft recommends embedding, because annotation needs a channel into the
-   iframe.
-2. Is the first implementation a DSH plugin, or a standalone protocol document plus a
-   mock? The draft assumes the documents and mock come first; the plugin is a later
-   decision.
+The two questions that shaped the first build are settled: the round tab embeds the
+artifacts itself, and the first implementation is a DSH plugin, not documents alone. The
+remaining questions in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) are smaller; each still has
+a recommendation.

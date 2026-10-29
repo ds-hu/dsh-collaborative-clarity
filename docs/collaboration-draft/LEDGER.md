@@ -1,9 +1,9 @@
 # Ledger
 
-This directory is a draft. No round has been run, no artifact has been accepted, and no
-claim here is `built`. The first table records the decisions taken **while writing the
-draft**; they are `proposed` until the user accepts them. The second table is the empty
-ledger a real adoption would fill.
+This directory now has one real round and one implemented plugin. The first table records
+the decisions taken **while writing the draft**; the second records the round that was run
+through the plugin. The plugin's verified scope is in
+[06-implementation.md](06-implementation.md).
 
 ## Draft decisions
 
@@ -19,17 +19,19 @@ ledger a real adoption would fill.
 | D8 | Drafts are never deleted; superseded rounds and rejected variants stay | proposed | [05](05-draft-integrity.md) |
 | D9 | Artifacts are plain files and annotations are a text sidecar, so any editor works | proposed | [03 §Why the annotations live in files](03-surface.md#why-the-annotations-live-in-files) |
 | D10 | Three rounds per decision, then decide or abandon | proposed | [02 §The round cap](02-protocol.md#the-round-cap) |
-| D11 | The docs live in `docs/collaboration-draft/` | proposed | The brief's path; the name may change |
-| D12 | The first deliverable is documents plus a mock, not a plugin | proposed | [OPEN-QUESTIONS](OPEN-QUESTIONS.md) Q2 |
+| D11 | The docs live in `docs/collaboration-draft/` | agreed | The brief's path; the directory exists |
+| D12 | The first deliverable is documents plus a mock, not a plugin | superseded | The plugin was built first; see [06](06-implementation.md) and [OPEN-QUESTIONS](OPEN-QUESTIONS.md) Q2 |
+| D13 | A waiting round is marked on the session row, not with a bottom-right pill | agreed | User feedback in real test 1; implemented as the runtime warning dot + `Answer` |
+| D14 | The waiting mark is the runtime `pendingInteraction` of kind `question`, so it appears even when the row is busy | agreed | Real test 3 passed with "Good!" |
 
 ## Round ledger
 
-A real adoption appends one row per round. The table starts empty; an empty ledger is a
-truthful ledger.
+A real round appends one row.
 
 | Date | Round | Decision | Verdict | Selected | Forecloses | Evidence | Status |
 |---|---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — | — |
+| 2026-10-29 | [0001](rounds/0001-tab-variant-budget/round.md) | Two variants side by side, or three behind a switcher? | accept | A | A third option needs a second round; no simultaneous comparison of three | [decision](rounds/0001-tab-variant-budget/decision.md); tool round `clarity-mvtlhcdo-c26616` | decided |
+| 2026-10-29 | [0002](rounds/0002-session-attention/round.md) | Where does the waiting mark go, and does it survive a busy row? | pass | session row warning dot | A bottom-right pill; a custom dot that does not enter the runtime status | [test](rounds/0002-session-attention/test.md); three real-test gates | tested |
 
 ## What would move a row
 
