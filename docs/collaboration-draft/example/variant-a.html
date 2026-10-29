@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Artifact A · Permanent delete</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --ink: #1b1f24; --muted: #667085;
+    --line: #e4e7ec; --danger: #b42318; --danger-bg: #fef3f2; --accent: #175cd3;
+    --radius: 10px; --shadow: 0 18px 50px rgba(16, 24, 40, .18);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 13px; line-height: 1.45; }
+  button, input { font: inherit; }
+  button { cursor: pointer; }
+  .app { display: grid; grid-template-columns: 168px 1fr; height: 100%; min-height: 440px; }
+  .sidebar { background: #fbfbfc; border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 18px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 13px; padding: 0 6px; }
+  .brand i { width: 18px; height: 18px; border-radius: 5px; background: #1b1f24; display: block; }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+  .nav.active { background: #eef2f6; color: var(--ink); font-weight: 560; }
+  .nav .count { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .user { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 6px; color: var(--muted); font-size: 12px; }
+  .avatar { width: 22px; height: 22px; border-radius: 50%; background: #dbe4ee; }
+  .main { min-width: 0; display: flex; flex-direction: column; }
+  .topbar { height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; background: var(--panel); }
+  .content { padding: 22px; max-width: 760px; }
+  .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.02em; }
+  h2 { margin: 0 0 6px; font-size: 15px; }
+  p { margin: 0; color: var(--muted); }
+  .card { margin-top: 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 16px; display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+  .card.danger { border-color: #f3c7c3; background: #fffdfd; }
+  .card.danger h2 { color: var(--danger); }
+  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 11px; border-radius: 7px; font-weight: 550; }
+  .btn:hover { background: #f9fafb; }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.danger:hover { background: #9f1f15; }
+  .btn.ghost { background: transparent; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .overlay { position: fixed; inset: 0; background: rgba(16, 24, 40, .42); display: grid; place-items: center; padding: 18px; }
+  .overlay[hidden] { display: none; }
+  .dialog { width: min(410px, 100%); background: var(--panel); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+  .dialog h2 { font-size: 17px; }
+  .dialog p { margin: 8px 0 16px; color: #475467; }
+  .dialog label { display: block; font-size: 12px; color: #344054; margin-bottom: 8px; }
+  .dialog label b { color: var(--ink); }
+  .dialog input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; outline: none; }
+  .dialog input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(23, 92, 211, .12); }
+  .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .empty { display: grid; place-items: center; text-align: center; height: 100%; padding: 30px; }
+  .empty .mark { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--danger-bg); color: var(--danger); font-size: 18px; margin-bottom: 10px; }
+  .empty h2 { font-size: 18px; margin: 0 0 6px; }
+  .empty p { max-width: 330px; margin: 0 0 16px; }
+  .dsh-hl { outline: 3px solid #f59e0b; outline-offset: 3px; border-radius: 4px; }
+  @media (max-width: 480px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { flex-direction: row; align-items: center; gap: 10px; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .sidebar nav { display: flex; gap: 2px; }
+    .brand { padding: 0; }
+    .user { display: none; }
+    .topbar { padding: 0 12px; }
+    .content { padding: 16px; }
+    .card { flex-direction: column; align-items: flex-start; }
+    .card .btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><i></i> Northwind</div>
+    <nav>
+      <a class="nav" href="#">Inbox</a>
+      <a class="nav active" href="#">Projects</a>
+      <a class="nav" href="#">Trash</a>
+    </nav>
+    <div class="user"><span class="avatar"></span> Jason</div>
+  </aside>
+  <main class="main" id="main">
+    <div class="topbar"><span>Projects / Atlas</span><button class="btn ghost" type="button">Share</button></div>
+    <section class="content">
+      <div class="title-row">
+        <div>
+          <h1>Atlas</h1>
+          <p>Brand system, 12 boards, 4 collaborators.</p>
+        </div>
+      </div>
+      <div class="card danger">
+        <div>
+          <h2>Danger zone</h2>
+          <p>Deleting this project removes its boards, files, and history.</p>
+        </div>
+        <button class="btn danger" id="open" type="button">Delete project</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="title">
+    <h2 id="title" data-anchor="a-title">Delete Atlas?</h2>
+    <p data-anchor="a-warning">This permanently deletes all boards, files, and history. <strong>This cannot be undone.</strong></p>
+    <label data-anchor="a-confirm" for="confirm">Type <b>Atlas</b> to confirm</label>
+    <input id="confirm" autocomplete="off" spellcheck="false" placeholder="Atlas" aria-describedby="hint">
+    <div class="actions">
+      <button class="btn ghost" id="cancel" type="button">Cancel</button>
+      <button class="btn danger" id="confirmBtn" type="button" disabled>Delete project</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const overlay = document.getElementById('overlay');
+  const input = document.getElementById('confirm');
+  const confirmBtn = document.getElementById('confirmBtn');
+  const main = document.getElementById('main');
+
+  document.getElementById('open').addEventListener('click', () => {
+    overlay.hidden = false;
+    input.value = '';
+    confirmBtn.disabled = true;
+    input.focus();
+  });
+  document.getElementById('cancel').addEventListener('click', () => {
+    overlay.hidden = true;
+  });
+  input.addEventListener('input', () => {
+    confirmBtn.disabled = input.value.trim() !== 'Atlas';
+  });
+  confirmBtn.addEventListener('click', () => {
+    overlay.hidden = true;
+    main.innerHTML = `
+      <div class="topbar"><span>Projects / Atlas</span></div>
+      <div class="empty">
+        <div class="mark">✓</div>
+        <h2>Atlas was deleted</h2>
+        <p>All boards, files, and history are gone. This cannot be undone.</p>
+        <button class="btn" type="button">Back to projects</button>
+      </div>`;
+  });
+
+  addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || data.type !== 'highlight') return;
+    document.querySelectorAll('.dsh-hl').forEach((el) => el.classList.remove('dsh-hl'));
+    const target = document.querySelector(data.selector);
+    if (target) {
+      target.classList.add('dsh-hl');
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  });
+</script>
+</body>
+</html>

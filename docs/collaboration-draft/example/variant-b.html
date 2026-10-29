@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Artifact B · Move to Trash</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #fff; --ink: #1b1f24; --muted: #667085;
+    --line: #e4e7ec; --accent: #175cd3; --warn: #b54708; --warn-bg: #fffaeb;
+    --radius: 10px; --shadow: 0 18px 50px rgba(16, 24, 40, .18);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 13px; line-height: 1.45; }
+  button, input { font: inherit; }
+  button { cursor: pointer; }
+  .app { display: grid; grid-template-columns: 168px 1fr; height: 100%; min-height: 440px; }
+  .sidebar { background: #fbfbfc; border-right: 1px solid var(--line); padding: 14px 10px; display: flex; flex-direction: column; gap: 18px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 13px; padding: 0 6px; }
+  .brand i { width: 18px; height: 18px; border-radius: 5px; background: #1b1f24; display: block; }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+  .nav.active { background: #eef2f6; color: var(--ink); font-weight: 560; }
+  .nav .count { margin-left: auto; font-size: 11px; color: var(--muted); background: #eef2f6; border-radius: 99px; padding: 0 6px; }
+  .user { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 6px; color: var(--muted); font-size: 12px; }
+  .avatar { width: 22px; height: 22px; border-radius: 50%; background: #dbe4ee; }
+  .main { min-width: 0; display: flex; flex-direction: column; position: relative; }
+  .topbar { height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; background: var(--panel); }
+  .content { padding: 22px; max-width: 760px; }
+  h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.02em; }
+  h2 { margin: 0 0 6px; font-size: 15px; }
+  p { margin: 0; color: var(--muted); }
+  .card { margin-top: 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 16px; display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+  .card h2 { color: var(--ink); }
+  .btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 11px; border-radius: 7px; font-weight: 550; }
+  .btn:hover { background: #f9fafb; }
+  .btn.primary { background: #1b1f24; border-color: #1b1f24; color: #fff; }
+  .btn.primary:hover { background: #33383f; }
+  .btn.ghost { background: transparent; }
+  .overlay { position: fixed; inset: 0; background: rgba(16, 24, 40, .42); display: grid; place-items: center; padding: 18px; }
+  .overlay[hidden] { display: none; }
+  .dialog { width: min(410px, 100%); background: var(--panel); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+  .dialog h2 { font-size: 17px; }
+  .dialog p { margin: 8px 0 14px; color: #475467; }
+  .dialog .note { background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; color: var(--muted); font-size: 12px; }
+  .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .trash { max-width: 560px; padding: 44px 22px; }
+  .badge { display: inline-block; background: var(--warn-bg); color: var(--warn); border: 1px solid #fedf89; border-radius: 99px; padding: 2px 9px; font-size: 11px; font-weight: 600; margin-bottom: 12px; }
+  .trash h1 { font-size: 24px; }
+  .trash p { margin: 6px 0 18px; max-width: 390px; }
+  .trash .row { display: flex; gap: 8px; }
+  .toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; background: #1b1f24; color: #fff; padding: 8px 10px 8px 14px; border-radius: 8px; box-shadow: var(--shadow); font-size: 12px; white-space: nowrap; }
+  .toast button { background: transparent; color: #93c5fd; border: 0; font-weight: 600; padding: 2px 4px; }
+  .dsh-hl { outline: 3px solid #f59e0b; outline-offset: 3px; border-radius: 4px; }
+  @media (max-width: 480px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { flex-direction: row; align-items: center; gap: 10px; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .sidebar nav { display: flex; gap: 2px; }
+    .brand { padding: 0; }
+    .user { display: none; }
+    .topbar { padding: 0 12px; }
+    .content { padding: 16px; }
+    .card { flex-direction: column; align-items: flex-start; }
+    .card .btn { width: 100%; }
+    .trash { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><i></i> Northwind</div>
+    <nav>
+      <a class="nav" href="#">Inbox</a>
+      <a class="nav active" href="#">Projects</a>
+      <a class="nav" href="#" data-anchor="b-trash-entry">Trash <span class="count" id="trashCount">0</span></a>
+    </nav>
+    <div class="user"><span class="avatar"></span> Jason</div>
+  </aside>
+  <main class="main" id="main">
+    <div class="topbar"><span>Projects / Atlas</span><button class="btn ghost" type="button">Share</button></div>
+    <section class="content" id="content">
+      <h1>Atlas</h1>
+      <p>Brand system, 12 boards, 4 collaborators.</p>
+      <div class="card">
+        <div>
+          <h2>Delete project</h2>
+          <p>Move this project to Trash. You can restore it later.</p>
+        </div>
+        <button class="btn" id="open" type="button">Delete project</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="title">
+    <h2 id="title" data-anchor="b-title">Move Atlas to Trash?</h2>
+    <p>Atlas will be hidden from Projects. You can restore it for <strong data-anchor="b-retention">30 days</strong>. Boards, files, and history are kept.</p>
+    <div class="note">After 30 days, Trash is emptied automatically and the project is deleted permanently.</div>
+    <div class="actions">
+      <button class="btn ghost" id="cancel" type="button">Cancel</button>
+      <button class="btn primary" id="confirmBtn" type="button" data-anchor="b-primary">Move to Trash</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const overlay = document.getElementById('overlay');
+  const main = document.getElementById('main');
+
+  document.getElementById('open').addEventListener('click', () => {
+    overlay.hidden = false;
+  });
+  document.getElementById('cancel').addEventListener('click', () => {
+    overlay.hidden = true;
+  });
+  document.getElementById('confirmBtn').addEventListener('click', () => {
+    overlay.hidden = true;
+    document.getElementById('trashCount').textContent = '1';
+    main.innerHTML = `
+      <div class="topbar"><span>Projects / Atlas</span></div>
+      <section class="trash">
+        <span class="badge">In Trash</span>
+        <h1>Atlas is in Trash</h1>
+        <p>Restore it for 30 days. After that, it is deleted permanently along with its boards, files, and history.</p>
+        <div class="row">
+          <button class="btn primary" type="button">Restore</button>
+          <button class="btn ghost" type="button">Empty trash</button>
+        </div>
+      </section>
+      <div class="toast" data-anchor="b-toast"><span>Moved to Trash</span><button type="button">Undo</button></div>`;
+  });
+
+  addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || data.type !== 'highlight') return;
+    document.querySelectorAll('.dsh-hl').forEach((el) => el.classList.remove('dsh-hl'));
+    const target = document.querySelector(data.selector);
+    if (target) {
+      target.classList.add('dsh-hl');
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  });
+</script>
+</body>
+</html>

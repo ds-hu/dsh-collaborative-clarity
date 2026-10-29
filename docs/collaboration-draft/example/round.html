@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Round tab · mock</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --canvas: #e9ecf1; --panel: #fff; --ink: #171a1f; --muted: #667085;
+    --line: #e1e5ea; --accent: #175cd3; --accent-soft: #eff4ff;
+    --warn: #b54708; --warn-soft: #fffaeb; --ok: #067647; --ok-soft: #ecfdf3;
+    --radius: 12px;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 24px; background: var(--canvas); color: var(--ink); font-size: 13px; line-height: 1.45; }
+  button { font: inherit; cursor: pointer; }
+  [hidden] { display: none !important; }
+  .proto { max-width: 1080px; margin: 18px auto 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 4px; color: #475467; }
+  .proto .left { display: flex; align-items: center; gap: 9px; }
+  .mock { background: #1b1f24; color: #fff; border-radius: 5px; padding: 2px 6px; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+  .proto strong { color: var(--ink); font-weight: 620; }
+  .proto .note { color: #667085; font-size: 12px; }
+  .proto label { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #475467; }
+  .round { max-width: 1080px; margin: 10px auto 40px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 18px 44px rgba(16, 24, 40, .07); overflow: hidden; }
+  .head { padding: 22px 24px 18px; border-bottom: 1px solid var(--line); }
+  .eyebrow { color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+  h1 { margin: 6px 0 6px; font-size: 22px; letter-spacing: -.02em; line-height: 1.2; }
+  .ctx { margin: 0; color: #475467; max-width: 720px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; color: #475467; font-size: 12px; }
+  .meta b { color: var(--ink); font-weight: 620; }
+  .variants { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 18px; background: #fafbfc; }
+  .variant { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+  .variant.recommended { border-color: #b2ccff; box-shadow: 0 0 0 1px #dbe8ff inset; }
+  .vhead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .vletter { width: 22px; height: 22px; border-radius: 6px; background: #1b1f24; color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .vhead h2 { margin: 0; font-size: 13px; font-weight: 620; }
+  .tag { margin-left: auto; font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 7px; }
+  .tag.rec { color: #175cd3; background: var(--accent-soft); border-color: #c7d7fe; }
+  iframe { display: block; width: 100%; height: 452px; border: 0; background: #fff; }
+  .fidelity { padding: 8px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+  .fidelity b { color: #344054; font-weight: 600; }
+  .rail { padding: 16px 18px 18px; border-top: 1px solid var(--line); }
+  .rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .rail-head h2 { margin: 0; font-size: 13px; font-weight: 650; }
+  .rail-head h2 span { color: var(--muted); font-weight: 500; }
+  .hint { color: var(--muted); font-size: 11px; }
+  .notes { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+  .note { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: #fff; cursor: pointer; }
+  .note:hover { border-color: #c7d7fe; background: #fcfdff; }
+  .note-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: var(--muted); font-size: 11px; }
+  .vchip { background: #eef2f6; color: #344054; border-radius: 4px; padding: 0 5px; font-weight: 650; }
+  .sev { border-radius: 99px; padding: 0 6px; font-size: 10px; font-weight: 600; }
+  .sev.note { background: var(--warn-soft); color: var(--warn); }
+  .quote { color: #344054; }
+  .note p { margin: 5px 0 0; color: #475467; }
+  .link { margin-top: 10px; border: 0; background: transparent; color: var(--accent); padding: 2px 0; font-weight: 600; }
+  .composer { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; background: #fcfcfd; }
+  .composer textarea { width: 100%; min-height: 52px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; }
+  .composer .row { display: flex; gap: 8px; align-items: center; }
+  .composer select { border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; background: #fff; font: inherit; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line); background: #fff; }
+  .btn { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 7px; padding: 7px 12px; font-weight: 560; }
+  .btn:hover { background: #f9fafb; }
+  .btn.primary { background: #1b1f24; border-color: #1b1f24; color: #fff; }
+  .btn.primary:hover { background: #33383f; }
+  .btn.ghost { background: transparent; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .actions .spacer { flex: 1; }
+  .testbar { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--line); background: #fbfcfd; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #98a2b3; flex: none; }
+  .dot.ready { background: #12b76a; box-shadow: 0 0 0 3px #d1fadf; }
+  .dot.pass { background: #12b76a; }
+  .testtext { display: flex; flex-direction: column; min-width: 0; }
+  .testtext b { font-size: 12px; font-weight: 620; }
+  .testtext span { color: var(--muted); font-size: 11px; }
+  .testbar .btn { margin-left: auto; flex: none; }
+  .modal { position: fixed; inset: 0; background: rgba(16, 24, 40, .45); display: grid; place-items: center; padding: 20px; z-index: 10; }
+  .sheet { width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; background: #fff; border-radius: 12px; box-shadow: 0 24px 60px rgba(16, 24, 40, .25); }
+  .sheet .shead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .sheet h2 { margin: 0; font-size: 16px; }
+  .sheet .sbody { padding: 16px 18px; overflow: auto; }
+  .sheet .sbody p { margin: 0 0 10px; color: #475467; }
+  .sheet .sbody h3 { margin: 14px 0 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .sheet ol, .sheet ul { margin: 0; padding-left: 20px; color: #344054; }
+  .sheet li { margin: 3px 0; }
+  .sheet pre { margin: 10px 0 0; padding: 10px; background: #f8fafc; border: 1px solid var(--line); border-radius: 7px; font-size: 11px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .sheet .sactions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+  .close { border: 0; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; padding: 2px 6px; }
+  @media (max-width: 860px) {
+    .proto { flex-direction: column; align-items: flex-start; }
+  }
+  @media (max-width: 720px) {
+    .variants { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .round { margin: 8px 0; border-radius: 10px; }
+    .head { padding: 16px; }
+    h1 { font-size: 18px; }
+    .variants { padding: 12px; gap: 12px; }
+    .rail, .actions, .testbar { padding-left: 12px; padding-right: 12px; }
+    iframe { height: 500px; }
+    .hint, .proto .note { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="proto">
+  <div class="left">
+    <span class="mock">MOCK</span>
+    <strong>Round tab · 0001 delete recovery</strong>
+    <span class="note">A prototype of the surface, not a real decision.</span>
+  </div>
+  <label><input type="checkbox" id="cold"> simulate cold build passed</label>
+</header>
+
+<main class="round">
+  <header class="head">
+    <div class="eyebrow">Round 0001 · Decision</div>
+    <h1>Permanent delete, or a 30-day trash?</h1>
+    <p class="ctx">Atlas is a live project. The current menu says “Delete”. The choice decides whether the next mistake is recoverable.</p>
+    <div class="meta">
+      <span><b>Recommended:</b> B · Move to Trash</span>
+      <span><b>Forecloses:</b> immediate storage reclamation; a simple DELETE endpoint</span>
+    </div>
+  </header>
+
+  <section class="variants">
+    <article class="variant">
+      <div class="vhead"><span class="vletter">A</span><h2>Permanent delete</h2><span class="tag">not recommended</span></div>
+      <iframe id="frame-a" src="variant-a.html" title="Variant A: permanent delete"></iframe>
+      <div class="fidelity"><b>real</b> dialog, copy, focus order · <b>mocked</b> project data · <b>omitted</b> empty trash</div>
+    </article>
+    <article class="variant recommended">
+      <div class="vhead"><span class="vletter">B</span><h2>Move to Trash</h2><span class="tag rec">recommended</span></div>
+      <iframe id="frame-b" src="variant-b.html" title="Variant B: move to trash"></iframe>
+      <div class="fidelity"><b>real</b> dialog, copy, toast, trash entry · <b>mocked</b> project data · <b>omitted</b> purge job</div>
+    </article>
+  </section>
+
+  <section class="rail">
+    <div class="rail-head">
+      <h2>Annotations <span id="count">3</span></h2>
+      <span class="hint">Click a note to highlight it in the artifact.</span>
+    </div>
+    <ol class="notes" id="notes"></ol>
+    <button class="link" id="addToggle" type="button">+ Add a note</button>
+    <form class="composer" id="composer" hidden>
+      <textarea id="newText" placeholder="What should change, and why? (prototype: attaches to the whole variant)" required></textarea>
+      <div class="row">
+        <select id="newVariant" aria-label="Variant">
+          <option value="a">Variant A</option>
+          <option value="b" selected>Variant B</option>
+        </select>
+        <select id="newSeverity" aria-label="Severity">
+          <option value="note">Note</option>
+          <option value="blocking">Blocking</option>
+        </select>
+        <span class="spacer"></span>
+        <button class="btn" type="button" id="cancelNote">Cancel</button>
+        <button class="btn primary" type="submit">Add</button>
+      </div>
+    </form>
+  </section>
+
+  <footer class="actions">
+    <button class="btn primary" id="accept" type="button">Accept B</button>
+    <button class="btn" id="revise" type="button">Revise</button>
+    <button class="btn" id="reject" type="button">Reject</button>
+    <button class="btn ghost" id="later" type="button">Decide later</button>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="edit" type="button">Open in editor</button>
+  </footer>
+
+  <section class="testbar" id="testbar">
+    <span class="dot" id="dot"></span>
+    <div class="testtext">
+      <b id="testtitle">Cold build not run at this candidate</b>
+      <span id="testsub">The trigger appears after implementation and a recorded cold build.</span>
+    </div>
+    <button class="btn" id="testbtn" type="button" disabled>I’m ready to test</button>
+  </section>
+</main>
+
+<div class="modal" id="result" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rtitle">
+    <div class="shead"><h2 id="rtitle">Decision returned</h2><button class="close" data-close="result" aria-label="Close">×</button></div>
+    <div class="sbody" id="resultBody"></div>
+    <div class="sactions"><button class="btn primary" data-close="result" type="button">Close</button></div>
+  </div>
+</div>
+
+<div class="modal" id="testmodal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ttitle">
+    <div class="shead"><h2 id="ttitle">Real test · delete recovery</h2><button class="close" id="tclose" aria-label="Close">×</button></div>
+    <div class="sbody" id="testBody"></div>
+    <div class="sactions" id="testActions"></div>
+  </div>
+</div>
+
+<script>
+  const notes = [
+    {
+      id: 'n1', variant: 'a', selector: '[data-anchor="a-confirm"]',
+      quote: 'Type Atlas to confirm', severity: 'note',
+      text: 'Team-safety friction on a solo plan. If A ever wins, gate the typed confirmation by plan.'
+    },
+    {
+      id: 'n2', variant: 'b', selector: '[data-anchor="b-retention"]',
+      quote: '30 days', severity: 'note',
+      text: 'Keep 30 days for v1, but make it a workspace setting. The copy must stay honest about automatic deletion.'
+    },
+    {
+      id: 'n3', variant: 'b', selector: '[data-anchor="b-trash-entry"]',
+      quote: 'Trash', severity: 'note',
+      text: 'Keep Trash beside Projects, not buried under settings. Restore should never be a dead end.'
+    }
+  ];
+
+  const notesEl = document.getElementById('notes');
+  const countEl = document.getElementById('count');
+  const result = document.getElementById('result');
+  const resultBody = document.getElementById('resultBody');
+
+  function renderNotes() {
+    notesEl.innerHTML = '';
+    for (const n of notes) {
+      const li = document.createElement('li');
+      li.className = 'note';
+
+      const meta = document.createElement('div');
+      meta.className = 'note-meta';
+      const vchip = document.createElement('span');
+      vchip.className = 'vchip';
+      vchip.textContent = n.variant.toUpperCase();
+      const sev = document.createElement('span');
+      sev.className = 'sev ' + n.severity;
+      sev.textContent = n.severity;
+      const quote = document.createElement('span');
+      quote.className = 'quote';
+      quote.textContent = '“' + n.quote + '”';
+      meta.append(vchip, sev, quote);
+
+      const text = document.createElement('p');
+      text.textContent = n.text;
+
+      li.append(meta, text);
+      li.addEventListener('click', () => jump(n));
+      notesEl.appendChild(li);
+    }
+    countEl.textContent = String(notes.length);
+  }
+
+  function jump(n) {
+    const frame = document.getElementById('frame-' + n.variant);
+    if (!frame || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({ type: 'highlight', selector: n.selector }, '*');
+  }
+
+  renderNotes();
+
+  document.getElementById('addToggle').addEventListener('click', () => {
+    document.getElementById('composer').hidden = false;
+    document.getElementById('newText').focus();
+  });
+  document.getElementById('cancelNote').addEventListener('click', () => {
+    document.getElementById('composer').hidden = true;
+  });
+  document.getElementById('composer').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const text = document.getElementById('newText').value.trim();
+    if (!text) return;
+    const variant = document.getElementById('newVariant').value;
+    notes.unshift({
+      id: 'n' + (notes.length + 1),
+      variant,
+      selector: variant === 'a' ? '[data-anchor="a-title"]' : '[data-anchor="b-title"]',
+      quote: 'Whole variant',
+      severity: document.getElementById('newSeverity').value,
+      text
+    });
+    document.getElementById('newText').value = '';
+    document.getElementById('composer').hidden = true;
+    renderNotes();
+  });
+
+  function showResult(title, payload) {
+    document.getElementById('rtitle').textContent = title;
+    resultBody.innerHTML = '<pre></pre>';
+    resultBody.querySelector('pre').textContent = JSON.stringify(payload, null, 2);
+    result.hidden = false;
+  }
+
+  document.getElementById('accept').addEventListener('click', () => {
+    showResult('Decision returned · accept', {
+      kind: 'decision', status: 'decided', round: '0001-delete-recovery',
+      verdict: 'accept', selected: 'b',
+      annotations: notes.map((n) => ({
+        id: n.id, variant: n.variant, severity: n.severity,
+        resolution: 'carried: ' + n.text
+      })),
+      note: 'B accepted. N1 to the plan-gate checklist; N2 to the retention setting; N3 to the layout constraints.'
+    });
+  });
+  document.getElementById('revise').addEventListener('click', () => {
+    showResult('Decision returned · revise', {
+      kind: 'decision', status: 'decided', round: '0001-delete-recovery',
+      verdict: 'revise', selected: 'b',
+      annotations: notes, note: 'Open v2: apply the three notes and keep A for comparison.'
+    });
+  });
+  document.getElementById('reject').addEventListener('click', () => {
+    showResult('Decision returned · reject', {
+      kind: 'decision', status: 'decided', round: '0001-delete-recovery',
+      verdict: 'reject', note: 'Neither flow is right. Reframe: undo window instead of a trash model.'
+    });
+  });
+  document.getElementById('later').addEventListener('click', () => {
+    showResult('Decision returned · parked', {
+      kind: 'decision', status: 'parked', round: '0001-delete-recovery',
+      callId: 'call_demo_7f2a', message: 'The round stays open. Continue with independent work only.'
+    });
+  });
+  document.getElementById('edit').addEventListener('click', () => {
+    showResult('Open in editor (mock)', {
+      action: 'open-in-app', path: 'example/variant-b.html',
+      note: "The real tab opens the file in the user's editor and watches it for changes."
+    });
+  });
+
+  document.querySelectorAll('[data-close="result"]').forEach((btn) => {
+    btn.addEventListener('click', () => { result.hidden = true; });
+  });
+  result.addEventListener('click', (event) => {
+    if (event.target === result) result.hidden = true;
+  });
+
+  const cold = document.getElementById('cold');
+  const testbtn = document.getElementById('testbtn');
+  const dot = document.getElementById('dot');
+  const testtitle = document.getElementById('testtitle');
+  const testsub = document.getElementById('testsub');
+  const testmodal = document.getElementById('testmodal');
+  const testBody = document.getElementById('testBody');
+  const testActions = document.getElementById('testActions');
+
+  cold.addEventListener('change', () => {
+    if (cold.checked) {
+      dot.className = 'dot ready';
+      testtitle.textContent = 'Cold build passed at demo · 18:04';
+      testsub.textContent = 'This is a mock state. In the real tab, the record names the candidate and command.';
+      testbtn.disabled = false;
+    } else {
+      dot.className = 'dot';
+      testtitle.textContent = 'Cold build not run at this candidate';
+      testsub.textContent = 'The trigger appears after implementation and a recorded cold build.';
+      testbtn.disabled = true;
+    }
+  });
+
+  testbtn.addEventListener('click', () => {
+    testBody.innerHTML = `
+      <p><b>Candidate</b> demo · <b>Cold build</b> mock passed 18:04</p>
+      <h3>Scenario</h3>
+      <ol>
+        <li>Open Atlas, click Delete project.</li>
+        <li>Confirm Move to Trash.</li>
+        <li>Open Trash, restore Atlas, reload the page.</li>
+      </ol>
+      <h3>Expected</h3>
+      <ul>
+        <li>One toast; Trash count 1; restore returns Atlas with boards and files.</li>
+        <li>No 404 on a direct link while the project is in Trash.</li>
+      </ul>
+      <h3>Failure signature</h3>
+      <p>Two Atlas entries, a lost board, or a 404 after restore.</p>
+      <h3>Recorded command</h3>
+      <pre>mock — no command is run</pre>`;
+    testActions.innerHTML = `
+      <button class="btn" id="tcancel" type="button">Cancel</button>
+      <button class="btn primary" id="tstart" type="button">Start mock run</button>`;
+    testmodal.hidden = false;
+    document.getElementById('tcancel').addEventListener('click', () => { testmodal.hidden = true; });
+    document.getElementById('tstart').addEventListener('click', runMockTest);
+    document.getElementById('tstart').focus();
+  });
+
+  document.getElementById('tclose').addEventListener('click', () => { testmodal.hidden = true; });
+  testmodal.addEventListener('click', (event) => { if (event.target === testmodal) testmodal.hidden = true; });
+
+  function runMockTest() {
+    testBody.innerHTML = '<p>Running the recorded command…</p><pre>› install (cached)\n› build\n› launch test candidate\n…</pre>';
+    testActions.innerHTML = '<button class="btn" disabled type="button">Running…</button>';
+    setTimeout(() => {
+      testBody.innerHTML += '<p><b>Finished (mock):</b> exit 0. Record what you saw.</p>';
+      testActions.innerHTML = `
+        <button class="btn" data-verdict="blocked" type="button">Blocked</button>
+        <button class="btn" data-verdict="fail" type="button">Fail</button>
+        <button class="btn primary" data-verdict="pass" type="button">Pass</button>`;
+      testActions.querySelectorAll('[data-verdict]').forEach((btn) => {
+        btn.addEventListener('click', () => recordVerdict(btn.dataset.verdict));
+      });
+    }, 900);
+  }
+
+  function recordVerdict(verdict) {
+    testmodal.hidden = true;
+    dot.className = verdict === 'pass' ? 'dot pass' : 'dot';
+    testtitle.textContent = verdict === 'pass' ? 'Tested · pass (mock)' : 'Tested · ' + verdict + ' (mock)';
+    testsub.textContent = verdict === 'pass'
+      ? 'Recorded by you at the machine. In the real tab this writes test.md and the ledger.'
+      : 'A failure is evidence. The next round names the fix; the candidate does not become done.';
+    testbtn.disabled = true;
+  }
+</script>
+</body>
+</html>
