@@ -2,6 +2,7 @@
 
 **Status:** prototype · 2026-10-29
 **Package:** [plugin/](../../plugin/) · `@ds-hu/dsh-collaborative-clarity@0.1.0`
+**Repository:** [ds-hu/dsh-collaborative-clarity](https://github.com/ds-hu/dsh-collaborative-clarity) · Apache-2.0
 **Verified:** one decision round accepted, one real-test gate passed (third attempt),
 anchors captured in a contract test and a browser harness
 **Not yet:** preset-level `ask_user_question` removal, anchor reconciliation across

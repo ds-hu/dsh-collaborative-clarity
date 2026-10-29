@@ -16,8 +16,9 @@ plugin_manager install_bundle  target: link:D:/Projects/dsh-collaborative-clarit
 plugin_manager remove_bundle   target: "@ds-hu/dsh-collaborative-clarity"
 ```
 
-The package is a bundle (`dsh.bundle.patch`) and a Web Client half (`dsh.client`), with no
-build step and no dependencies outside the harness.
+The publishable package is this `plugin/` directory, not the repository root. The package
+is a bundle (`dsh.bundle.patch`) and a Web Client half (`dsh.client`), with no build step
+and no dependencies outside the harness.
 
 ## Tools
 
