@@ -1,13 +1,12 @@
 {
   "name": "@ds-hu/dsh-collaborative-clarity",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Artifact rounds in the right sidebar: the agent shows a decision, the user annotates and chooses, and the tool waits.",
   "license": "Apache-2.0",
   "author": "ds-hu",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ds-hu/dsh-collaborative-clarity.git",
-    "directory": "plugin"
+    "url": "git+https://github.com/ds-hu/dsh-collaborative-clarity.git"
   },
   "bugs": {
     "url": "https://github.com/ds-hu/dsh-collaborative-clarity/issues"
@@ -21,7 +20,8 @@
     "./client": "./client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.js",
@@ -33,6 +33,11 @@
     "LICENSE",
     "README.md"
   ],
+  "scripts": {
+    "test": "node scripts/run-tests.mjs",
+    "verify": "node scripts/run-tests.mjs && node scripts/verify-package.mjs",
+    "check": "node --check index.js && node --check client.js && node --check artifacts.js"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

@@ -17,7 +17,7 @@ warning dot and the trailing `Answer` label appear.
 ## Test record
 
 - **Candidate:** `worktree:dsh-collaborative-clarity@0.1.0+pending-interaction`
-- **Cold build:** `node --check plugin/index.js && node --check plugin/client.js` — exit 0
+- **Cold build:** `node --check index.js && node --check client.js` — exit 0
 - **Environment:** DSH 0.2.1-rc.2 Web, Windows 11, the user's authenticated page
 - **Scenario:** open a real-test gate; look at the session row while it waits; confirm the
   warning dot and `Answer`; open the Clarity tab; record the result.

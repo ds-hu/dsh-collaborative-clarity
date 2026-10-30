@@ -2,7 +2,7 @@
 
 **Status:** draft + prototype · 2026-10-29
 **Grounding:** DSH 0.2.1-rc.2, as shipped in this machine's profile
-**Implementation:** [plugin/](../../plugin/) — the decision and test paths work; the gaps are listed in [06-implementation.md](06-implementation.md).
+**Implementation:** [package root](../../package.json) — the decision and test paths work; the gaps are listed in [06-implementation.md](06-implementation.md).
 
 Collaborative Clarity is a working mode for human–agent product work. It replaces the
 interview with a decision surface: the agent shows the smallest artifact that makes one

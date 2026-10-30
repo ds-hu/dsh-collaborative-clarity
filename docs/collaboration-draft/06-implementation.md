@@ -1,7 +1,7 @@
 # 06 — Implementation
 
 **Status:** prototype · 2026-10-29
-**Package:** [plugin/](../../plugin/) · `@ds-hu/dsh-collaborative-clarity@0.1.0`
+**Package:** [package root](../../package.json) · `@ds-hu/dsh-collaborative-clarity@0.2.0`
 **Repository:** [ds-hu/dsh-collaborative-clarity](https://github.com/ds-hu/dsh-collaborative-clarity) · Apache-2.0
 **Verified:** one decision round accepted, one real-test gate passed (third attempt),
 anchors captured in a contract test and a browser harness
@@ -18,10 +18,14 @@ harness:
 
 | Half | File | What it does |
 |---|---|---|
-| Host | [plugin/index.js](../../plugin/index.js) | Registers `clarity_round` and `clarity_test`, keeps rounds in memory, serves `/clarity/api`, waits on a promise, and resolves it from the browser's submit |
-| Client | [plugin/client.js](../../plugin/client.js) | Registers the `clarity` tab type, its body and chip, the session-row pending dot, and one SSE connection; renders the round and posts decisions |
-| Bundle | [plugin/package.json](../../plugin/package.json), [plugin/cordis.patch.yml](../../plugin/cordis.patch.yml) | `dsh.bundle.patch` + `dsh.client` declaration; one Loader row |
-| Metadata | [plugin/icon.svg](../../plugin/icon.svg), [plugin/locale/en.json](../../plugin/locale/en.json) | Plugin Manager title, description, and icon |
+| Host | [index.js](../../index.js) | Registers `clarity_round` and `clarity_test`, keeps rounds in memory, serves `/clarity/api`, waits on a promise, and resolves it from the browser's submit |
+| Client | [client.js](../../client.js) | Registers the `clarity` tab type, its body and chip, the session-row pending dot, and one SSE connection; renders the round and posts decisions |
+| Bundle | [package.json](../../package.json), [cordis.patch.yml](../../cordis.patch.yml) | `dsh.bundle.patch` + `dsh.client` declaration; one Loader row |
+| Metadata | [icon.svg](../../icon.svg), [locale/en.json](../../locale/en.json) | Plugin Manager title, description, and icon |
+
+Since 0.2.0 the package **is** the repository root (round 0007), so `index.js` and
+`client.js` sit beside `package.json` rather than inside `plugin/`; the paths below are
+the current ones.
 
 The host imports nothing from `@deepseek-ai/*`; it uses `ctx.tools` and `ctx.webServer`
 directly. The client imports only `react` from the browser module table. That avoids the
@@ -55,7 +59,7 @@ Run from the repository root on 2026-10-29 at 23:08 +08:00, exit 0 (6 store, 4 c
 3 API tests):
 
 ```powershell
-node --check plugin/client.js && node --check plugin/index.js && node --input-type=module -e "import('./plugin/index.js').then(() => console.log('host loads'))" && node plugin/test/store.test.mjs && node plugin/test/client.test.mjs && node plugin/test/api.test.mjs
+node scripts/run-tests.mjs
 ```
 
 The client half is a classic script with no bundler, so the check is syntax plus the
@@ -68,10 +72,10 @@ a cold build for a no-build package, not a claim that the browser surface was ex
 
 | Check | Command | Result |
 |---|---|---|
-| Host store and tool bodies | `node plugin/test/store.test.mjs` | 6 passed |
-| Client facade, bridge injection, anchor labels, Add render | `node plugin/test/client.test.mjs` | 4 passed |
-| HTTP routes, anchor validation, error shapes | `node plugin/test/api.test.mjs` | 3 passed |
-| Syntax | `node --check plugin/index.js`, `node --check plugin/client.js` | passed |
+| Host store and tool bodies | `node tests/store.test.mjs` | 6 passed |
+| Client facade, bridge injection, anchor labels, Add render | `node tests/client.test.mjs` | 4 passed |
+| HTTP routes, anchor validation, error shapes | `node tests/api.test.mjs` | 3 passed |
+| Syntax | `node --check index.js`, `node --check client.js` | passed |
 
 `node --test` cannot run in this sandbox (it spawns a child process and dies with
 `spawn EPERM`), so the tests are plain `node <file>` runs with the built-in `node:test`
@@ -80,7 +84,7 @@ harness.
 ### Live checks
 
 - The bundle is installed in the web profile as
-  `@ds-hu/dsh-collaborative-clarity: link:D:/Projects/dsh-collaborative-clarity/plugin`.
+  `@ds-hu/dsh-collaborative-clarity: link:D:/Projects/dsh-collaborative-clarity`.
 - The Loader row `include:collaborative-clarity` is `active`.
 - `Tool.listTools` returns `clarity_round` and `clarity_test` with their schemas.
 - `Slots.listSubTree` shows the body under `sidebar.right.pane.tab`, the chip under
@@ -213,7 +217,7 @@ These are gaps against the specification, not hidden features:
 - **Rounds are in-memory.** A restart loses open rounds. The decision remains in the
   session log and the tracked round folder, but the live tab cannot survive a restart.
 - **Host changes need a restart.** Client changes hot-reload. The anchor schema was added
-  to `plugin/index.js` after the installed host started, so the current process validates
+  to `index.js` after the installed host started, so the current process validates
   comments with the old schema and drops `anchor` and `artifactHash` from the result. The
   client will show the controls after a browser reload, but the round-trip is only complete
   after the DSH web process is restarted.
@@ -223,23 +227,23 @@ These are gaps against the specification, not hidden features:
 
 ## Install and remove
 
-The sanctioned path is the plugin manager, not hand-editing the profile:
+The package is the repository root, so the CLI installs it by path or by name. The
+Plugins panel is a convenience, not the only door:
 
-```text
-plugin_manager install_bundle  target: link:D:/Projects/dsh-collaborative-clarity/plugin
-plugin_manager remove_bundle   target: "@ds-hu/dsh-collaborative-clarity"
+```powershell
+dsh plugin --profile web add link:D:/Projects/dsh-collaborative-clarity
+dsh plugin --profile web add github:ds-hu/dsh-collaborative-clarity
+dsh plugin --profile web remove @ds-hu/dsh-collaborative-clarity
 ```
 
-The profile currently contains the link and the bundle in `dsh.profile.bundles`.
+The profile contains the link and the bundle in `dsh.profile.bundles`. Host changes need a
+restart; the client half hot-reloads.
 
 ## Tests
 
 ```powershell
-node --check plugin/index.js
-node --check plugin/client.js
-node plugin/test/store.test.mjs
-node plugin/test/client.test.mjs
-node plugin/test/api.test.mjs
+node scripts/run-tests.mjs     # every tests/*.test.mjs, one process each
+node scripts/verify-package.mjs # the installed shape: exports, files, icon, locale
 ```
 
 ## Next

@@ -28,7 +28,7 @@ path, the line gutter.
 
 ## Outcome
 
-`html` is gone from the variant schema; `path` is required. `plugin/artifacts.js` renders by
+`html` is gone from the variant schema; `path` is required. `artifacts.js` renders by
 extension: `.html`/`.htm` verbatim, Markdown through a small converter, everything else as
 numbered source with `data-path` and `data-line-start="1"`.
 

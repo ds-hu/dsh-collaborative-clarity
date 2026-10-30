@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Variant A — the repo is the package</title>
+<style>
+  :root{
+    color-scheme:light dark;
+    --bg:#fff;--ink:#15171c;--dim:#6b7280;--line:#e6e8ec;--chip:#f4f5f7;
+    --acc:#2b6ae8;--ok:#127a42;--warn:#9a5b00;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#12141a;--ink:#e7e9ef;--dim:#98a0ae;--line:#242832;--chip:#1b1f28;
+          --acc:#6aa8ff;--ok:#57cf8c;--warn:#e2a559}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:16px 14px 24px;background:var(--bg);color:var(--ink);
+       font:400 13px/19px ui-sans-serif,system-ui,"Segoe UI",sans-serif;-webkit-text-size-adjust:100%}
+  .eyebrow{font-size:10px;line-height:15px;letter-spacing:.09em;text-transform:uppercase;
+           color:var(--dim);font-weight:650}
+  h1{margin:3px 0 0;font-size:17px;line-height:23px;font-weight:650;letter-spacing:-.01em}
+  .lede{margin:6px 0 0;color:var(--dim)}
+  section{margin-top:16px}
+  h2{margin:0 0 6px;font-size:10px;line-height:15px;letter-spacing:.09em;
+     text-transform:uppercase;color:var(--dim);font-weight:650}
+  pre{margin:0;padding:9px 10px;background:var(--chip);border:1px solid var(--line);
+      border-radius:8px;overflow-x:auto;
+      font:400 11px/17px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .tree{white-space:pre}
+  .mv{color:var(--ok)}
+  .add{color:var(--acc)}
+  .dim{color:var(--dim)}
+  .cap{margin:6px 0 0;color:var(--dim);font-size:11.5px;line-height:17px}
+  ul{margin:0;padding-left:16px}
+  li{margin:4px 0}
+  li b{font-weight:600}
+  .note{margin-top:14px;padding:9px 10px;border-left:2px solid var(--acc);
+        background:var(--chip);border-radius:0 6px 6px 0;font-size:12px;line-height:18px}
+  code{font:400 11px/15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+       background:var(--chip);border:1px solid var(--line);border-radius:4px;padding:0 3px}
+</style>
+</head>
+<body>
+  <div class="eyebrow">Variant A · no build</div>
+  <h1>The repository is the package</h1>
+  <p class="lede">Every file the harness loads sits at the root, exactly where
+  <code>package.json</code> is. Nothing is generated; what is committed is what runs.</p>
+
+  <section>
+    <h2>After the move</h2>
+    <pre class="tree">dsh-collaborative-clarity/
+├ package.json         <span class="mv">← was plugin/</span>
+├ index.js             <span class="mv">┐</span>
+├ client.js            <span class="mv">│ moved up</span>
+├ artifacts.js         <span class="mv">┘</span>
+├ cordis.patch.yml     <span class="mv">← was plugin/</span>
+├ icon.svg
+├ locale/en.json
+├ README.md            <span class="mv">← merged</span>
+├ LICENSE
+├ CHANGELOG.md         <span class="add">+ new</span>
+├ scripts/run-tests.mjs <span class="add">+ new</span>
+├ tests/               <span class="mv">← was plugin/test/</span>
+└ docs/collaboration-draft/
+   └ rounds/0007-…/</pre>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <pre># this checkout
+dsh plugin --profile web add \
+  link:D:/Projects/dsh-collaborative-clarity
+
+# any machine, no path
+dsh plugin --profile web add \
+  github:ds-hu/dsh-collaborative-clarity</pre>
+    <p class="cap">No <code>prepare</code>, no <code>dependencies</code>, no
+    <code>allowBuilds</code> line to approve. pnpm clones, links, done.</p>
+  </section>
+
+  <section>
+    <h2>What it costs</h2>
+    <ul>
+      <li><b>The root has generic names.</b> <code>index.js</code> is the host
+      entry only because <code>package.json</code> says so — a reader opening the
+      folder sees neither <code>src/</code> nor <code>plugin/</code> to orient them.</li>
+      <li><b>No type checker, no bundler.</b> One typo in 1,349 lines of
+      <code>client.js</code> is caught by the tests or by the browser, not by a
+      compiler — and the loader wrapper
+      (<code>window.__ModuleLoader__.load</code>) stays hand-written.</li>
+      <li><b>Splitting the client half later means adopting Variant B</b>, on top
+      of a working plugin rather than instead of writing one.</li>
+    </ul>
+  </section>
+
+  <div class="note">The profile entry has to be removed and re-added once: the
+  installed link points at <code>…/plugin</code>, which no longer exists. The row
+  <code>id</code> and the browser bundle id do not change.</div>
+</body>
+</html>
