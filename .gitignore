@@ -1,0 +1,7 @@
+# Scratch produced by local tooling while testing rounds
+.tmp/
+.playwright-mcp/
+
+node_modules/
+dist/
+*.log

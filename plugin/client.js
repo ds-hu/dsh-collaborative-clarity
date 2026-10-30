@@ -218,14 +218,15 @@ window.__ModuleLoader__.load({
           style: { display: 'block', flex: 'none' },
         },
         h('path', {
-          d: 'M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.6 3.4c-.5.4-1.4 0-1.4-.7V5.5Z',
+          d: 'M5.8 18.6V7.6a3.4 3.4 0 0 1 3.4-3.4h5.6a3.4 3.4 0 0 1 3.4 3.4v4a3.4 3.4 0 0 1-3.4 3.4H8.8z',
           stroke: 'currentColor',
-          strokeWidth: 1.5,
+          strokeWidth: 1.7,
           strokeLinejoin: 'round',
         }),
-        h('circle', { cx: 9, cy: 10, r: 1, fill: 'currentColor' }),
-        h('circle', { cx: 12, cy: 10, r: 1, fill: 'currentColor' }),
-        h('circle', { cx: 15, cy: 10, r: 1, fill: 'currentColor' }),
+        h('path', {
+          d: 'M9.2 6.6h5.6l.7 2.2L12 12.8 8.5 8.8l.7-2.2Z',
+          fill: 'currentColor',
+        }),
       )
     }
 
