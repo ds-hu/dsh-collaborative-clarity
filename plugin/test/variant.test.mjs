@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -10,56 +10,79 @@ import { normaliseVariants } from '../index.js'
 async function withProject(body) {
   const root = await mkdtemp(join(tmpdir(), 'clarity-variants-'))
   try {
-    await mkdir(join(root, 'docs', 'rounds'), { recursive: true })
-    await writeFile(join(root, 'docs', 'rounds', 'a.html'), '<!doctype html><h1>From disk</h1>', 'utf8')
+    await mkdir(join(root, 'docs'), { recursive: true })
+    await writeFile(join(root, 'docs', 'a.html'), '<!doctype html><h1>From disk</h1>', 'utf8')
+    await writeFile(join(root, 'docs', 'notes.md'), '# Notes\n\n- one\n', 'utf8')
+    await writeFile(join(root, 'docs', 'pick.ts'), 'export const a = 1\nexport const b = 2\n', 'utf8')
+    await writeFile(join(root, 'blank.md'), '   \n', 'utf8')
+    await writeFile(join(root, 'blob.bin'), Buffer.from([1, 0, 2, 3]))
     await body(root)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
 }
 
-test('a variant reads its document from a file and records where it came from', async () => {
+test('a variant reads its file and records the path it came from', async () => {
   await withProject(async (root) => {
     const [variant] = await normaliseVariants(
-      [{ id: 'a', path: 'docs/rounds/a.html', note: 'The quieter one.' }],
+      [{ id: 'a', path: 'docs/a.html', note: 'The quieter one.' }],
       root,
     )
     assert.equal(variant.html, '<!doctype html><h1>From disk</h1>')
-    assert.equal(variant.source, 'docs/rounds/a.html')
+    assert.equal(variant.source, 'docs/a.html')
     assert.equal(variant.label, 'a.html', 'the label defaults to the file name')
     assert.equal(variant.note, 'The quieter one.')
     assert.deepEqual(variant.real, [])
   })
 })
 
-test('an absolute path inside the project is read and reported relative to it', async () => {
+test('a Markdown file arrives as prose', async () => {
   await withProject(async (root) => {
-    const absolute = join(root, 'docs', 'rounds', 'a.html')
-    const [variant] = await normaliseVariants([{ id: 'a', path: absolute, label: 'A' }], root)
-    assert.equal(variant.html, '<!doctype html><h1>From disk</h1>')
-    assert.equal(variant.source, 'docs/rounds/a.html')
-    assert.equal(variant.label, 'A')
+    const [variant] = await normaliseVariants([{ id: 'a', path: 'docs/notes.md' }], root)
+    assert.match(variant.html, /<h1>Notes<\/h1>/)
+    assert.match(variant.html, /<ul><li>one<\/li><\/ul>/)
   })
 })
 
-test('an inline document still works and carries no source', async () => {
-  const [variant] = await normaliseVariants([{ id: 'a', label: 'A', html: '<h1>A</h1>' }], process.cwd())
-  assert.equal(variant.html, '<h1>A</h1>')
-  assert.equal('source' in variant, false)
+test('a source file arrives as numbered source carrying its path', async () => {
+  await withProject(async (root) => {
+    const [variant] = await normaliseVariants([{ id: 'a', path: 'docs/pick.ts' }], root)
+    assert.match(variant.html, /data-path="docs\/pick\.ts"/)
+    assert.match(variant.html, /export const a = 1/)
+  })
 })
 
-test('a variant that gives both or neither document is refused', async () => {
-  await assert.rejects(() => normaliseVariants([{ id: 'a', html: '<h1>A</h1>', path: 'a.html' }]), /exactly one of html and path/)
-  await assert.rejects(() => normaliseVariants([{ id: 'a', label: 'A' }]), /exactly one of html and path/)
+test('an absolute path inside the project is reported relative to it', async () => {
+  await withProject(async (root) => {
+    const [variant] = await normaliseVariants([{ id: 'a', path: join(root, 'docs', 'a.html') }], root)
+    assert.equal(variant.source, 'docs/a.html')
+  })
 })
 
-test('an unreadable or empty file fails with the resolved path in the message', async () => {
+test('a variant that names no file is refused, and so is inline HTML', async () => {
+  await assert.rejects(() => normaliseVariants([{ id: 'a', label: 'A' }]), /path must be a non-empty string/)
+  await assert.rejects(
+    () => normaliseVariants([{ id: 'a', html: '<h1>A</h1>' }], process.cwd()),
+    /variants\[0\]\.html is not a field|path must be a non-empty string/,
+  )
+})
+
+test('a field the schema does not declare is refused rather than dropped', async () => {
   await withProject(async (root) => {
     await assert.rejects(
-      () => normaliseVariants([{ id: 'a', path: 'docs/rounds/missing.html' }], root),
+      () => normaliseVariants([{ id: 'a', path: 'docs/a.html', source: 'docs/a.html' }], root),
+      /variants\[0\]\.source is not a field/,
+    )
+  })
+})
+
+test('unreadable, empty, and binary files are refused', async () => {
+  await withProject(async (root) => {
+    await assert.rejects(
+      () => normaliseVariants([{ id: 'a', path: 'docs/missing.html' }], root),
       /could not be read: .*missing\.html/,
     )
-    await writeFile(join(root, 'blank.html'), '   \n', 'utf8')
-    await assert.rejects(() => normaliseVariants([{ id: 'a', path: 'blank.html' }], root), /is empty/)
+    await assert.rejects(() => normaliseVariants([{ id: 'a', path: 'blank.md' }], root), /is empty/)
+    await assert.rejects(() => normaliseVariants([{ id: 'a', path: 'blob.bin' }], root), /is not a text file/)
   })
 })

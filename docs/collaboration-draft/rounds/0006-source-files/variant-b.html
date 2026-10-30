@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verbatim</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--ink:#15171c;--dim:#6b7280;--line:#e6e8ec;--tint:#eef4ff;--acc:#2b6ae8;--chip:#f4f5f7;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#12141a;--ink:#e7e9ef;--dim:#98a0ae;--line:#242832;--tint:#17233c;--acc:#6aa8ff;--chip:#1b1f28}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 13px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{padding:14px;max-width:540px}
+.eyebrow{margin:0;font:600 10px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
+h1{margin:2px 0 6px;font-size:19px;line-height:1.2;letter-spacing:-.01em}
+.lede{margin:0 0 16px;font-size:12.5px;color:var(--dim)}
+.file{display:flex;align-items:center;gap:6px;margin:14px 0 6px}
+.chip{font:600 9.5px/1.6 var(--mono);letter-spacing:.03em;color:var(--dim);background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+pre{margin:0;overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--chip);padding:8px 9px;font:10.5px/1.65 var(--mono);tab-size:2}
+.ln{display:inline-block;width:1.6em;color:var(--dim);user-select:none;text-align:right;margin-right:8px;opacity:.7}
+.kw{color:var(--acc)}
+.md{background:transparent;border-left:2px solid var(--acc);border-radius:0 6px 6px 0}
+.md .ln{border-right:1px solid var(--line);padding-right:4px}
+.meta{margin:16px 0 0;padding-top:10px;border-top:1px solid var(--line);font:11px/1.65 var(--mono);color:var(--dim)}
+</style></head>
+<body><main>
+<p class="eyebrow">Variant B</p><h1>Verbatim</h1>
+<p class="lede">Nothing is converted. Every file is shown as it is on disk, with line numbers and its path — prose included. A document shown as a document has to be HTML.</p>
+
+<div class="file"><span class="chip">CHANGELOG.md</span></div>
+<pre class="md" data-path="CHANGELOG.md" data-line-start="1"><span class="ln">1</span>## 0.2.0
+<span class="ln">2</span>
+<span class="ln">3</span>- **Rounds** read their artifact from disk: `path` replaces the inline document.
+<span class="ln">4</span>- A code file is shown as source, so its own lines can be annotated.
+<span class="ln">5</span>
+<span class="ln">6</span>### Fixed
+<span class="ln">7</span>
+<span class="ln">8</span>- `Add` crashed when the comment carried an anchored target.</pre>
+
+<div class="file"><span class="chip">src/round/pick.ts</span></div>
+<pre data-path="src/round/pick.ts" data-line-start="1"><span class="ln">1</span><span class="kw">export interface</span> Round {
+<span class="ln">2</span>  id: string
+<span class="ln">3</span>  variants: Variant[]
+<span class="ln">4</span>  recommendation: string
+<span class="ln">5</span>}
+<span class="ln">6</span>
+<span class="ln">7</span><span class="kw">export function</span> pick(round: Round): Variant | undefined {
+<span class="ln">8</span>  return round.variants.find((v) =&gt; v.id === round.recommendation)
+<span class="ln">9</span>}</pre>
+
+<p class="meta">one renderer, nothing to get wrong<br>every comment lands on a line range in the file it names</p>
+</main></body></html>

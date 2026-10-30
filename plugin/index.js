@@ -16,6 +16,8 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename, isAbsolute, relative, resolve } from 'node:path'
 
+import { renderArtifact } from './artifacts.js'
+
 /** The route prefix the browser half fetches from. */
 export const API_PREFIX = '/clarity/api'
 
@@ -29,8 +31,8 @@ export const inject = ['tools', 'webServer']
 export const ROUND_TOOL = 'clarity_round'
 export const TEST_TOOL = 'clarity_test'
 
-/** Largest artifact document, inline or read from disk. */
-const MAX_ARTIFACT_CHARS = 400_000
+/** Largest artifact file a round will read. */
+const MAX_ARTIFACT_BYTES = 400_000
 
 /**
  * The timing rule, published as an always-on system section.
@@ -53,23 +55,21 @@ const VARIANT_SCHEMA = {
   properties: {
     id: { type: 'string', description: 'Stable id used in the result; "a" and "b" are conventional.' },
     label: { type: 'string', description: 'The label shown above the artifact. Defaults to the file name.' },
-    html: {
-      type: 'string',
-      description:
-        'A complete self-contained HTML document, written inline. No network, no external assets, no build. Final copy, not lorem. Design at 360px first.',
-    },
     path: {
       type: 'string',
       description:
-        'Path to a complete HTML document already on disk, shown instead of `html`. Relative paths resolve against the session working directory. Give exactly one of `html` and `path`; prefer a file, so the artifact can be edited, reopened, and read without resending it.',
+        'The artifact file, relative to the session working directory. `.html` renders as a document, Markdown as prose, and every other text file as numbered source whose lines can be annotated.',
     },
     note: { type: 'string', description: 'One sentence of framing shown under the label.' },
     real: { type: 'array', items: { type: 'string' }, description: 'What this artifact actually is.' },
     mocked: { type: 'array', items: { type: 'string' }, description: 'What is faked.' },
     omitted: { type: 'array', items: { type: 'string' }, description: 'What is deliberately not shown.' },
   },
-  required: ['id'],
+  required: ['id', 'path'],
 }
+
+/** The fields a variant may carry — the same list the schema declares. */
+const VARIANT_FIELDS = ['id', 'label', 'path', 'note', 'real', 'mocked', 'omitted']
 
 /**
  * Where a comment points inside an artifact.
@@ -413,7 +413,7 @@ export function decisionTool(store, ctx) {
     description: [
       'Open a decision round in the user\'s right Sidebar and wait for their decision.',
       'One decision, one or two variants, a named recommendation, and at least one stated foreclosure.',
-      'Each variant is one complete self-contained HTML document: inline `html`, or `path` to a file already on disk. No network, no external assets, no build; show final copy, mock only the change and its immediate context, and design at 360px first.',
+      'Each variant names one file: `.html` renders as a document, Markdown as prose, any other text file as numbered source whose lines can be annotated. Keep it self-contained — no network, no external assets, no build; show final copy, mock only the change and its immediate context, and design at 360px first. The file is the record, so it can be edited and reopened without resending it.',
       'The tool blocks until the user accepts, requests a revision, rejects, or cancels. The result is structured: { status, verdict, selected, comments, note }.',
       'In this mode, do not use ask_user_question for the decision: the round is the question.',
       'If the user requests a revision, open a new round with the changed artifact; never silently rewrite the accepted one.',
@@ -443,6 +443,7 @@ export function decisionTool(store, ctx) {
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
     },
     async execute(args, exec) {
+      refuseUnknown(args ?? {}, ['decision', 'context', 'variants', 'recommendation', 'foreclosures'], 'arguments')
       const sessionId = sessionOf(exec)
       const variants = await normaliseVariants(args.variants, workingDirectoryOf(ctx, exec))
       const recommendation = requireString(args.recommendation, 'recommendation', 200)
@@ -519,6 +520,7 @@ export function testTool(store) {
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
     },
     async execute(args, exec) {
+      refuseUnknown(args ?? {}, ['candidate', 'coldBuild', 'scenario'], 'arguments')
       const sessionId = sessionOf(exec)
       const candidate = requireString(args.candidate, 'candidate', 200)
       const coldBuild = args.coldBuild
@@ -566,7 +568,7 @@ function sessionOf(exec) {
 }
 
 /**
- * Validate and copy the variants, reading any file-backed document.
+ * Validate and copy the variants, rendering each one's artifact file.
  * @param {unknown} value - the model's variant array.
  * @param {string} cwd - directory for relative artifact paths.
  * @returns {Promise<object[]>} clean variants.
@@ -579,15 +581,16 @@ export async function normaliseVariants(value, cwd = process.cwd()) {
   const variants = []
   for (const [index, variant] of value.entries()) {
     if (variant === null || typeof variant !== 'object') throw new Error(`variants[${index}] must be an object`)
+    refuseUnknown(variant, VARIANT_FIELDS, `variants[${index}]`)
     const id = requireString(variant.id, `variants[${index}].id`, 40)
     if (seen.has(id)) throw new Error(`duplicate variant id: ${id}`)
     seen.add(id)
     const { html, source } = await readArtifact(variant, index, cwd)
     variants.push({
       id,
-      label: variant.label === undefined ? (source ? basename(source) : id) : requireString(variant.label, `variants[${index}].label`, 120),
+      label: variant.label === undefined ? basename(source) : requireString(variant.label, `variants[${index}].label`, 120),
       html,
-      ...(source === undefined ? {} : { source }),
+      source,
       note: variant.note === undefined ? '' : requireString(variant.note, `variants[${index}].note`, 500),
       real: normaliseStrings(variant.real, `variants[${index}].real`, 500, 0),
       mocked: normaliseStrings(variant.mocked, `variants[${index}].mocked`, 500, 0),
@@ -598,33 +601,32 @@ export async function normaliseVariants(value, cwd = process.cwd()) {
 }
 
 /**
- * Resolve one variant's document from either its inline text or a file.
+ * Resolve one variant's artifact from the file it names.
  * @param {object} variant - the model's variant.
  * @param {number} index - its position, for diagnostics.
  * @param {string} cwd - directory for relative paths.
- * @returns {Promise<{html: string, source?: string}>} the document and where it came from.
+ * @returns {Promise<{html: string, source: string}>} the rendered document and its path.
  */
 async function readArtifact(variant, index, cwd) {
-  const inline = variant.html !== undefined
-  if (inline === (variant.path !== undefined)) {
-    throw new Error(`variants[${index}] needs exactly one of html and path`)
-  }
-  if (inline) return { html: requireString(variant.html, `variants[${index}].html`, MAX_ARTIFACT_CHARS) }
-
   const requested = requireString(variant.path, `variants[${index}].path`, 2_000)
   const absolute = isAbsolute(requested) ? requested : resolve(cwd, requested)
-  let html
+  let bytes
   try {
-    html = await readFile(absolute, 'utf8')
+    bytes = await readFile(absolute)
   } catch (cause) {
     throw new Error(`variants[${index}].path could not be read: ${absolute} (${cause.code ?? cause.message})`)
   }
-  if (html.trim() === '') throw new Error(`variants[${index}].path is empty: ${absolute}`)
-  if (html.length > MAX_ARTIFACT_CHARS) {
-    throw new Error(`variants[${index}].path is too large (max ${MAX_ARTIFACT_CHARS} characters): ${absolute}`)
+  if (bytes.length > MAX_ARTIFACT_BYTES) {
+    throw new Error(`variants[${index}].path is too large (max ${MAX_ARTIFACT_BYTES} bytes): ${absolute}`)
   }
+  if (bytes.subarray(0, 8_192).includes(0)) {
+    throw new Error(`variants[${index}].path is not a text file: ${absolute}`)
+  }
+  const text = bytes.toString('utf8')
+  if (text.trim() === '') throw new Error(`variants[${index}].path is empty: ${absolute}`)
   const inside = !relative(cwd, absolute).startsWith('..')
-  return { html, source: inside ? relative(cwd, absolute).split('\\').join('/') : absolute }
+  const source = inside ? relative(cwd, absolute).split('\\').join('/') : absolute
+  return { html: renderArtifact({ path: source, text }), source }
 }
 
 /**
@@ -659,6 +661,22 @@ function normaliseStrings(value, name, maxLength, minItems) {
   if (!Array.isArray(value)) throw new Error(`${name} must be an array`)
   if (value.length < minItems) throw new Error(`${name} needs at least ${minItems} item${minItems === 1 ? '' : 's'}`)
   return value.map((item, index) => requireString(item, `${name}[${index}]`, maxLength))
+}
+
+/**
+ * Refuse a field the schema does not declare.
+ *
+ * The registry hands the model's arguments over unvalidated, so a misspelled or
+ * invented key would otherwise be dropped in silence instead of corrected.
+ * @param {object} value - the candidate object.
+ * @param {string[]} allowed - its declared fields.
+ * @param {string} name - diagnostic name.
+ * @returns {void}
+ */
+function refuseUnknown(value, allowed, name) {
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) throw new Error(`${name}.${key} is not a field`)
+  }
 }
 
 /**

@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { decisionTool, RoundStore, testTool } from '../index.js'
+
+/** The directory holding this test's artifact fixtures. */
+const HERE = fileURLToPath(new URL('./', import.meta.url))
+
+/** A context whose only conversation works in this test directory. */
+function ctx() {
+  return {
+    get: (name) => (name === 'sessions' ? { get: () => ({ header: { cwd: HERE } }) } : undefined),
+  }
+}
 
 /** A tool execution face with one conversation. */
 function exec(sessionId = 'session-1') {
@@ -15,8 +26,8 @@ function decisionArgs() {
     decision: 'Should the empty state lead with a verb?',
     context: 'New users land here with no projects.',
     variants: [
-      { id: 'a', label: 'Verb-first', html: '<!doctype html><h1>New project</h1>' },
-      { id: 'b', label: 'Outcome-first', html: '<!doctype html><h1>Start something</h1>' },
+      { id: 'a', label: 'Verb-first', path: 'fixtures/verb-first.html' },
+      { id: 'b', label: 'Outcome-first', path: 'fixtures/outcome-first.html' },
     ],
     recommendation: 'a',
     foreclosures: ['The outcome-first framing is lost.'],
@@ -35,7 +46,7 @@ async function firstRound(store) {
 
 test('a decision round resolves with the selected variant and comments', async () => {
   const store = new RoundStore()
-  const pending = decisionTool(store).execute(decisionArgs(), exec())
+  const pending = decisionTool(store, ctx()).execute(decisionArgs(), exec())
   const round = await firstRound(store)
   assert.equal(round.kind, 'decision')
   assert.equal(round.sessionId, 'session-1')
@@ -55,7 +66,7 @@ test('a decision round resolves with the selected variant and comments', async (
 
 test('a decision result keeps element, text, and line anchors', async () => {
   const store = new RoundStore()
-  const pending = decisionTool(store).execute(decisionArgs(), exec())
+  const pending = decisionTool(store, ctx()).execute(decisionArgs(), exec())
   const round = await firstRound(store)
   const comments = [
     {
@@ -90,13 +101,19 @@ test('a round rejects a recommendation that names no variant', async () => {
   const store = new RoundStore()
   const args = decisionArgs()
   args.recommendation = 'missing'
-  await assert.rejects(decisionTool(store).execute(args, exec()), /does not match a variant id/)
+  await assert.rejects(decisionTool(store, ctx()).execute(args, exec()), /does not match a variant id/)
+})
+
+test('a round rejects an argument the schema does not declare', async () => {
+  const store = new RoundStore()
+  const args = { ...decisionArgs(), source: 'docs/a.md' }
+  await assert.rejects(decisionTool(store, ctx()).execute(args, exec()), /arguments\.source is not a field/)
 })
 
 test('an aborted wait resolves cancelled, not a rejection', async () => {
   const store = new RoundStore()
   const run = exec()
-  const pending = decisionTool(store).execute(decisionArgs(), run)
+  const pending = decisionTool(store, ctx()).execute(decisionArgs(), run)
   run.controller.abort()
   const result = await pending
   assert.equal(result.status, 'cancelled')

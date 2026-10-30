@@ -38,16 +38,31 @@ section. There is no switch — disable the plugin to drop it.
 
 Opens a decision round and waits.
 
-- one decision, one or two self-contained HTML variants;
-- each variant carries its document inline (`html`) or by reference (`path`, resolved
-  against the session working directory), never both; a file-backed variant is recorded in
-  the round with the `source` it came from, so the artifact can be edited and reopened
-  without resending it;
+- one decision and one or two variants;
+- every variant is a file, named by `path` (relative paths resolve against the session
+  working directory); the round records the `source` it read, so the artifact is also the
+  record and can be edited and reopened without resending it;
 - a named recommendation and at least one stated foreclosure;
 - the user selects, comments, revises, rejects, or cancels;
 - each comment may carry an `anchor` (`element`, `text`, `line`, or `variant`) and an
   `artifactHash`;
 - returns `{ status, verdict, selected, comments, note }`.
+
+Arguments are refused, not dropped: a field the schema does not declare fails the call with
+`<where>.<field> is not a field`. The registry hands arguments over unvalidated, so this is
+where the schema is enforced.
+
+### What a variant file renders as
+
+| Extension | Rendering |
+| --- | --- |
+| `.html`, `.htm` | the document, unchanged |
+| `.md`, `.markdown`, `.mdown` | prose: headings, lists, quotes, rules, fenced code, inline code, bold, italic, links |
+| anything else | numbered source, `data-line-start="1"`, path on every line anchor |
+
+The Markdown subset is deliberately small: no tables, no HTML passthrough (it is escaped),
+no nested lists. The source view keeps one text node per line and draws its gutter with a
+CSS counter, so `pre.textContent` still maps a click to the line the user pointed at.
 
 ### `clarity_test`
 
