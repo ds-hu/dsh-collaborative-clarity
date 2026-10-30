@@ -8,6 +8,11 @@ test('an HTML file passes through untouched', () => {
   assert.equal(renderArtifact({ path: 'a/b.html', text: html }), html)
 })
 
+test('an SVG file is a document, not source', () => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8"/></svg>'
+  assert.equal(renderArtifact({ path: 'icon.svg', text: svg }), svg)
+})
+
 test('Markdown becomes prose', () => {
   const markdown = [
     '# Title',

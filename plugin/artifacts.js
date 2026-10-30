@@ -15,7 +15,7 @@
  */
 
 /** Extensions shown as a document, unchanged. */
-const DOCUMENT = new Set(['html', 'htm'])
+const DOCUMENT = new Set(['html', 'htm', 'svg'])
 
 /** Extensions converted to prose. */
 const PROSE = new Set(['md', 'markdown', 'mdown'])
