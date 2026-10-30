@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
 
 import { registerApi, RoundStore } from '../index.js'
+
+/** A 1×1 PNG, enough to prove decoding and writing. */
+const PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
 
 /** A fake server response that records status and body. */
 function fakeResponse() {
@@ -179,6 +186,81 @@ test('anchored comments pass validation and malformed anchors are refused', asyn
   )
   assert.equal(badField.status, 400)
   assert.match(json(badField).error.message, /not allowed/)
+})
+
+test('screenshots are written under the project and returned as paths', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'clarity-shots-'))
+  try {
+    const store = new RoundStore()
+    store.open({
+      id: 't2',
+      kind: 'test',
+      sessionId: 's1',
+      decision: 'Real test',
+      status: 'open',
+      createdAt: Date.now(),
+      cwd: root,
+    })
+    const handler = mount(store)
+    const response = fakeResponse()
+    await handler(
+      fakeRequest(
+        'POST',
+        '/clarity/api/test',
+        JSON.stringify({
+          roundId: 't2',
+          verdict: 'pass',
+          observed: 'The red notice appeared once.',
+          screenshots: [{ name: 'shot.png', dataUrl: PNG }],
+        }),
+      ),
+      response,
+    )
+    assert.equal(response.status, 200, JSON.stringify(json(response)))
+    const result = json(response).result
+    assert.equal(result.screenshots.length, 1)
+    assert.equal(result.screenshots[0].path, '.clarity/screenshots/t2/shot-1.png')
+    const bytes = await readFile(join(root, '.clarity', 'screenshots', 't2', 'shot-1.png'))
+    assert.equal(bytes.length, result.screenshots[0].bytes)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a screenshot that is not an image data URL is refused', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'clarity-shots-'))
+  try {
+    const store = new RoundStore()
+    store.open({
+      id: 't3',
+      kind: 'test',
+      sessionId: 's1',
+      decision: 'Real test',
+      status: 'open',
+      createdAt: Date.now(),
+      cwd: root,
+    })
+    const handler = mount(store)
+    const response = fakeResponse()
+    await handler(
+      fakeRequest(
+        'POST',
+        '/clarity/api/test',
+        JSON.stringify({
+          roundId: 't3',
+          verdict: 'pass',
+          observed: 'looks right',
+          screenshots: [{ name: 'x.html', dataUrl: 'data:text/html;base64,PGgxPmhpPC9oMT4=' }],
+        }),
+      ),
+      response,
+    )
+    assert.equal(response.status, 400)
+    assert.match(json(response).error.message, /PNG, JPEG, or WebP/)
+    assert.equal(store.get('t3').status, 'open', 'the round stays answerable')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 test('unknown rounds and failed cold builds are refused with the API error shape', async () => {

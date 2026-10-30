@@ -212,8 +212,15 @@ test('adding a comment never passes a string style to a host element', () => {
   }
   const props = { round, sent: null, onSent() {} }
   let tree = runtime.render(client.__test.DecisionView, props)
-  const input = findNode(tree, (node) => node.type === 'input' && node.props.placeholder === 'What should change?')
-  assert.ok(input, 'the comment input is rendered')
+  const input = findNode(
+    tree,
+    (node) =>
+      node.type === 'textarea' &&
+      typeof node.props.placeholder === 'string' &&
+      node.props.placeholder.startsWith('What should change?'),
+  )
+  assert.ok(input, 'the comment composer is a textarea')
+  assert.equal(input.props.rows, 2, 'it starts two lines tall')
   input.props.onChange({ target: { value: 'This should change.' } })
   tree = runtime.render(client.__test.DecisionView, props)
   const add = findNode(
@@ -225,6 +232,85 @@ test('adding a comment never passes a string style to a host element', () => {
   assert.doesNotThrow(() => {
     runtime.render(client.__test.DecisionView, props)
   })
+})
+
+test('Ctrl+Enter adds the comment and plain Enter does not', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 'session-1',
+    decision: 'Should this ship?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [] }],
+    recommendation: 'a',
+    foreclosures: ['B is lost.'],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const props = { round, sent: null, onSent() {} }
+  let tree = runtime.render(client.__test.DecisionView, props)
+  const composer = findNode(
+    tree,
+    (node) =>
+      node.type === 'textarea' &&
+      typeof node.props.placeholder === 'string' &&
+      node.props.placeholder.startsWith('What should change?'),
+  )
+  composer.props.onChange({ target: { value: 'line one\nline two' } })
+
+  let prevented = 0
+  tree = runtime.render(client.__test.DecisionView, props)
+  const next = findNode(
+    tree,
+    (node) =>
+      node.type === 'textarea' &&
+      typeof node.props.placeholder === 'string' &&
+      node.props.placeholder.startsWith('What should change?'),
+  )
+  next.props.onKeyDown({ key: 'Enter', preventDefault: () => { prevented += 1 } })
+  assert.equal(prevented, 0, 'plain Enter inserts a newline')
+
+  next.props.onKeyDown({ key: 'Enter', ctrlKey: true, preventDefault: () => { prevented += 1 } })
+  assert.equal(prevented, 1, 'Ctrl+Enter adds instead')
+})
+
+test('the test gate offers screenshots once the run starts', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 't1',
+    kind: 'test',
+    sessionId: 'session-1',
+    decision: 'Real test',
+    candidate: 'dirty:abc',
+    coldBuild: { command: 'node build.mjs', exitCode: 0, builtAt: '2026-10-30T10:00:00+08:00' },
+    scenario: {
+      preconditions: [],
+      steps: ['Do the thing.'],
+      expected: ['It works.'],
+      failureSignature: 'It does not.',
+      rollback: 'Revert.',
+    },
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const props = { round, sent: null, onSent() {} }
+  let tree = runtime.render(client.__test.TestView, props)
+  const ready = findNode(
+    tree,
+    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('I’m ready to test'),
+  )
+  assert.ok(ready, 'the run gate renders first')
+  ready.props.onClick()
+  tree = runtime.render(client.__test.TestView, props)
+
+  const add = findNode(tree, (node) => node.props && node.props['aria-label'] === 'Add screenshot')
+  assert.ok(add, 'the screenshot add control is rendered after the run starts')
+  const file = findNode(tree, (node) => node.type === 'input' && node.props.type === 'file')
+  assert.ok(file, 'a file input backs the add control')
+  assert.equal(file.props.accept, 'image/png,image/jpeg,image/webp')
 })
 
 test('a round event opens a tab only for the mounted conversation', () => {

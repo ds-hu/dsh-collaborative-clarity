@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>截图 · 大图加胶片条</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f2ec;
+    --surface: #fffdf8;
+    --ink: #1c1d20;
+    --muted: #6d6b62;
+    --line: #e3ddd0;
+    --fill: #23252a;
+    --fill-ink: #f6f4ee;
+    --danger: #a3342c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111214; --surface: #191b1e; --ink: #ecece7; --muted: #9a978d;
+      --line: #2a2d31; --fill: #ecece7; --fill-ink: #17181b; --danger: #f0a49c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 12px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .pane { max-width: 360px; margin: 0 auto; padding: 14px 14px 28px; }
+  .head { display: flex; align-items: baseline; gap: 8px; }
+  .head h1 { margin: 0; font-size: 13px; font-weight: 600; }
+  .pills { margin-left: auto; display: flex; gap: 4px; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+
+  .scenario { margin-top: 10px; padding: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  .label { color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 3px; }
+  .scenario ol, .scenario ul { margin: 0 0 7px; padding-left: 16px; }
+  .scenario li { margin: 0 0 2px; }
+  .scenario ul:last-child, .scenario ol:last-child { margin-bottom: 0; }
+
+  .field { margin-top: 10px; }
+  .box {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px; min-height: 54px; color: var(--ink);
+  }
+
+  .shots { margin-top: 12px; }
+  .shots-head { display: flex; align-items: baseline; gap: 8px; }
+  .count { color: var(--muted); font-weight: 400; letter-spacing: 0; }
+
+  .preview {
+    margin-top: 6px; width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; background: var(--surface);
+  }
+  .preview svg { display: block; width: 100%; height: auto; }
+  .film { display: flex; gap: 6px; margin-top: 6px; align-items: center; flex-wrap: wrap; }
+  .mini {
+    width: 46px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 5px;
+    overflow: hidden; background: var(--surface); cursor: pointer;
+  }
+  .mini.selected { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .mini svg { display: block; width: 100%; height: 100%; }
+  .add {
+    width: 46px; height: 34px; border: 1px dashed var(--line); border-radius: 5px;
+    background: transparent; color: var(--muted); font: 15px/1 system-ui; cursor: pointer;
+  }
+  .hint { margin: 6px 0 0; color: var(--muted); font-size: 10px; }
+
+  .actions { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-size: 11px; padding: 5px 10px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+  }
+  .btn.primary { background: var(--fill); color: var(--fill-ink); border-color: transparent; }
+  .btn.danger { color: var(--danger); border-color: currentColor; }
+</style>
+</head>
+<body>
+<main class="pane">
+  <div class="head">
+    <h1>Real test</h1>
+    <div class="pills"><span class="pill">cold build exit 0</span><span class="pill">dirty:28d575e1c98e</span></div>
+  </div>
+
+  <section class="scenario">
+    <p class="label">Steps</p>
+    <ol>
+      <li>输入 abandon，确认卡片是 TEM4。</li>
+      <li>输入“测试”，确认出现红字提示。</li>
+      <li>点“展开”，确认长释义展开。</li>
+    </ol>
+    <p class="label">Expected</p>
+    <ul>
+      <li>提示只出现一次，不生成卡片。</li>
+      <li>排名颜色按三档变化。</li>
+    </ul>
+  </section>
+
+  <div class="field">
+    <p class="label">What did you observe?</p>
+    <div class="box">三项都符合预期：红字只出现一次，没有生成卡片；排名三档颜色也能分开。</div>
+  </div>
+
+  <section class="shots">
+    <div class="shots-head"><p class="label">Screenshot</p><span class="count">1 of 2</span></div>
+    <div class="preview">
+      <svg viewBox="0 0 328 220" aria-label="Selected screenshot">
+        <rect width="328" height="220" fill="#f6f4ee"/>
+        <rect x="14" y="12" width="300" height="16" rx="3" fill="#fffdf8" stroke="#e3ddd0"/>
+        <rect x="14" y="36" width="300" height="74" rx="4" fill="#fffdf8" stroke="#e3ddd0"/>
+        <rect x="26" y="48" width="92" height="7" rx="2" fill="#1c1d20"/>
+        <rect x="26" y="62" width="250" height="4" rx="2" fill="#e3ddd0"/>
+        <rect x="26" y="70" width="212" height="4" rx="2" fill="#e3ddd0"/>
+        <rect x="26" y="84" width="150" height="4" rx="2" fill="#e3ddd0"/>
+        <rect x="14" y="118" width="300" height="60" rx="4" fill="#fffdf8" stroke="#e3ddd0"/>
+        <rect x="26" y="130" width="180" height="6" rx="2" fill="#1c1d20"/>
+        <rect x="26" y="144" width="250" height="4" rx="2" fill="#e3ddd0"/>
+        <rect x="26" y="152" width="230" height="4" rx="2" fill="#e3ddd0"/>
+        <rect x="26" y="160" width="120" height="4" rx="2" fill="#e3ddd0"/>
+        <rect x="14" y="186" width="120" height="18" rx="9" fill="#e2f0e6"/>
+        <rect x="24" y="192" width="40" height="5" rx="2" fill="#22654b"/>
+      </svg>
+    </div>
+    <div class="film">
+      <button class="mini selected" type="button" aria-label="Show screenshot 1">
+        <svg viewBox="0 0 64 48" aria-hidden="true">
+          <rect width="64" height="48" fill="#f6f4ee"/>
+          <rect x="6" y="6" width="52" height="9" rx="2" fill="#fffdf8" stroke="#e3ddd0"/>
+          <rect x="6" y="19" width="52" height="23" rx="2" fill="#fffdf8" stroke="#e3ddd0"/>
+          <rect x="10" y="24" width="22" height="3" rx="1" fill="#c9c3b6"/>
+          <rect x="10" y="30" width="36" height="3" rx="1" fill="#e3ddd0"/>
+        </svg>
+      </button>
+      <button class="mini" type="button" aria-label="Show screenshot 2">
+        <svg viewBox="0 0 64 48" aria-hidden="true">
+          <rect width="64" height="48" fill="#f6f4ee"/>
+          <rect x="6" y="6" width="52" height="9" rx="2" fill="#fffdf8" stroke="#e3ddd0"/>
+          <rect x="6" y="19" width="52" height="23" rx="2" fill="#fffdf8" stroke="#e3ddd0"/>
+          <rect x="10" y="23" width="18" height="3" rx="1" fill="#b3342c"/>
+          <rect x="10" y="29" width="34" height="3" rx="1" fill="#e3ddd0"/>
+        </svg>
+      </button>
+      <button class="add" type="button" aria-label="Add screenshot">+</button>
+    </div>
+    <p class="hint">Paste, drop, or choose a PNG/JPEG.</p>
+  </section>
+
+  <div class="actions">
+    <button class="btn primary" type="button">Pass</button>
+    <button class="btn danger" type="button">Fail</button>
+    <button class="btn" type="button">Blocked</button>
+    <button class="btn" type="button">Back</button>
+  </div>
+</main>
+</body>
+</html>

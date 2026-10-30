@@ -2,6 +2,16 @@
 .tmp/
 .playwright-mcp/
 
+# Test-gate evidence written by clarity_test, one directory per round
+.clarity/
+
+# The demo lives beside this checkout as its own repository (cup113/tem-level),
+# plus the source data it was built from; neither belongs to this package.
+demo/
+
 node_modules/
 dist/
 *.log
+
+# pnpm writes one on any `pnpm run` even though nothing is installed
+pnpm-lock.yaml

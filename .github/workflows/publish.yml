@@ -1,0 +1,51 @@
+# Publish a version tag to npm.
+#
+# Authentication is OIDC: the npm CLI trades the workflow's id-token for a
+# short-lived publish token, so this repository stores no npm token at all. The
+# trust relationship is created once, by hand, because only a human 2FA
+# approval can do it:
+#
+#   npm trust github @ds-hu/dsh-collaborative-clarity \
+#     --file .github/workflows/publish.yml \
+#     --repo ds-hu/dsh-collaborative-clarity --allow-publish
+#
+# It expires 48 hours after creation unless the first publish succeeds, so cut
+# the tag in the same sitting. `npm trust list <package>` shows what is live.
+#
+# Only push, release and workflow_dispatch can obtain a trusted-publishing
+# token; pull_request_target and issue_comment are refused by the registry.
+
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install a CLI that speaks trusted publishing
+        run: npm install --global npm@11.17.0
+      - name: Test
+        run: |
+          node scripts/run-tests.mjs
+          node scripts/verify-package.mjs
+      - name: Refuse a tag that disagrees with the manifest
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package.json $version" >&2
+            exit 1
+          fi
+      - name: Publish
+        run: npm publish --access public

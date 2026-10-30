@@ -9,10 +9,12 @@ This is a prototype. The verified scope and the remaining gaps are recorded in
 
 ## Install
 
-The package is the repository root, so both routes work — no local path required for the
-second one:
+The package is the repository root, so every route installs the same files:
 
 ```powershell
+# from npm — the shortest route
+dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity
+
 # this checkout
 dsh plugin --profile web add link:D:/Projects/dsh-collaborative-clarity
 
@@ -50,7 +52,7 @@ section. There is no switch — disable the plugin to drop it.
 
 ### `clarity_round`
 
-Opens a decision round and waits.
+Opens a decision round and waits, or returns a job id.
 
 - one decision and one or two variants;
 - every variant is a file, named by `path` (relative paths resolve against the session working
@@ -59,12 +61,27 @@ Opens a decision round and waits.
 - a named recommendation and at least one stated foreclosure;
 - the user selects, comments, revises, rejects, or cancels;
 - each comment may carry an `anchor` (`element`, `text`, `line`, or `variant`) and an
-  `artifactHash`;
-- returns `{ status, verdict, selected, comments, note }`.
+  `artifactHash`; the composer is a two-line textarea — Enter writes a new line, Ctrl/Cmd+Enter
+  adds the comment;
+- blocking (default) returns `{ status, verdict, selected, comments, note }`;
+- `blocking: false` returns `{ status: "pending", roundId, jobId, recommendation }` at once and
+  registers the round as a background job. The user's decision settles it, `job_output` collects
+  the JSON result, and killing the job cancels the round.
 
 Arguments are refused, not dropped: a field the schema does not declare fails the call with
 `<where>.<field> is not a field`. The registry hands arguments over unvalidated, so this is
 where the schema is enforced.
+
+### Non-blocking rounds
+
+`blocking: false` registers the round with the harness `jobs` service (`ctx.jobs`). The job is
+owned by the calling conversation, so it is listed and collected with the ordinary
+`job_output` / `job_kill` tools, and its completion notice wakes the agent when the user
+decides. If the backend finishes first, the agent implements the recommendation and says so;
+a late decision still arrives as a notice and can be honoured or turned into a new round.
+
+This needs `@deepseek-ai/dsh-tool-jobs` in the profile: without it `ctx.jobs` is absent and a
+non-blocking request is refused before any round is published.
 
 ### What a variant file renders as
 
@@ -84,10 +101,15 @@ Opens a real-test gate and waits.
 
 - candidate, cold-build command and exit code, and a 3–7 step scenario;
 - the user presses **I’m ready to test**, runs the scenario, and records pass, fail, or blocked;
-- returns `{ status, verdict, observed }`.
+- up to four screenshots can be attached by picker, drop, or paste (both scoped to the panel: the
+  harness's document drop target would otherwise add the file to the chat composer as well); the
+  selected one is shown at full width with a thumbnail strip, and the files land in
+  `.clarity/screenshots/<roundId>/shot-N.<png|jpg|webp>` inside the session directory;
+- returns `{ status, verdict, observed, screenshots }`, where each screenshot is
+  `{ path, bytes }` — open it with `read_image` when the words alone are ambiguous.
 
-Both tools block without consuming tokens. The model sees the structured result; it does not
-see the UI activity.
+A blocking call waits without consuming tokens; a non-blocking round returns at once and settles
+as a job. The model sees the structured result, not the UI activity.
 
 ## The sidebar
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 — 2026-10-30
+
+A round no longer has to hold the turn, and a test gate can show its evidence rather than
+describe it. Published to npm as `@ds-hu/dsh-collaborative-clarity@0.3.0`.
+
+- `clarity_round` accepts `blocking: false`: the round is registered in `ctx.jobs` and the call
+  returns `{ status: "pending", roundId, jobId, recommendation }` immediately. The user's
+  decision settles that job, so the completion notice wakes the agent and `job_output` returns
+  the decision JSON; `job_kill` cancels the round. Blocking stays the default, and several
+  non-blocking rounds may be open at once.
+- `clarity_test` accepts up to four screenshots by picker, drop, or paste. The chosen one is
+  shown large with a filmstrip; files are written to `.clarity/screenshots/<roundId>/` and
+  returned as `{ path, bytes }` so the agent can open one with `read_image`. Paste reads both
+  `clipboardData.files` and file items, and drop stops propagation so the harness's
+  document-level drop target does not also attach the file to the chat composer.
+- The comment composer is a two-line textarea: Enter writes a new line, Ctrl/Cmd+Enter adds the
+  comment, and comments render with their line breaks.
+- Guidance asks for one blocking pseudocode round before a non-trivial implementation, and says
+  when a UI round may be non-blocking and resolved with the recommendation instead of waiting.
+
 ## 0.2.0 — 2026-10-30
 
 The package is the repository root. What the harness loads sits beside `package.json`

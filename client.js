@@ -892,7 +892,7 @@ window.__ModuleLoader__.load({
                         h('span', { style: commentVariant }, variantLabel(round, comment.variantId)),
                         h('span', { style: { color: MUTED, fontSize: '10px' } }, anchorLabel(comment.anchor)),
                       ),
-                      h('span', { style: { overflowWrap: 'anywhere' } }, comment.text),
+                      h('span', { style: { overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' } }, comment.text),
                     ),
                     h(
                       'button',
@@ -913,7 +913,7 @@ window.__ModuleLoader__.load({
               ),
           h(
             'div',
-            { style: { display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' } },
+            { style: { display: 'flex', gap: '4px', alignItems: 'flex-end', flexWrap: 'wrap' } },
             pendingAnchor
               ? null
               : h(
@@ -927,18 +927,22 @@ window.__ModuleLoader__.load({
                   },
                   round.variants.map((variant) => h('option', { key: variant.id, value: variant.id }, variant.label)),
                 ),
-            h('input', {
+            h('textarea', {
               ref: composerRef,
               value: commentText,
+              rows: 2,
               onChange: (event) => setCommentText(event.target.value),
               onKeyDown: (event) => {
-                if (event.key === 'Enter') {
+                // Enter writes a new line; Ctrl/Cmd+Enter adds the comment.
+                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                   event.preventDefault()
                   addComment()
                 }
               },
-              placeholder: pendingAnchor ? 'What should change here?' : 'What should change?',
-              style: { ...input, flex: '1 1 140px', width: 'auto' },
+              placeholder: pendingAnchor
+                ? 'What should change here? (Ctrl+Enter adds)'
+                : 'What should change? (Ctrl+Enter adds)',
+              style: { ...input, flex: '1 1 160px', width: 'auto', minHeight: '44px', resize: 'vertical', lineHeight: '18px' },
               disabled,
             }),
             h(
@@ -1000,9 +1004,76 @@ window.__ModuleLoader__.load({
       const sent = props.sent
       const [phase, setPhase] = React.useState('ready')
       const [observed, setObserved] = React.useState('')
+      const [shots, setShots] = React.useState([])
+      const [selectedShot, setSelectedShot] = React.useState(0)
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
+      const fileRef = React.useRef(null)
+      const panelRef = React.useRef(null)
       const disabled = busy || sent !== null
+      const activeShot = Math.min(selectedShot, Math.max(0, shots.length - 1))
+
+      // Up to four PNG/JPEG/WebP files, kept as data URLs until the test is sent.
+      function addShots(files) {
+        const list = Array.from(files || []).filter(
+          (file) => /^image\/(png|jpeg|webp)$/.test(file.type) && file.size <= 8 * 1024 * 1024,
+        )
+        if (list.length === 0) return
+        setSelectedShot(shots.length + list.length - 1)
+        for (const file of list) {
+          const reader = new FileReader()
+          reader.onload = () => {
+            if (typeof reader.result !== 'string') return
+            setShots((previous) =>
+              previous.length >= 4
+                ? previous
+                : [...previous, { name: file.name || 'screenshot.png', dataUrl: reader.result }],
+            )
+          }
+          reader.readAsDataURL(file)
+        }
+      }
+
+      function removeShot(index) {
+        setShots((previous) => previous.filter((_, position) => position !== index))
+        setSelectedShot((current) => Math.max(0, Math.min(current, shots.length - 2)))
+      }
+
+      /** A pasted image arrives either as a File or as a file item, depending on the source. */
+      function clipboardImages(data) {
+        if (!data) return []
+        const files = []
+        if (data.files && data.files.length > 0) {
+          files.push(...data.files)
+        } else if (data.items) {
+          for (const item of data.items) {
+            if (item.kind !== 'file') continue
+            const file = typeof item.getAsFile === 'function' ? item.getAsFile() : null
+            if (file) files.push(file)
+          }
+        }
+        return files.filter((file) => /^image\//.test(file.type))
+      }
+
+      // Paste is scoped to this panel: the harness installs its own document
+      // drop target, and the chat composer owns pastes outside this tab.
+      React.useEffect(() => {
+        if (phase !== 'running' || disabled) return undefined
+        const onPaste = (event) => {
+          const root = panelRef.current
+          if (!root) return
+          const active = typeof document === 'undefined' ? null : document.activeElement
+          const inside =
+            (event.target && root.contains(event.target)) || (active && root.contains(active))
+          if (!inside) return
+          const files = clipboardImages(event.clipboardData)
+          if (files.length === 0) return
+          event.preventDefault()
+          addShots(files)
+        }
+        document.addEventListener('paste', onPaste)
+        return () => document.removeEventListener('paste', onPaste)
+      })
 
       async function submit(verdict) {
         if (verdict !== 'pass' && observed.trim() === '') {
@@ -1012,7 +1083,12 @@ window.__ModuleLoader__.load({
         setBusy(true)
         setError(null)
         try {
-          const body = { roundId: round.id, verdict, observed }
+          const body = {
+            roundId: round.id,
+            verdict,
+            observed,
+            screenshots: shots.map((shot) => ({ name: shot.name, dataUrl: shot.dataUrl })),
+          }
           const result = await api('/test', { method: 'POST', body: JSON.stringify(body) })
           props.onSent(result.result)
         } catch (cause) {
@@ -1058,7 +1134,7 @@ window.__ModuleLoader__.load({
             )
           : h(
               'div',
-              { style: section },
+              { style: section, ref: panelRef },
               h('div', { style: sectionTitle }, 'What did you observe?'),
               h('textarea', {
                 value: observed,
@@ -1068,6 +1144,115 @@ window.__ModuleLoader__.load({
                 style: { ...input, resize: 'vertical', minHeight: '52px' },
                 disabled,
               }),
+              h(
+                'div',
+                {
+                  style: { marginTop: '10px' },
+                  // The harness listens for files on `document` and would also add
+                  // them to the chat composer, so stop the event at this zone.
+                  onDragEnter: (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  },
+                  onDragOver: (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  },
+                  onDrop: (event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    addShots(event.dataTransfer.files)
+                  },
+                },
+                h(
+                  'div',
+                  { style: sectionTitle },
+                  shots.length === 0 ? 'Screenshot' : `Screenshot ${activeShot + 1} of ${shots.length}`,
+                ),
+                shots.length === 0
+                  ? null
+                  : h('img', {
+                      alt: '',
+                      src: shots[activeShot].dataUrl,
+                      style: {
+                        width: '100%',
+                        maxHeight: '220px',
+                        objectFit: 'contain',
+                        display: 'block',
+                        border: HAIRLINE,
+                        borderRadius: '6px',
+                        background: 'var(--dsw-alias-bg-base)',
+                      },
+                    }),
+                h(
+                  'div',
+                  { style: { display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap', alignItems: 'center' } },
+                  shots.map((shot, index) =>
+                    h(
+                      'button',
+                      {
+                        key: shot.name + String(index),
+                        type: 'button',
+                        title: shot.name,
+                        'aria-label': `Show screenshot ${index + 1}`,
+                        onClick: () => setSelectedShot(index),
+                        style: {
+                          width: '46px',
+                          height: '34px',
+                          padding: 0,
+                          overflow: 'hidden',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          background: 'transparent',
+                          border: index === activeShot ? '2px solid var(--dsw-alias-label-primary)' : HAIRLINE,
+                        },
+                      },
+                      h('img', {
+                        src: shot.dataUrl,
+                        alt: '',
+                        style: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+                      }),
+                    ),
+                  ),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      'aria-label': 'Add screenshot',
+                      style: { ...buttonBase, width: '46px', height: '34px', padding: 0 },
+                      onClick: () => fileRef.current && fileRef.current.click(),
+                    },
+                    '+',
+                  ),
+                  h('input', {
+                    ref: fileRef,
+                    type: 'file',
+                    accept: 'image/png,image/jpeg,image/webp',
+                    multiple: true,
+                    style: { display: 'none' },
+                    onChange: (event) => {
+                      addShots(event.target.files)
+                      event.target.value = ''
+                    },
+                  }),
+                ),
+                shots.length === 0
+                  ? null
+                  : h(
+                      'button',
+                      {
+                        type: 'button',
+                        style: { ...linkButton, color: MUTED, marginTop: '4px' },
+                        onClick: () => removeShot(activeShot),
+                      },
+                      'Remove',
+                    ),
+                h(
+                  'div',
+                  { style: { color: MUTED, fontSize: '10px', marginTop: '4px' } },
+                  'Paste into the note, drop, or choose a PNG/JPEG.',
+                ),
+              ),
               error ? h('div', { style: errorText, role: 'alert' }, error) : null,
               h(
                 'div',
@@ -1401,7 +1586,7 @@ window.__ModuleLoader__.load({
       },
     }
     Object.defineProperty(pluginApi, '__test', {
-      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, DecisionView },
+      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, DecisionView, TestView },
       enumerable: false,
     })
     return pluginApi

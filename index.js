@@ -13,7 +13,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, isAbsolute, relative, resolve } from 'node:path'
 
 import { renderArtifact } from './artifacts.js'
@@ -34,6 +34,11 @@ export const TEST_TOOL = 'clarity_test'
 /** Largest artifact file a round will read. */
 const MAX_ARTIFACT_BYTES = 400_000
 
+/** Screenshot limits: what one test gate will accept. */
+const MAX_SCREENSHOTS = 4
+const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024
+const MAX_BODY_BYTES = 36 * 1024 * 1024
+
 /**
  * The timing rule, published as an always-on system section.
  *
@@ -45,6 +50,8 @@ export const GUIDANCE_SECTION = 'clarity:guidance'
 export const GUIDANCE_ORDER = 2950
 export const GUIDANCE_TEXT = [
   'Open a clarity_round when a request leaves a visual or behavioural choice open — "make it nicer", "A or B", which layout — or when it criticises something already rendered: show the choice, name your recommendation, and wait, before writing any implementation.',
+  'Before implementing a non-trivial system, open one blocking round whose artifact is the core pseudocode — data flow, invariants, failure modes — and wait for approval. A wrong core is the expensive kind of wrong; a wrong surface can be revised.',
+  'Blocking is the default. When the backend can proceed without the UI answer, pass blocking: false: the call returns { status: "pending", jobId } at once, you keep working, and the decision arrives as a background job completion that you collect with job_output. If the backend is ready first, implement your recommendation and say so in the result; a late decision still arrives as a notice. Several non-blocking rounds may be open at once.',
   'Once a direction is accepted, finish the work and report. Do not open a round to confirm a decided thing, to ask permission, or to split one task into approvals. One decision per round.',
 ].join('\n\n')
 
@@ -140,13 +147,26 @@ const RESULT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    status: { type: 'string', enum: ['decided', 'tested', 'cancelled'] },
+    status: { type: 'string', enum: ['pending', 'decided', 'tested', 'cancelled'] },
     roundId: { type: 'string' },
+    jobId: { type: 'string' },
+    recommendation: { type: 'string' },
     verdict: { type: 'string', enum: ['accept', 'revise', 'reject', 'pass', 'fail', 'blocked'] },
     selected: { type: 'string' },
     comments: { type: 'array', items: COMMENT_SCHEMA },
     note: { type: 'string' },
     observed: { type: 'string' },
+    screenshots: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          path: { type: 'string' },
+          bytes: { type: 'number' },
+        },
+      },
+    },
     reason: { type: 'string' },
   },
   required: ['status', 'roundId'],
@@ -258,13 +278,14 @@ export class RoundStore {
     round.result = value
     this.settle(roundId, value)
     this.broadcast('decided', { roundId, status: round.status })
+    round.onSettled?.(value)
     return value
   }
 
   /**
    * Record a real-test verdict and resolve the waiting tool call.
    * @param {string} roundId - the round id.
-   * @param {object} payload - sanitised verdict and observed text.
+   * @param {object} payload - sanitised verdict, observed text, and screenshot paths.
    * @returns {object} the canonical result.
    */
   test(roundId, payload) {
@@ -274,11 +295,37 @@ export class RoundStore {
       roundId,
       verdict: payload.verdict,
       ...(payload.observed === '' ? {} : { observed: payload.observed }),
+      ...(payload.screenshots === undefined || payload.screenshots.length === 0
+        ? {}
+        : { screenshots: payload.screenshots }),
     }
     round.status = 'tested'
     round.result = value
     this.settle(roundId, value)
     this.broadcast('tested', { roundId, status: 'tested' })
+    round.onSettled?.(value)
+    return value
+  }
+
+  /**
+   * Cancel a round that no browser decision is resolving.
+   *
+   * Used by a backgrounded round whose job was killed: the job is the caller,
+   * so it marks the round cancelled and notifies the browser, without waiting
+   * for a modal that may never come.
+   * @param {string} roundId - the round id.
+   * @param {string} reason - why it was cancelled.
+   * @returns {object | undefined} the canonical cancelled result.
+   */
+  abandon(roundId, reason = 'the round was cancelled') {
+    const round = this.rounds.get(roundId)
+    if (round === undefined || round.status !== 'open') return undefined
+    const value = { status: 'cancelled', roundId, reason }
+    round.status = 'cancelled'
+    round.result = value
+    round.onAbandoned?.(reason)
+    this.settle(roundId, value)
+    this.broadcast('decided', { roundId, status: 'cancelled' })
     return value
   }
 
@@ -341,6 +388,9 @@ export class RoundStore {
 
   /** Close every stream and release every waiter when the plugin unloads. */
   close() {
+    for (const round of this.rounds.values()) {
+      if (round.status === 'open') round.onAbandoned?.('the plugin was unloaded')
+    }
     for (const res of [...this.clients]) {
       try {
         res.end()
@@ -393,7 +443,7 @@ export function apply(ctx) {
   ctx.effect(() => registerGuidance(ctx), 'collaborative-clarity guidance')
   ctx.effect(() => {
     const disposeRound = ctx.tools.register(decisionTool(store, ctx))
-    const disposeTest = ctx.tools.register(testTool(store))
+    const disposeTest = ctx.tools.register(testTool(store, ctx))
     return () => {
       disposeRound()
       disposeTest()
@@ -414,7 +464,8 @@ export function decisionTool(store, ctx) {
       'Open a decision round in the user\'s right Sidebar and wait for their decision.',
       'One decision, one or two variants, a named recommendation, and at least one stated foreclosure.',
       'Each variant names one file: `.html` renders as a document, Markdown as prose, any other text file as numbered source whose lines can be annotated. Keep it self-contained — no network, no external assets, no build; show final copy, mock only the change and its immediate context, and design at 360px first. The file is the record, so it can be edited and reopened without resending it.',
-      'The tool blocks until the user accepts, requests a revision, rejects, or cancels. The result is structured: { status, verdict, selected, comments, note }.',
+      'By default the call blocks until the user accepts, requests a revision, rejects, or cancels. With `blocking: false` it returns { status: "pending", roundId, jobId, recommendation } at once and the decision arrives as a background job; collect it with `job_output` (and the job settles when the user decides). Use blocking for core design, non-blocking for a UI choice the backend does not depend on.',
+      'The blocking result is structured: { status, verdict, selected, comments, note }.',
       'In this mode, do not use ask_user_question for the decision: the round is the question.',
       'If the user requests a revision, open a new round with the changed artifact; never silently rewrite the accepted one.',
     ].join(' '),
@@ -435,6 +486,11 @@ export function decisionTool(store, ctx) {
           items: { type: 'string' },
           description: 'At least one: what the recommendation makes hard, expensive, or impossible later. "Nothing" is not an answer.',
         },
+        blocking: {
+          type: 'boolean',
+          description:
+            'Default true: the call waits for the decision. False returns { status: "pending", jobId } immediately; the round becomes a background job that settles when the user decides, and `job_output` collects the decision.',
+        },
       },
       required: ['decision', 'variants', 'recommendation', 'foreclosures'],
     },
@@ -443,7 +499,7 @@ export function decisionTool(store, ctx) {
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
     },
     async execute(args, exec) {
-      refuseUnknown(args ?? {}, ['decision', 'context', 'variants', 'recommendation', 'foreclosures'], 'arguments')
+      refuseUnknown(args ?? {}, ['decision', 'context', 'variants', 'recommendation', 'foreclosures', 'blocking'], 'arguments')
       const sessionId = sessionOf(exec)
       const variants = await normaliseVariants(args.variants, workingDirectoryOf(ctx, exec))
       const recommendation = requireString(args.recommendation, 'recommendation', 200)
@@ -451,6 +507,11 @@ export function decisionTool(store, ctx) {
         throw new Error(`recommendation "${recommendation}" does not match a variant id`)
       }
       const foreclosures = normaliseStrings(args.foreclosures, 'foreclosures', 10_000, 1)
+      if (args.blocking !== undefined && typeof args.blocking !== 'boolean') {
+        throw new Error('blocking must be a boolean')
+      }
+      // Fail before publishing a round the browser would show and nobody could collect.
+      if (args.blocking === false) jobsOf(ctx)
       const round = {
         id: `clarity-${Date.now().toString(36)}-${randomUUID().slice(0, 6)}`,
         kind: 'decision',
@@ -464,24 +525,118 @@ export function decisionTool(store, ctx) {
         createdAt: Date.now(),
       }
       store.open(round)
+      if (args.blocking === false) {
+        const jobId = startRoundJob(ctx, store, round, exec)
+        return {
+          status: 'pending',
+          roundId: round.id,
+          jobId,
+          recommendation: round.recommendation,
+        }
+      }
       return await store.wait(round.id, exec.signal)
     },
   }
 }
 
 /**
+ * Register a non-blocking round as a background job.
+ *
+ * The job settles when the user decides, so the decision reaches the model as
+ * a completion notice and is collected through the ordinary `job_output`
+ * tool — the same lifecycle a background command has. Killing the job (or the
+ * owner going away) cancels the round; deciding the round settles the job.
+ *
+ * @param {object} ctx - the plugin context.
+ * @param {RoundStore} store - the round store.
+ * @param {object} round - the open round.
+ * @param {object} exec - the tool execution, for the owning session.
+ * @returns {string} the registry-issued job id.
+ */
+function startRoundJob(ctx, store, round, exec) {
+  const jobs = jobsOf(ctx)
+  let finish
+  const done = new Promise((resolve) => {
+    finish = resolve
+  })
+  let settled = false
+  const settle = (outcome) => {
+    if (settled) return
+    settled = true
+    finish(outcome)
+  }
+  round.onSettled = (value) => {
+    if (value.status === 'cancelled') {
+      settle({ status: 'killed', detail: value.reason ?? 'cancelled' })
+      return
+    }
+    settle({
+      status: 'completed',
+      detail: value.verdict ?? value.status,
+      result: JSON.stringify(value),
+    })
+  }
+  round.onAbandoned = (reason) => settle({ status: 'killed', detail: reason })
+
+  let jobId
+  try {
+    jobId = jobs.start({
+      kind: 'clarity',
+      label: `clarity: ${round.decision}`.slice(0, 160),
+      owner: exec.agent.id,
+      outputLimitBytes: 16_384,
+      run(job) {
+        job.append(`Waiting for the user's decision: ${round.decision}\n`, { channel: 'log' })
+        return {
+          cancel(reason) {
+            store.abandon(round.id, reason ?? 'cancelled by the model')
+          },
+          done,
+        }
+      },
+    })
+  } catch (cause) {
+    round.onSettled = undefined
+    round.onAbandoned = undefined
+    store.abandon(round.id, 'the round could not be registered as a background job')
+    throw new Error(
+      `could not register the round as a background job: ${cause instanceof Error ? cause.message : String(cause)}`,
+    )
+  }
+  round.jobId = jobId
+  return jobId
+}
+
+/**
+ * Read the jobs service, or explain how to get it.
+ * @param {object} ctx - the plugin context.
+ * @returns {object} the jobs registry.
+ */
+function jobsOf(ctx) {
+  const jobs = ctx.get('jobs')
+  if (jobs === undefined || typeof jobs.start !== 'function') {
+    throw new Error(
+      'blocking:false needs the jobs service: load @deepseek-ai/dsh-tool-jobs in this profile, or leave blocking at true',
+    )
+  }
+  return jobs
+}
+
+/**
  * Define the real-test tool.
  * @param {RoundStore} store - the shared round store.
+ * @param {object} ctx - the plugin context, used for the screenshot directory.
  * @returns {object} a registry-ready tool definition.
  */
-export function testTool(store) {
+export function testTool(store, ctx = { get: () => undefined }) {
   return {
     name: TEST_TOOL,
     description: [
       'Open a real-test gate in the user\'s right Sidebar and wait for the result.',
       'Use it only after the candidate has been built cold successfully: pass the commit or dirty hash, the exact cold-build command and its exit code, and a 3-7 step scenario with an expected observable, a failure signature, and a rollback.',
-      'The tool blocks while the user runs the scenario. They press "I\'m ready to test", then record pass, fail, or blocked with what they observed.',
+      'The tool blocks while the user runs the scenario. They press "I\'m ready to test", then record pass, fail, or blocked with what they observed, and may attach up to four screenshots.',
       'A pass is the only evidence that can mark the change tested. A fail is evidence too: fix, rebuild cold, and open a new test gate. Never call a feature done because contract tests are green.',
+      'Screenshots come back as `screenshots: [{ path, bytes }]`; open one with read_image when the observation alone is ambiguous.',
     ].join(' '),
     parameters: {
       type: 'object',
@@ -547,6 +702,7 @@ export function testTool(store) {
           builtAt: requireString(coldBuild.builtAt, 'coldBuild.builtAt', 200),
         },
         scenario: normalisedScenario,
+        cwd: workingDirectoryOf(ctx, exec),
         status: 'open',
         createdAt: Date.now(),
       }
@@ -759,7 +915,9 @@ export function registerApi(ctx, store) {
           if (verdict !== 'pass' && observed === '') {
             throw new HttpError(400, 'bad-request', 'fail and blocked need an observation')
           }
-          const result = store.test(roundId, { verdict, observed })
+          const round = store.requireOpen(roundId)
+          const screenshots = await saveScreenshots(round, body.screenshots)
+          const result = store.test(roundId, { verdict, observed, screenshots })
           sendJson(res, 200, { ok: true, result })
           return
         }
@@ -817,7 +975,7 @@ async function readBody(req) {
   for await (const chunk of req) {
     const buffer = /** @type {Buffer} */ (chunk)
     size += buffer.length
-    if (size > 4 * 1024 * 1024) throw new HttpError(413, 'too-large', 'request body exceeds 4 MiB')
+    if (size > MAX_BODY_BYTES) throw new HttpError(413, 'too-large', `request body exceeds ${MAX_BODY_BYTES} bytes`)
     chunks.push(buffer)
   }
   const raw = Buffer.concat(chunks).toString('utf8')
@@ -827,6 +985,65 @@ async function readBody(req) {
     throw new HttpError(400, 'bad-request', 'body must be a JSON object')
   }
   return parsed
+}
+
+/**
+ * Write the screenshots a test gate attached to disk.
+ *
+ * They are files rather than tool image content so the model opens the one it
+ * needs with `read_image`; the paths travel back in the test result. The
+ * directory is inside the project (`.clarity/screenshots/<round>/`) so the
+ * paths stay readable and the files are easy to delete.
+ *
+ * @param {object} round - the open test round, carrying its working directory.
+ * @param {unknown} value - the browser's `screenshots` array.
+ * @returns {Promise<{path: string, bytes: number}[]>} the written files.
+ */
+async function saveScreenshots(round, value) {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) throw new HttpError(400, 'bad-request', 'screenshots must be an array')
+  if (value.length > MAX_SCREENSHOTS) {
+    throw new HttpError(400, 'bad-request', `too many screenshots (max ${MAX_SCREENSHOTS})`)
+  }
+  if (value.length === 0) return []
+
+  const cwd = typeof round.cwd === 'string' && round.cwd !== '' ? round.cwd : process.cwd()
+  const directory = resolve(cwd, '.clarity', 'screenshots', round.id)
+
+  // Validate and decode every shot before touching the disk: a refused gate must
+  // not leave half its screenshots behind.
+  const decoded = []
+  for (const [index, shot] of value.entries()) {
+    if (shot === null || typeof shot !== 'object' || Array.isArray(shot)) {
+      throw new HttpError(400, 'bad-request', `screenshots[${index}] must be an object`)
+    }
+    rejectUnknown(shot, ['name', 'dataUrl'], `screenshots[${index}]`)
+    const dataUrl = requireString(shot.dataUrl, `screenshots[${index}].dataUrl`, 12_000_000)
+    const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
+    if (match === null) {
+      throw new HttpError(400, 'bad-request', `screenshots[${index}] must be a PNG, JPEG, or WebP data URL`)
+    }
+    const bytes = Buffer.from(match[2], 'base64')
+    if (bytes.length === 0) throw new HttpError(400, 'bad-request', `screenshots[${index}] is empty`)
+    if (bytes.length > MAX_SCREENSHOT_BYTES) {
+      throw new HttpError(413, 'too-large', `screenshots[${index}] exceeds ${MAX_SCREENSHOT_BYTES} bytes`)
+    }
+    const extension = match[1] === 'image/png' ? 'png' : match[1] === 'image/jpeg' ? 'jpg' : 'webp'
+    decoded.push({ bytes, extension })
+  }
+
+  await mkdir(directory, { recursive: true })
+  const saved = []
+  for (const [index, shot] of decoded.entries()) {
+    const absolute = resolve(directory, `shot-${index + 1}.${shot.extension}`)
+    await writeFile(absolute, shot.bytes)
+    const inside = !relative(cwd, absolute).startsWith('..')
+    saved.push({
+      path: inside ? relative(cwd, absolute).split('\\').join('/') : absolute,
+      bytes: shot.bytes.length,
+    })
+  }
+  return saved
 }
 
 /**
