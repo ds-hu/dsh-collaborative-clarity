@@ -23,10 +23,20 @@ function decisionArgs() {
   }
 }
 
+/** Wait for the round the tool is about to open, since artifacts may be read from disk. */
+async function firstRound(store) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const round = store.openRounds()[0]
+    if (round) return round
+    await new Promise((resolve) => setImmediate(resolve))
+  }
+  throw new Error('the tool opened no round')
+}
+
 test('a decision round resolves with the selected variant and comments', async () => {
   const store = new RoundStore()
   const pending = decisionTool(store).execute(decisionArgs(), exec())
-  const round = store.openRounds()[0]
+  const round = await firstRound(store)
   assert.equal(round.kind, 'decision')
   assert.equal(round.sessionId, 'session-1')
 
@@ -46,7 +56,7 @@ test('a decision round resolves with the selected variant and comments', async (
 test('a decision result keeps element, text, and line anchors', async () => {
   const store = new RoundStore()
   const pending = decisionTool(store).execute(decisionArgs(), exec())
-  const round = store.openRounds()[0]
+  const round = await firstRound(store)
   const comments = [
     {
       variantId: 'a',
@@ -123,7 +133,7 @@ test('a test gate resolves pass with the observation', async () => {
     },
   }
   const pending = testTool(store).execute(args, exec())
-  const round = store.openRounds()[0]
+  const round = await firstRound(store)
   assert.equal(round.kind, 'test')
   store.test(round.id, { verdict: 'pass', observed: 'One toast, no duplicate.' })
   const result = await pending

@@ -99,6 +99,16 @@ window.__ModuleLoader__.load({
       background: '#fff',
     }
     const fidelity = { padding: '6px 8px', color: MUTED, fontSize: '10px', lineHeight: '15px' }
+    const sourceLine = {
+      padding: '0 8px 5px',
+      color: MUTED,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontSize: '10px',
+      lineHeight: '14px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    }
     const buttonBase = {
       font: 'inherit',
       fontSize: '12px',
@@ -809,6 +819,7 @@ window.__ModuleLoader__.load({
                 h('span', { style: vlabel }, variant.label),
                 variant.id === round.recommendation ? h('span', { style: badge }, 'recommended') : null,
               ),
+              variant.source ? h('div', { style: sourceLine, title: variant.source }, variant.source) : null,
               h('iframe', {
                 ref: (node) => {
                   if (node) frameRefs.current.set(variant.id, node)

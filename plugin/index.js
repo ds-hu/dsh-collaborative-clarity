@@ -13,6 +13,8 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import { basename, isAbsolute, relative, resolve } from 'node:path'
 
 /** The route prefix the browser half fetches from. */
 export const API_PREFIX = '/clarity/api'
@@ -27,24 +29,46 @@ export const inject = ['tools', 'webServer']
 export const ROUND_TOOL = 'clarity_round'
 export const TEST_TOOL = 'clarity_test'
 
+/** Largest artifact document, inline or read from disk. */
+const MAX_ARTIFACT_CHARS = 400_000
+
+/**
+ * The timing rule, published as an always-on system section.
+ *
+ * It sits in the policy region rather than inside the tool description: the
+ * model meets it while deciding what to do, not while scanning a schema. The
+ * description keeps the mechanism, so the rule is stated in one place only.
+ */
+export const GUIDANCE_SECTION = 'clarity:guidance'
+export const GUIDANCE_ORDER = 2950
+export const GUIDANCE_TEXT = [
+  'Open a clarity_round when a request leaves a visual or behavioural choice open — "make it nicer", "A or B", which layout — or when it criticises something already rendered: show the choice, name your recommendation, and wait, before writing any implementation.',
+  'Once a direction is accepted, finish the work and report. Do not open a round to confirm a decided thing, to ask permission, or to split one task into approvals. One decision per round.',
+].join('\n\n')
+
 /** One variant the user can choose. */
 const VARIANT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
     id: { type: 'string', description: 'Stable id used in the result; "a" and "b" are conventional.' },
-    label: { type: 'string', description: 'The label shown above the artifact.' },
+    label: { type: 'string', description: 'The label shown above the artifact. Defaults to the file name.' },
     html: {
       type: 'string',
       description:
-        'A complete self-contained HTML document. No network, no external assets, no build. Final copy, not lorem. Design at 360px first.',
+        'A complete self-contained HTML document, written inline. No network, no external assets, no build. Final copy, not lorem. Design at 360px first.',
+    },
+    path: {
+      type: 'string',
+      description:
+        'Path to a complete HTML document already on disk, shown instead of `html`. Relative paths resolve against the session working directory. Give exactly one of `html` and `path`; prefer a file, so the artifact can be edited, reopened, and read without resending it.',
     },
     note: { type: 'string', description: 'One sentence of framing shown under the label.' },
     real: { type: 'array', items: { type: 'string' }, description: 'What this artifact actually is.' },
     mocked: { type: 'array', items: { type: 'string' }, description: 'What is faked.' },
     omitted: { type: 'array', items: { type: 'string' }, description: 'What is deliberately not shown.' },
   },
-  required: ['id', 'label', 'html'],
+  required: ['id'],
 }
 
 /**
@@ -346,14 +370,29 @@ class HttpError extends Error {
 }
 
 /**
+ * Publish the timing rule into the system prompt.
+ *
+ * The prompt service is read without an inject requirement, so a composition
+ * without it keeps the tools and loses only the section.
+ * @param {object} ctx - the plugin context.
+ * @returns {() => void} the disposer.
+ */
+export function registerGuidance(ctx) {
+  const systemPrompt = ctx.get('systemPrompt')
+  if (systemPrompt === undefined || typeof systemPrompt.section !== 'function') return () => {}
+  return systemPrompt.section({ name: GUIDANCE_SECTION, order: GUIDANCE_ORDER, text: GUIDANCE_TEXT })
+}
+
+/**
  * Mount the host half.
  * @param {import('@deepseek-ai/cordis').Context} ctx - the plugin context.
  */
 export function apply(ctx) {
   const store = new RoundStore()
   ctx.effect(() => registerApi(ctx, store), 'collaborative-clarity api')
+  ctx.effect(() => registerGuidance(ctx), 'collaborative-clarity guidance')
   ctx.effect(() => {
-    const disposeRound = ctx.tools.register(decisionTool(store))
+    const disposeRound = ctx.tools.register(decisionTool(store, ctx))
     const disposeTest = ctx.tools.register(testTool(store))
     return () => {
       disposeRound()
@@ -365,15 +404,16 @@ export function apply(ctx) {
 /**
  * Define the decision tool.
  * @param {RoundStore} store - the shared round store.
+ * @param {object} ctx - the plugin context, used to find the session directory.
  * @returns {object} a registry-ready tool definition.
  */
-export function decisionTool(store) {
+export function decisionTool(store, ctx) {
   return {
     name: ROUND_TOOL,
     description: [
       'Open a decision round in the user\'s right Sidebar and wait for their decision.',
-      'Use it for a choice that changes the product: one decision, one or two minimal HTML variants, a named recommendation, and at least one stated foreclosure.',
-      'The HTML variant must be a complete self-contained document with no network and no build; show final copy, mock only the change and its immediate context, and design at 360px first.',
+      'One decision, one or two variants, a named recommendation, and at least one stated foreclosure.',
+      'Each variant is one complete self-contained HTML document: inline `html`, or `path` to a file already on disk. No network, no external assets, no build; show final copy, mock only the change and its immediate context, and design at 360px first.',
       'The tool blocks until the user accepts, requests a revision, rejects, or cancels. The result is structured: { status, verdict, selected, comments, note }.',
       'In this mode, do not use ask_user_question for the decision: the round is the question.',
       'If the user requests a revision, open a new round with the changed artifact; never silently rewrite the accepted one.',
@@ -404,7 +444,7 @@ export function decisionTool(store) {
     },
     async execute(args, exec) {
       const sessionId = sessionOf(exec)
-      const variants = normaliseVariants(args.variants)
+      const variants = await normaliseVariants(args.variants, workingDirectoryOf(ctx, exec))
       const recommendation = requireString(args.recommendation, 'recommendation', 200)
       if (!variants.some((variant) => variant.id === recommendation)) {
         throw new Error(`recommendation "${recommendation}" does not match a variant id`)
@@ -526,31 +566,81 @@ function sessionOf(exec) {
 }
 
 /**
- * Validate and copy the variants.
+ * Validate and copy the variants, reading any file-backed document.
  * @param {unknown} value - the model's variant array.
- * @returns {object[]} clean variants.
+ * @param {string} cwd - directory for relative artifact paths.
+ * @returns {Promise<object[]>} clean variants.
  */
-function normaliseVariants(value) {
+export async function normaliseVariants(value, cwd = process.cwd()) {
   if (!Array.isArray(value) || value.length < 1 || value.length > 2) {
     throw new Error('variants must contain one or two items')
   }
   const seen = new Set()
-  return value.map((variant, index) => {
+  const variants = []
+  for (const [index, variant] of value.entries()) {
     if (variant === null || typeof variant !== 'object') throw new Error(`variants[${index}] must be an object`)
     const id = requireString(variant.id, `variants[${index}].id`, 40)
     if (seen.has(id)) throw new Error(`duplicate variant id: ${id}`)
     seen.add(id)
-    const html = requireString(variant.html, `variants[${index}].html`, 400_000)
-    return {
+    const { html, source } = await readArtifact(variant, index, cwd)
+    variants.push({
       id,
-      label: requireString(variant.label, `variants[${index}].label`, 120),
+      label: variant.label === undefined ? (source ? basename(source) : id) : requireString(variant.label, `variants[${index}].label`, 120),
       html,
+      ...(source === undefined ? {} : { source }),
       note: variant.note === undefined ? '' : requireString(variant.note, `variants[${index}].note`, 500),
       real: normaliseStrings(variant.real, `variants[${index}].real`, 500, 0),
       mocked: normaliseStrings(variant.mocked, `variants[${index}].mocked`, 500, 0),
       omitted: normaliseStrings(variant.omitted, `variants[${index}].omitted`, 500, 0),
-    }
-  })
+    })
+  }
+  return variants
+}
+
+/**
+ * Resolve one variant's document from either its inline text or a file.
+ * @param {object} variant - the model's variant.
+ * @param {number} index - its position, for diagnostics.
+ * @param {string} cwd - directory for relative paths.
+ * @returns {Promise<{html: string, source?: string}>} the document and where it came from.
+ */
+async function readArtifact(variant, index, cwd) {
+  const inline = variant.html !== undefined
+  if (inline === (variant.path !== undefined)) {
+    throw new Error(`variants[${index}] needs exactly one of html and path`)
+  }
+  if (inline) return { html: requireString(variant.html, `variants[${index}].html`, MAX_ARTIFACT_CHARS) }
+
+  const requested = requireString(variant.path, `variants[${index}].path`, 2_000)
+  const absolute = isAbsolute(requested) ? requested : resolve(cwd, requested)
+  let html
+  try {
+    html = await readFile(absolute, 'utf8')
+  } catch (cause) {
+    throw new Error(`variants[${index}].path could not be read: ${absolute} (${cause.code ?? cause.message})`)
+  }
+  if (html.trim() === '') throw new Error(`variants[${index}].path is empty: ${absolute}`)
+  if (html.length > MAX_ARTIFACT_CHARS) {
+    throw new Error(`variants[${index}].path is too large (max ${MAX_ARTIFACT_CHARS} characters): ${absolute}`)
+  }
+  const inside = !relative(cwd, absolute).startsWith('..')
+  return { html, source: inside ? relative(cwd, absolute).split('\\').join('/') : absolute }
+}
+
+/**
+ * Find the directory relative artifact paths resolve against.
+ * @param {object} ctx - the plugin context.
+ * @param {object} exec - the tool execution.
+ * @returns {string} the session working directory, or the process directory.
+ */
+function workingDirectoryOf(ctx, exec) {
+  try {
+    const cwd = ctx.get('sessions')?.get?.(exec.agent.id)?.header?.cwd
+    if (typeof cwd === 'string' && cwd !== '') return cwd
+  } catch {
+    // The session store is unavailable; fall back to the process directory.
+  }
+  return process.cwd()
 }
 
 /**

@@ -20,6 +20,18 @@ The publishable package is this `plugin/` directory, not the repository root. Th
 is a bundle (`dsh.bundle.patch`) and a Web Client half (`dsh.client`), with no build step
 and no dependencies outside the harness.
 
+## The prompt
+
+The plugin publishes one system section, `clarity:guidance` at order `2950` — inside the
+tool-section region, between `tool:report` and `tool:computer_use`. It carries the timing
+rule only: open a round when a request leaves a visual or behavioural choice open, and do
+not open one once a direction is accepted. The tool description carries the mechanism, so
+each fact is stated once.
+
+The section is registered through `ctx.get('systemPrompt')` rather than an inject
+requirement: a composition without the prompt service keeps the tools and loses only the
+section. There is no switch — disable the plugin to drop it.
+
 ## Tools
 
 ### `clarity_round`
@@ -27,6 +39,10 @@ and no dependencies outside the harness.
 Opens a decision round and waits.
 
 - one decision, one or two self-contained HTML variants;
+- each variant carries its document inline (`html`) or by reference (`path`, resolved
+  against the session working directory), never both; a file-backed variant is recorded in
+  the round with the `source` it came from, so the artifact can be edited and reopened
+  without resending it;
 - a named recommendation and at least one stated foreclosure;
 - the user selects, comments, revises, rejects, or cancels;
 - each comment may carry an `anchor` (`element`, `text`, `line`, or `variant`) and an
@@ -88,6 +104,8 @@ node --check plugin/client.js
 node plugin/test/store.test.mjs
 node plugin/test/client.test.mjs
 node plugin/test/api.test.mjs
+node plugin/test/variant.test.mjs
+node plugin/test/guidance.test.mjs
 ```
 
 `node --test` is avoided because this sandbox denies the child process it spawns.
