@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.2 — 2026-10-31
+
+Markdown artifacts are parsed by `markdown-it` instead of a local subset, so a table now reaches
+the panel as a table. Published to npm as `@ds-hu/dsh-collaborative-clarity@0.3.2`.
+
+- GFM tables render with their alignment, and a cell's inline syntax (`code`, bold, links)
+  behaves as it does everywhere else. A row without its `--- | ---` delimiter line is still
+  prose, and an escaped `\|` stays inside its cell.
+- The rest of CommonMark/GFM arrives with it: nested lists, setext headings, strikethrough, and
+  bare URLs as links — all of which used to leak through as literal text.
+- The security shape is unchanged: raw HTML stays escaped (`html: false`), a
+  `javascript:`/`vbscript:`/`file:` destination never reaches an `href`, and an image becomes a
+  link to its source rather than a fetch from the sandboxed document.
+- The hand-written block parser is gone; `artifacts.js` keeps only the document wrappers. The
+  package now has one runtime dependency, `markdown-it` (pure JavaScript), and the publish
+  workflow installs it before running the tests.
+
 ## 0.3.1 — 2026-10-31
 
 A round waiting in a conversation you left is no longer lost when you come back. Published to
