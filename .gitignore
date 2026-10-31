@@ -13,5 +13,6 @@ node_modules/
 dist/
 *.log
 
-# pnpm writes one on any `pnpm run` even though nothing is installed
+# Consumers resolve `markdown-it` from the published range; this checkout's lockfile
+# pins only a local install, so it stays out of the history.
 pnpm-lock.yaml

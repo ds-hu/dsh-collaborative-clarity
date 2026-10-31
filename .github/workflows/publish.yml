@@ -36,6 +36,8 @@ jobs:
           node-version: 24
       - name: Install a CLI that speaks trusted publishing
         run: npm install --global npm@11.17.0
+      - name: Install the runtime dependency
+        run: npm install --no-audit --no-fund
       - name: Test
         run: |
           node scripts/run-tests.mjs

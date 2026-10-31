@@ -14,6 +14,8 @@
  * which never enters `textContent`.
  */
 
+import MarkdownIt from 'markdown-it'
+
 /** Extensions shown as a document, unchanged. */
 const DOCUMENT = new Set(['html', 'htm', 'svg'])
 
@@ -84,6 +86,9 @@ export function proseDocument(text) {
       'pre{margin:0 0 10px;overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--chip);padding:8px 10px}',
       'pre code{background:none;padding:0;font-size:10.5px;line-height:1.65}',
       'blockquote{margin:0 0 10px;padding-left:10px;border-left:2px solid var(--acc);color:var(--dim)}',
+      'table{margin:0 0 12px;border-collapse:collapse;width:100%;font-size:12px}',
+      'th,td{border:1px solid var(--line);padding:4px 8px;vertical-align:top;text-align:left}',
+      'th{background:var(--chip);font-weight:600}',
       'a{color:var(--acc)}hr{border:0;border-top:1px solid var(--line);margin:14px 0}',
     ].join(''),
     `<div>${renderMarkdown(text)}</div>`,
@@ -91,128 +96,31 @@ export function proseDocument(text) {
 }
 
 /**
- * Render the Markdown subset a review needs: headings, lists, quotes, rules,
- * fenced code, and inline code, bold, italic, and links.
+ * The engine. Raw HTML stays escaped (`html: false`), so a file can never inject
+ * elements into the panel, and markdown-it drops `javascript:`, `vbscript:`, and
+ * `file:` destinations before they can reach an `href`.
+ */
+const markdown = new MarkdownIt({ html: false, linkify: true })
+
+/**
+ * An image would make the sandboxed document fetch something, so it becomes a
+ * link to its source labelled with its alt text: the document stays network-free.
+ */
+markdown.renderer.rules.image = (tokens, index) => {
+  const token = tokens[index]
+  const source = token.attrGet('src') ?? ''
+  const label = (token.content || '').trim() || source
+  return `<a href="${escapeAttribute(source)}" rel="noreferrer">${escapeHtml(label)}</a>`
+}
+
+/**
+ * Render Markdown as the HTML the prose document carries: CommonMark blocks and
+ * inline syntax, plus GFM tables, strikethrough, and bare-URL links.
  * @param {string} text - the Markdown source.
  * @returns {string} HTML fragments.
  */
 export function renderMarkdown(text) {
-  const lines = text.replace(/\r\n?/g, '\n').split('\n')
-  const out = []
-  let index = 0
-  while (index < lines.length) {
-    const line = lines[index]
-    if (line.trim() === '') {
-      index += 1
-      continue
-    }
-
-    const fence = /^\s{0,3}(`{3,}|~{3,})/.exec(line)
-    if (fence) {
-      const marker = fence[1][0]
-      const code = []
-      index += 1
-      while (index < lines.length && !new RegExp(`^\\s{0,3}${marker}{3,}\\s*$`).test(lines[index])) {
-        code.push(lines[index])
-        index += 1
-      }
-      index += 1
-      out.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`)
-      continue
-    }
-
-    const heading = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line)
-    if (heading) {
-      const level = heading[1].length
-      out.push(`<h${level}>${inline(heading[2])}</h${level}>`)
-      index += 1
-      continue
-    }
-
-    if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line)) {
-      out.push('<hr>')
-      index += 1
-      continue
-    }
-
-    if (/^\s{0,3}>/.test(line)) {
-      const quoted = []
-      while (index < lines.length && /^\s{0,3}>/.test(lines[index])) {
-        quoted.push(lines[index].replace(/^\s{0,3}>\s?/, ''))
-        index += 1
-      }
-      out.push(`<blockquote>${renderMarkdown(quoted.join('\n'))}</blockquote>`)
-      continue
-    }
-
-    const bullet = /^\s{0,3}([-*+]|\d+[.)])\s+(.*)$/.exec(line)
-    if (bullet) {
-      const ordered = /\d/.test(bullet[1])
-      const pattern = ordered ? /^\s{0,3}\d+[.)]\s+(.*)$/ : /^\s{0,3}[-*+]\s+(.*)$/
-      const items = []
-      let current = null
-      while (index < lines.length) {
-        const item = pattern.exec(lines[index])
-        if (item) {
-          current = [item[1].trim()]
-          items.push(current)
-          index += 1
-          continue
-        }
-        if (current !== null && /^\s{2,}\S/.test(lines[index])) {
-          current.push(lines[index].trim())
-          index += 1
-          continue
-        }
-        if (lines[index].trim() === '') {
-          let peek = index + 1
-          while (peek < lines.length && lines[peek].trim() === '') peek += 1
-          const next = lines[peek]
-          if (next !== undefined && (pattern.test(next) || /^\s{2,}\S/.test(next))) {
-            index = peek
-            continue
-          }
-        }
-        break
-      }
-      const tag = ordered ? 'ol' : 'ul'
-      out.push(`<${tag}>${items.map((parts) => `<li>${inline(parts.join(' '))}</li>`).join('')}</${tag}>`)
-      continue
-    }
-
-    const paragraph = []
-    while (index < lines.length && lines[index].trim() !== '' && !startsBlock(lines[index])) {
-      paragraph.push(lines[index].trim())
-      index += 1
-    }
-    if (paragraph.length > 0) out.push(`<p>${inline(paragraph.join(' '))}</p>`)
-  }
-  return out.join('\n')
-}
-
-/**
- * Whether a line opens a block rather than continuing a paragraph.
- * @param {string} line - one Markdown line.
- * @returns {boolean} true when a block starts here.
- */
-function startsBlock(line) {
-  return /^\s{0,3}(#{1,6}\s|>|[-*+]\s|\d+[.)]\s|`{3,}|~{3,}|([-*_])(\s*\2){2,}\s*$)/.test(line)
-}
-
-/**
- * Apply inline Markdown to one line of already-escaped text.
- * @param {string} text - raw Markdown text.
- * @returns {string} HTML with inline formatting.
- */
-function inline(text) {
-  let out = escapeHtml(text)
-  out = out.replace(/`([^`]+)`/g, (_match, code) => `<code>${code}</code>`)
-  out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-  out = out.replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
-  out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, href) =>
-    /^\s*(javascript|data|vbscript):/i.test(href) ? match : `<a href="${href}" rel="noreferrer">${label}</a>`,
-  )
-  return out
+  return markdown.render(text)
 }
 
 /** The monospace stack, repeated by every generated document. */

@@ -12,7 +12,11 @@ async function withProject(body) {
   try {
     await mkdir(join(root, 'docs'), { recursive: true })
     await writeFile(join(root, 'docs', 'a.html'), '<!doctype html><h1>From disk</h1>', 'utf8')
-    await writeFile(join(root, 'docs', 'notes.md'), '# Notes\n\n- one\n', 'utf8')
+    await writeFile(
+      join(root, 'docs', 'notes.md'),
+      '# Notes\n\n- one\n\n| a | b |\n| --- | --- |\n| c | d |\n',
+      'utf8',
+    )
     await writeFile(join(root, 'docs', 'pick.ts'), 'export const a = 1\nexport const b = 2\n', 'utf8')
     await writeFile(join(root, 'blank.md'), '   \n', 'utf8')
     await writeFile(join(root, 'blob.bin'), Buffer.from([1, 0, 2, 3]))
@@ -40,7 +44,8 @@ test('a Markdown file arrives as prose', async () => {
   await withProject(async (root) => {
     const [variant] = await normaliseVariants([{ id: 'a', path: 'docs/notes.md' }], root)
     assert.match(variant.html, /<h1>Notes<\/h1>/)
-    assert.match(variant.html, /<ul><li>one<\/li><\/ul>/)
+    assert.match(variant.html, /<ul>\s*<li>one<\/li>\s*<\/ul>/)
+    assert.match(variant.html, /<table>[\s\S]*<td>c<\/td>[\s\S]*<\/table>/, 'a table reaches the panel intact')
   })
 })
 

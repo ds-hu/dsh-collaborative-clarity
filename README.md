@@ -23,8 +23,9 @@ dsh plugin --profile web add github:ds-hu/dsh-collaborative-clarity
 ```
 
 `dsh.bundle.patch` contributes one Loader row (`collaborative-clarity`) and `dsh.client`
-declares the browser half. There is no build step and no dependency outside the harness, so
-there is no `prepare` script for pnpm to block and no `allowBuilds` line to approve.
+declares the browser half. There is no build step. The one runtime dependency is
+`markdown-it` (pure JavaScript, nothing to compile), so there is still no `prepare` script for
+pnpm to block and no `allowBuilds` line to approve.
 
 **Coming from the `plugin/` layout (≤ 0.1.0):** the installed link points at a directory that
 no longer exists, so remove and re-add:
@@ -88,12 +89,15 @@ non-blocking request is refused before any round is published.
 | Extension | Rendering |
 | --- | --- |
 | `.html`, `.htm`, `.svg` | the document, unchanged |
-| `.md`, `.markdown`, `.mdown` | prose: headings, lists, quotes, rules, fenced code, inline code, bold, italic, links |
+| `.md`, `.markdown`, `.mdown` | prose: CommonMark blocks and inline syntax, GFM tables, strikethrough, bare-URL links |
 | anything else | numbered source, `data-line-start="1"`, path on every line anchor |
 
-The Markdown subset is deliberately small: no tables, no HTML passthrough (it is escaped), no
-nested lists. The source view keeps one text node per line and draws its gutter with a CSS
-counter, so `pre.textContent` still maps a click to the line the user pointed at.
+Markdown is parsed by `markdown-it`, so tables, nested lists, setext headings, strikethrough, and
+autolinks are CommonMark/GFM rules rather than a local subset. Raw HTML stays escaped
+(`html: false`), a `javascript:`-style destination never reaches an `href`, and an image becomes
+a link to its source: the sandboxed document must make no network request. The source view keeps
+one text node per line and draws its gutter with a CSS counter, so `pre.textContent` still maps a
+click to the line the user pointed at.
 
 ### `clarity_test`
 

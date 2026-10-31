@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { renderArtifact, renderMarkdown, sourceDocument } from '../artifacts.js'
+import { proseDocument, renderArtifact, renderMarkdown, sourceDocument } from '../artifacts.js'
 
 test('an HTML file passes through untouched', () => {
   const html = '<!doctype html><h1>Hi</h1>'
@@ -31,14 +31,72 @@ test('Markdown becomes prose', () => {
   assert.match(out, /<strong>bold<\/strong>/)
   assert.match(out, /<em>lean<\/em>/)
   assert.match(out, /<code>code<\/code>/)
-  assert.match(out, /<ul><li>one<\/li><li>two<\/li><\/ul>/)
-  assert.match(out, /<pre><code>const x = 1 &lt; 2<\/code><\/pre>/)
+  assert.match(out, /<ul>\s*<li>one<\/li>\s*<li>two<\/li>\s*<\/ul>/)
+  assert.match(out, /<pre><code class="language-ts">const x = 1 &lt; 2\n<\/code><\/pre>/)
 })
 
 test('Markdown never lets raw HTML through', () => {
   const out = renderMarkdown('<img src=x onerror=alert(1)>')
   assert.equal(out.includes('<img'), false)
   assert.match(out, /&lt;img/)
+})
+
+test('a GFM table becomes a real table, and a column keeps its alignment', () => {
+  const out = renderMarkdown(
+    ['| Step | Expected | Rollback |', '| --- | :---: | --- |', '| open the tab | a ring | close it |'].join('\n'),
+  )
+  assert.match(out, /<table>/)
+  assert.match(out, /<thead>/)
+  assert.match(out, /<th>Step<\/th>/)
+  assert.match(out, /<th style="text-align:center">Expected<\/th>/)
+  assert.match(out, /<td>open the tab<\/td>/)
+  assert.match(out, /<td style="text-align:center">a ring<\/td>/)
+})
+
+test('a table row needs its delimiter row, or it stays prose', () => {
+  const out = renderMarkdown('| a | b |\n| c | d |')
+  assert.equal(out.includes('<table>'), false)
+})
+
+test('an escaped pipe stays inside its cell', () => {
+  const out = renderMarkdown('| a \\| b | c |\n| --- | --- |\n| d | e |')
+  assert.match(out, /<th>a \| b<\/th>/)
+})
+
+test('a table cell cannot smuggle HTML', () => {
+  const out = renderMarkdown('| a |\n| --- |\n| <b>x</b> |')
+  assert.equal(out.includes('<b>'), false)
+  assert.match(out, /&lt;b&gt;x&lt;\/b&gt;/)
+})
+
+test('the prose document carries the rules its table needs', () => {
+  const doc = proseDocument('| a |\n| --- |\n| b |')
+  assert.match(doc, /<table>/)
+  assert.match(doc, /th,td\{border:1px solid/)
+})
+
+test('an image becomes a link, so the document fetches nothing', () => {
+  const out = renderMarkdown('![a diagram](https://example.com/d.png)')
+  assert.equal(out.includes('<img'), false)
+  assert.match(out, /<a href="https:\/\/example\.com\/d\.png"[^>]*>a diagram<\/a>/)
+})
+
+test('a link to a script scheme stays text', () => {
+  const out = renderMarkdown('[click](javascript:alert(1))')
+  assert.equal(out.includes('href="javascript'), false)
+  assert.match(out, /\[click\]/)
+})
+
+test('a bare URL becomes a link, and a nested list keeps its level', () => {
+  const out = renderMarkdown('see https://example.com/x\n\n1. a\n   - b')
+  assert.match(out, /<a href="https:\/\/example\.com\/x">/)
+  assert.match(out, /<ol>\s*<li>a\s*<ul>\s*<li>b<\/li>/)
+})
+
+test('GFM strikethrough renders as a strike, not as tildes', () => {
+  const out = renderMarkdown('~~gone~~')
+  assert.match(out, /<s>gone<\/s>/)
+  assert.equal(out.includes('~~'), false)
 })
 
 test('a source file keeps one text node per line, so a click maps to a line', () => {
