@@ -231,12 +231,16 @@ export class RoundStore {
         if (this.waiters.get(roundId) !== entry) return
         this.waiters.delete(roundId)
         signal?.removeEventListener('abort', onAbort)
+        // The caller is gone, so nobody can collect this round: close it and
+        // tell the browser, or it stays on screen (and in `/rounds`) forever.
+        this.abandon(roundId, 'the tool call was aborted')
         resolve({ status: 'cancelled', roundId, reason: 'the tool call was aborted' })
       }
       entry.onAbort = onAbort
       this.waiters.set(roundId, entry)
       if (signal?.aborted) {
         this.waiters.delete(roundId)
+        this.abandon(roundId, 'the tool call was aborted')
         resolve({ status: 'cancelled', roundId, reason: 'the tool call was aborted' })
         return
       }

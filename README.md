@@ -113,9 +113,12 @@ as a job. The model sees the structured result, not the UI activity.
 
 ## The sidebar
 
-The `Clarity` tab is registered under `sidebar.right.pane.tab`, is `multiple: true`, and has a
-guide entry. A round opens automatically on the mounted conversation and can also be opened
-from the guide; the guide tab falls back to the last round remembered for that session.
+The `Clarity` tab is registered under `sidebar.right.pane.tab`, is one tab per conversation, and
+has a guide entry. A round opens automatically on the mounted conversation, and opening a
+conversation whose round is still waiting brings it back. The tab holds no round id of its own:
+on every mount, reconnect, and round event it asks the host (`GET /clarity/api/rounds`) what is
+open in that conversation, so a reload, a layout switch, or a second window cannot leave it
+pointing at a round that no longer exists.
 
 While a round waits, the session row gets a runtime `pendingInteraction` of kind `question`, so
 the shared warning dot and the trailing `Answer` label appear. The row also gets a yellow

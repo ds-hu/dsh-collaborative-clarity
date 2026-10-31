@@ -36,10 +36,13 @@ function decisionArgs() {
 
 /** Wait for the round the tool is about to open, since artifacts may be read from disk. */
 async function firstRound(store) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     const round = store.openRounds()[0]
     if (round) return round
-    await new Promise((resolve) => setImmediate(resolve))
+    // A real timer, not `setImmediate`: the artifact read happens on the
+    // threadpool, and fifty immediate turns can pass before it lands on a
+    // loaded machine — which made this helper the only flaky thing in the suite.
+    await new Promise((resolve) => setTimeout(resolve, 5))
   }
   throw new Error('the tool opened no round')
 }
@@ -118,6 +121,42 @@ test('an aborted wait resolves cancelled, not a rejection', async () => {
   const result = await pending
   assert.equal(result.status, 'cancelled')
   assert.match(result.reason, /aborted/)
+  // Nobody can collect this round any more; leaving it open would keep it on
+  // screen and in `/rounds` forever.
+  assert.equal(store.get(result.roundId).status, 'cancelled')
+  assert.equal(store.openRounds().length, 0)
+})
+
+test('aborting a waiting round closes it and tells the browser', async () => {
+  const store = new RoundStore()
+  const run = exec()
+  const pending = decisionTool(store, ctx()).execute(decisionArgs(), run)
+  const round = await firstRound(store)
+
+  const frames = []
+  let release
+  const response = {
+    writeHead() {},
+    write(frame) {
+      frames.push(frame)
+    },
+    end() {},
+    on(name, fn) {
+      if (name === 'close') release = fn
+    },
+  }
+  store.subscribe(response)
+
+  try {
+    run.controller.abort()
+    const result = await pending
+    assert.equal(result.status, 'cancelled')
+    assert.equal(store.get(round.id).status, 'cancelled')
+    assert.equal(store.openRounds().length, 0)
+    assert.match(frames.join(''), /event: decided/)
+  } finally {
+    release?.()
+  }
 })
 
 test('a test gate refuses a cold build that did not pass', async () => {

@@ -25,7 +25,7 @@ class FakeEventSource {
   }
 }
 
-function loadClient(ReactOverride) {
+function loadClient(ReactOverride, fetchImpl) {
   let registration
   const sandbox = {
     window: {
@@ -37,7 +37,7 @@ function loadClient(ReactOverride) {
     },
     EventSource: FakeEventSource,
     console,
-    fetch: async () => ({ ok: true, json: async () => ({}) }),
+    fetch: fetchImpl || (async () => ({ ok: true, json: async () => ({}) })),
   }
   vm.runInNewContext(code, sandbox, { filename: 'client.js' })
   assert.ok(registration, 'the bundle registers itself')
@@ -48,6 +48,7 @@ function loadClient(ReactOverride) {
     Fragment: 'Fragment',
     useState: () => [undefined, () => {}],
     useEffect: () => {},
+    useRef: () => ({ current: null }),
   }
   return registration.factory((specifier) => {
     if (specifier === 'react') return React
@@ -100,6 +101,55 @@ function statefulReact() {
   }
 }
 
+/**
+ * A hook runtime that runs effects once and lets their async state updates
+ * settle, so a component's own data path can be asserted after one render.
+ */
+function effectReact() {
+  const hooks = []
+  let cursor = 0
+  let effects = []
+  const React = {
+    Fragment: 'Fragment',
+    createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
+    useState(initial) {
+      const index = cursor++
+      if (!(index in hooks)) hooks[index] = initial
+      return [
+        hooks[index],
+        (next) => {
+          hooks[index] = typeof next === 'function' ? next(hooks[index]) : next
+        },
+      ]
+    },
+    useRef(initial) {
+      const index = cursor++
+      if (!(index in hooks)) hooks[index] = { current: initial }
+      return hooks[index]
+    },
+    useEffect(fn) {
+      const index = cursor++
+      if (!(index in hooks)) {
+        hooks[index] = true
+        effects.push(fn)
+      }
+    },
+  }
+  return {
+    React,
+    async render(component, props) {
+      cursor = 0
+      effects = []
+      let tree = component(props)
+      for (const effect of effects) effect()
+      for (let i = 0; i < 20; i += 1) await Promise.resolve()
+      cursor = 0
+      tree = component(props)
+      return tree
+    },
+  }
+}
+
 function findNode(tree, predicate) {
   if (tree === null || tree === undefined || typeof tree !== 'object') return null
   if (Array.isArray(tree)) {
@@ -119,6 +169,8 @@ function findNode(tree, predicate) {
 
 function makeCtx() {
   const calls = { openTab: [], registered: [], bodies: [], titles: [] }
+  let mounted = 'session-1'
+  const mountedListeners = new Set()
   const ctx = {
     effect(fn) {
       const dispose = fn()
@@ -142,7 +194,13 @@ function makeCtx() {
       },
     },
     sidebarRight: {
-      mounted: { getSnapshot: () => 'session-1' },
+      mounted: {
+        getSnapshot: () => mounted,
+        subscribe(listener) {
+          mountedListeners.add(listener)
+          return () => mountedListeners.delete(listener)
+        },
+      },
       openTab(kind, options) {
         calls.openTab.push({ kind, options })
       },
@@ -153,10 +211,18 @@ function makeCtx() {
       },
     },
   }
-  return { ctx, calls }
+  return {
+    ctx,
+    calls,
+    /** Switch the conversation the main column shows, as the seat reports it. */
+    select(sessionId) {
+      mounted = sessionId
+      for (const listener of mountedListeners) listener()
+    },
+  }
 }
 
-test('the bundle registers a multiple tab, a body, a title, and a guide entry', () => {
+test('the bundle registers a per-conversation tab, a body, a title, and a guide entry', () => {
   const client = loadClient()
   assert.deepEqual([...client.inject].sort(), ['sidebarRight', 'sidebarRightTabs', 'slots', 'uiSession'])
   const { ctx, calls } = makeCtx()
@@ -166,7 +232,9 @@ test('the bundle registers a multiple tab, a body, a title, and a guide entry', 
   const definition = calls.registered[0]
   assert.equal(definition.id, 'dsh-collaborative-clarity')
   assert.equal(definition.kind, 'clarity')
-  assert.equal(definition.multiple, true)
+  // One tab per conversation: a second round navigates the existing tab so a
+  // restored tab cannot stay pinned to an older round id.
+  assert.equal(definition.multiple, false)
   assert.equal(definition.guide.length, 1)
   assert.equal(definition.guide[0].id, 'clarity')
 
@@ -326,4 +394,92 @@ test('a round event opens a tab only for the mounted conversation', () => {
   assert.equal(calls.openTab.length, 1)
   assert.equal(calls.openTab[0].kind, 'clarity')
   assert.equal(calls.openTab[0].options.params.roundId, 'r1')
+})
+
+test('a round that opened in the background surfaces when its conversation comes back', () => {
+  const client = loadClient()
+  const { ctx, calls, select } = makeCtx()
+  client.apply(ctx)
+
+  const source = FakeEventSource.last
+  source.emit('round', { id: 'r1', sessionId: 'session-1', decision: 'One?' })
+  source.emit('round', { id: 'r2', sessionId: 'session-2', decision: 'Two?' })
+  assert.equal(calls.openTab.length, 1, 'the background round did not steal the tab')
+  calls.openTab.length = 0
+
+  select('session-3')
+  assert.equal(calls.openTab.length, 0, 'a conversation with no round opens nothing')
+
+  select('session-2')
+  assert.equal(calls.openTab.length, 1, 'the waiting round opens with its conversation')
+  assert.equal(calls.openTab[0].options.params.roundId, 'r2')
+})
+
+test('answering one conversation leaves another conversation waiting', () => {
+  const client = loadClient()
+  const { ctx, calls, select } = makeCtx()
+  client.apply(ctx)
+
+  const source = FakeEventSource.last
+  source.emit('round', { id: 'r1', sessionId: 'session-1', decision: 'One?' })
+  source.emit('round', { id: 'r2', sessionId: 'session-2', decision: 'Two?' })
+  calls.openTab.length = 0
+
+  source.emit('decided', { roundId: 'r2' })
+  select('session-2')
+  assert.equal(calls.openTab.length, 0, 'the answered round no longer opens')
+
+  select('session-1')
+  assert.equal(calls.openTab.length, 1, 'the untouched conversation still waits')
+  assert.equal(calls.openTab[0].options.params.roundId, 'r1')
+})
+
+test('reconnecting re-reads the host open rounds instead of trusting the page', async () => {
+  const rounds = [{ id: 'r7', sessionId: 'session-1', decision: 'Recovered?', status: 'open', createdAt: 1 }]
+  const seen = []
+  const client = loadClient(undefined, async (url) => {
+    seen.push(url)
+    return { ok: true, json: async () => ({ rounds }) }
+  })
+  const { ctx, calls } = makeCtx()
+  client.apply(ctx)
+  calls.openTab.length = 0
+
+  FakeEventSource.last.emit('open', {})
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  assert.ok(seen.some((url) => url === '/clarity/api/rounds'), 'the whole open set is read')
+  assert.equal(calls.openTab.length, 1, 'the recovered round opens in the mounted conversation')
+  assert.equal(calls.openTab[0].options.params.roundId, 'r7')
+})
+
+test('a Clarity tab with no round id asks the host for this conversation’s round', async () => {
+  const round = {
+    id: 'r9',
+    kind: 'decision',
+    sessionId: 's2',
+    decision: 'Which one?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>' }],
+    recommendation: 'a',
+    foreclosures: ['B is lost.'],
+    status: 'open',
+    createdAt: 1,
+  }
+  const seen = []
+  const runtime = effectReact()
+  const client = loadClient(runtime.React, async (url) => {
+    seen.push(url)
+    if (url.includes('/rounds?')) return { ok: true, json: async () => ({ rounds: [round] }) }
+    return { ok: false, status: 404, json: async () => ({ error: { message: 'unknown round' } }) }
+  })
+
+  const tree = await runtime.render(client.__test.RoundPanel, {
+    sessionId: 's2',
+    useTabInfo: () => ({ tab: { navigation: { params: {} } } }),
+  })
+
+  assert.ok(seen.some((url) => url.includes('/rounds?sessionId=s2')), 'the host is asked, not localStorage')
+  const header = findNode(tree, (node) => node.props && node.props.round && node.props.round.id === 'r9')
+  assert.ok(header, 'the conversation’s round is shown')
 })

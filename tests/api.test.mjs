@@ -188,6 +188,37 @@ test('anchored comments pass validation and malformed anchors are refused', asyn
   assert.match(json(badField).error.message, /not allowed/)
 })
 
+test('the open-round list serves exactly what the browser must recover', async () => {
+  const store = new RoundStore()
+  const base = {
+    kind: 'decision',
+    decision: 'A or B?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>' }],
+    recommendation: 'a',
+    foreclosures: ['B is lost.'],
+    status: 'open',
+  }
+  store.open({ ...base, id: 's1-a', sessionId: 's1', createdAt: 1 })
+  store.open({ ...base, id: 's2-a', sessionId: 's2', createdAt: 2 })
+  store.open({ ...base, id: 's1-b', sessionId: 's1', createdAt: 3 })
+  store.decide('s1-a', { verdict: 'cancel', comments: [], note: '' })
+  const handler = mount(store)
+
+  const one = fakeResponse()
+  await handler(fakeRequest('GET', '/clarity/api/rounds?sessionId=s1'), one)
+  assert.equal(one.status, 200)
+  assert.deepEqual(
+    json(one).rounds.map((round) => round.id),
+    ['s1-b'],
+    'only this conversation, only rounds still open',
+  )
+
+  const all = fakeResponse()
+  await handler(fakeRequest('GET', '/clarity/api/rounds'), all)
+  assert.deepEqual(json(all).rounds.map((round) => round.id), ['s2-a', 's1-b'])
+})
+
 test('screenshots are written under the project and returned as paths', async () => {
   const root = await mkdtemp(join(tmpdir(), 'clarity-shots-'))
   try {

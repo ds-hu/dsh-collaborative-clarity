@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+A round waiting in a conversation you left is no longer lost when you come back.
+
+- The Clarity tab no longer depends on the tab's navigation `params` or a `localStorage`
+  pointer. It asks the host for the conversation's open round on every mount, and re-reads
+  the whole open set on every SSE reconnect, so a reload, a layout switch, a second window,
+  or a guide-opened tab all resolve to the same round.
+- Any `decided`/`tested` event used to delete every `clarity.lastRound.*` key, which wiped the
+  pointer for conversations that had nothing to do with the answer. The pointer is gone; the
+  host is the source of truth.
+- Opening a conversation whose round is still waiting now opens that round's tab. Previously
+  only a round that arrived while its conversation was already on screen opened anything, so
+  background rounds only ever showed a dot.
+- The tab type is one tab per conversation (`multiple: false`) instead of one tab per round,
+  so a restored tab cannot stay pinned to an older round id.
+- Aborting a tool call now closes its round and broadcasts `decided`. Before, the round stayed
+  `open` forever: still listed by `/rounds`, still dotted in the session row, answerable by a
+  browser whose tool call had already returned.
+
 ## 0.3.0 — 2026-10-30
 
 A round no longer has to hold the turn, and a test gate can show its evidence rather than

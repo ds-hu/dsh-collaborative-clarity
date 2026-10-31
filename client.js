@@ -1278,6 +1278,34 @@ window.__ModuleLoader__.load({
       )
     }
 
+    const roundFeed = {
+      listeners: new Set(),
+      subscribe(listener) {
+        roundFeed.listeners.add(listener)
+        return () => roundFeed.listeners.delete(listener)
+      },
+      publish() {
+        for (const listener of [...roundFeed.listeners]) {
+          try {
+            listener()
+          } catch {
+            // One panel failing must not silence the others.
+          }
+        }
+      },
+    }
+
+    /** The newest still-open round of one conversation, or null. */
+    function newestOpenRound(rounds, sessionId) {
+      if (!Array.isArray(rounds)) return null
+      let newest = null
+      for (const round of rounds) {
+        if (!round || round.sessionId !== sessionId || round.status !== 'open') continue
+        if (newest === null || (round.createdAt || 0) >= (newest.createdAt || 0)) newest = round
+      }
+      return newest
+    }
+
     function RoundPanel(props) {
       const info = props.useTabInfo ? props.useTabInfo() : null
       const paramRoundId = info && info.tab && info.tab.navigation && info.tab.navigation.params
@@ -1285,30 +1313,50 @@ window.__ModuleLoader__.load({
         : undefined
       const [state, setState] = React.useState({ loading: true, error: null, round: null })
       const [sent, setSent] = React.useState(null)
+      // The round this body last resolved; the host is authoritative, so the id
+      // is only a locator — never a substitute for asking.
+      const knownRound = React.useRef(null)
 
       React.useEffect(() => {
         let live = true
-        let remembered = null
-        try {
-          remembered = localStorage.getItem('clarity.lastRound.' + props.sessionId)
-        } catch {
-          remembered = null
+        let ticket = 0
+        const load = async () => {
+          const mine = ++ticket
+          let next = null
+          try {
+            const body = await api('/rounds?sessionId=' + encodeURIComponent(props.sessionId))
+            next = newestOpenRound(body.rounds, props.sessionId)
+          } catch (cause) {
+            if (live && mine === ticket) {
+              setState({ loading: false, error: cause instanceof Error ? cause.message : String(cause), round: null })
+            }
+            return
+          }
+          const known = paramRoundId ?? knownRound.current
+          if (next === null && known) {
+            // A settled round still deserves its record, not an empty tab.
+            try {
+              const body = await api('/round?id=' + encodeURIComponent(known))
+              if (body.round && body.round.sessionId === props.sessionId) next = body.round
+            } catch {
+              // The host no longer has it: the empty state is the honest answer.
+            }
+          }
+          if (!live || mine !== ticket) return
+          if (next !== null && next.id !== knownRound.current) {
+            knownRound.current = next.id
+            setSent(null)
+          }
+          setState({ loading: false, error: null, round: next })
         }
-        const id = paramRoundId ?? remembered
-        if (!id) {
-          setState({ loading: false, error: null, round: null })
-          return undefined
-        }
-        setState({ loading: true, error: null, round: null })
-        api('/round?id=' + encodeURIComponent(id))
-          .then((body) => {
-            if (live) setState({ loading: false, error: null, round: body.round })
-          })
-          .catch((cause) => {
-            if (live) setState({ loading: false, error: cause instanceof Error ? cause.message : String(cause), round: null })
-          })
+        // Keep the round on screen while a refresh is in flight; only a first
+        // load shows the placeholder.
+        setState((previous) => ({ loading: previous.round === null, error: null, round: previous.round }))
+        load()
+        const unsubscribe = roundFeed.subscribe(load)
         return () => {
           live = false
+          unsubscribe()
         }
       }, [paramRoundId, props.sessionId])
 
@@ -1320,6 +1368,18 @@ window.__ModuleLoader__.load({
       }
       const round = state.round
       if (!round) {
+        if (sent) {
+          return h(
+            'div',
+            { style: root },
+            h(
+              'div',
+              { style: { ...card, borderColor: 'var(--dsw-alias-state-success-primary)' } },
+              h('div', { style: { ...successText, fontWeight: 600 } }, 'Decision sent to the agent.'),
+              h('p', { style: { ...context, margin: 0 } }, 'You can close this tab. The agent has the structured result.'),
+            ),
+          )
+        }
         return h(
           'div',
           { style: root },
@@ -1332,13 +1392,17 @@ window.__ModuleLoader__.load({
           ),
         )
       }
-      if (round.sessionId !== props.sessionId) {
+      if (round.status !== 'open' && !sent) {
         return h(
           'div',
           { style: root },
-          h('div', { style: eyebrow }, 'Collaborative Clarity'),
-          h('h2', { style: title }, 'This round belongs to another conversation'),
-          h('p', { style: context }, 'Open the conversation that started it, or start a new round there.'),
+          h(Header, { round }),
+          h(
+            'div',
+            { style: card },
+            h('div', { style: { fontWeight: 600 } }, round.status === 'cancelled' ? 'This round was cancelled.' : 'This round is already answered.'),
+            h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, 'The agent has the result. Open a new round for the next decision.'),
+          ),
         )
       }
       if (sent) {
@@ -1361,14 +1425,6 @@ window.__ModuleLoader__.load({
         )
       }
       const complete = (result) => {
-        try {
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i)
-            if (key && key.indexOf('clarity.lastRound.') === 0) localStorage.removeItem(key)
-          }
-        } catch {
-          // Storage may be unavailable; the result is still on the Host.
-        }
         setSent(result)
       }
       return h(
@@ -1411,9 +1467,41 @@ window.__ModuleLoader__.load({
         sessionId: round.sessionId,
         decision: round.decision,
         kind: round.kind,
+        createdAt: round.createdAt || Date.now(),
         release,
       })
       notifyPending()
+    }
+
+    /**
+     * Reconcile the pending map with the host's authoritative open-round list.
+     *
+     * A dropped stream, a reload, or a missed frame all converge here: the host
+     * is the source of truth, so reconnecting re-reads it instead of trusting
+     * what the browser accumulated.
+     * @param {object[]} rounds - every round still open on the host.
+     * @returns {void}
+     */
+    function replacePending(rounds) {
+      const live = new Set()
+      for (const round of rounds) {
+        if (!round || typeof round.id !== 'string') continue
+        live.add(round.id)
+        if (!pending.has(round.id)) rememberPending(round)
+      }
+      for (const roundId of [...pending.keys()]) {
+        if (!live.has(roundId)) forgetPending(roundId)
+      }
+    }
+
+    /** The newest round waiting in one conversation, or null. */
+    function latestPendingFor(sessionId) {
+      let latest = null
+      for (const entry of pending.values()) {
+        if (entry.sessionId !== sessionId) continue
+        if (latest === null || (entry.createdAt || 0) >= (latest.createdAt || 0)) latest = entry
+      }
+      return latest
     }
 
     function forgetPending(roundId) {
@@ -1425,18 +1513,6 @@ window.__ModuleLoader__.load({
       } catch {
         // The domain was already torn down.
       }
-      notifyPending()
-    }
-
-    function forgetAllPending() {
-      for (const entry of pending.values()) {
-        try {
-          entry.release?.()
-        } catch {
-          // The domain was already torn down.
-        }
-      }
-      pending.clear()
       notifyPending()
     }
 
@@ -1486,8 +1562,10 @@ window.__ModuleLoader__.load({
         openRound = (roundId) => {
           try {
             ctx.sidebarRight.openTab(KIND, { params: { roundId } })
+            return true
           } catch (cause) {
             console.warn('[clarity] could not open the round tab:', cause)
+            return false
           }
         }
         ctx.effect(
@@ -1496,7 +1574,10 @@ window.__ModuleLoader__.load({
               id: TAB_ID,
               kind: KIND,
               title: () => 'Clarity',
-              multiple: true,
+              // One Clarity tab per conversation: a new round navigates the tab
+              // that is already there instead of pinning a second, stale copy
+              // to the round it was opened with.
+              multiple: false,
               guide: [
                 {
                   id: 'clarity',
@@ -1541,10 +1622,51 @@ window.__ModuleLoader__.load({
           'clarity session dot',
         )
 
+        // A round that opened while another conversation was on screen never
+        // got its tab opened. Surface it when its conversation comes back.
+        let autoOpened = ''
+        const openWaitingRound = () => {
+          const sessionId = ctx.sidebarRight.mounted.getSnapshot()
+          if (typeof sessionId !== 'string' || sessionId === '') return
+          const waiting = latestPendingFor(sessionId)
+          if (waiting === null) {
+            autoOpened = ''
+            return
+          }
+          const key = sessionId + '/' + waiting.id
+          if (autoOpened === key) return
+          autoOpened = key
+          // The seat adopts the session's store a tick after the selection
+          // changes; retry briefly rather than dropping the round.
+          let tries = 0
+          const attempt = () => {
+            if (ctx.sidebarRight.mounted.getSnapshot() !== sessionId) return
+            if (openRound(waiting.id)) return
+            tries += 1
+            if (tries < 8) setTimeout(attempt, 75)
+          }
+          attempt()
+        }
+        ctx.effect(() => {
+          const unsubscribe = ctx.sidebarRight.mounted.subscribe(openWaitingRound)
+          openWaitingRound()
+          return unsubscribe
+        }, 'clarity on-screen session')
+
         ctx.effect(() => {
           const source = new EventSource(API + '/events')
+          const refresh = async () => {
+            try {
+              const body = await api('/rounds')
+              replacePending(Array.isArray(body.rounds) ? body.rounds : [])
+            } catch {
+              // The dot is an aid; a failed refresh must not break the stream.
+            }
+            roundFeed.publish()
+            openWaitingRound()
+          }
           source.addEventListener('open', () => {
-            forgetAllPending()
+            refresh()
           })
           source.addEventListener('round', (event) => {
             let round
@@ -1555,11 +1677,7 @@ window.__ModuleLoader__.load({
             }
             if (!round) return
             rememberPending(round)
-            try {
-              localStorage.setItem('clarity.lastRound.' + round.sessionId, round.id)
-            } catch {
-              // The tab still opens from the event; only the guide fallback is lost.
-            }
+            roundFeed.publish()
             if (round.sessionId !== ctx.sidebarRight.mounted.getSnapshot()) return
             openRound(round.id)
           })
@@ -1568,16 +1686,9 @@ window.__ModuleLoader__.load({
               const data = JSON.parse(event.data)
               if (data && typeof data.roundId === 'string') forgetPending(data.roundId)
             } catch {
-              // The event still clears the stored fallback below.
+              // The feed refresh below still reconciles the whole set.
             }
-            try {
-              for (let i = localStorage.length - 1; i >= 0; i--) {
-                const key = localStorage.key(i)
-                if (key && key.indexOf('clarity.lastRound.') === 0) localStorage.removeItem(key)
-              }
-            } catch {
-              // Nothing to forget.
-            }
+            roundFeed.publish()
           }
           source.addEventListener('decided', forget)
           source.addEventListener('tested', forget)
@@ -1586,7 +1697,7 @@ window.__ModuleLoader__.load({
       },
     }
     Object.defineProperty(pluginApi, '__test', {
-      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, DecisionView, TestView },
+      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, DecisionView, TestView, RoundPanel, newestOpenRound },
       enumerable: false,
     })
     return pluginApi
