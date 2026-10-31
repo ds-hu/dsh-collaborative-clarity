@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 — 2026-10-31
 
-A round waiting in a conversation you left is no longer lost when you come back.
+A round waiting in a conversation you left is no longer lost when you come back. Published to
+npm as `@ds-hu/dsh-collaborative-clarity@0.3.1`.
 
 - The Clarity tab no longer depends on the tab's navigation `params` or a `localStorage`
   pointer. It asks the host for the conversation's open round on every mount, and re-reads

@@ -156,7 +156,7 @@ every anchor before the model sees it.
 | [artifacts.js](artifacts.js) | Renders a variant file by extension: document, prose, or numbered source |
 | [cordis.patch.yml](cordis.patch.yml) | The one Loader row this package contributes |
 | [icon.svg](icon.svg), [locale/](locale/) | Plugins-panel icon, title and description |
-| [tests/](tests/) | Six files, one per surface; `scripts/run-tests.mjs` runs them all |
+| [tests/](tests/) | Seven files, one per surface; `scripts/run-tests.mjs` runs them all |
 | [docs/collaboration-draft/](docs/collaboration-draft/) | The diagnosis, protocol, surface design, verification rules, and the real round records |
 
 ## Tests
