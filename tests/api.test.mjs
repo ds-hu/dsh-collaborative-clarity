@@ -40,7 +40,7 @@ function fakeRequest(method, url, body) {
 }
 
 /** Register the API on a fake webServer and return its handler. */
-function mount(store) {
+function mount(store, services = {}) {
   let handler
   const ctx = {
     webServer: {
@@ -48,6 +48,9 @@ function mount(store) {
         handler = options.handler
         return () => {}
       },
+    },
+    get(name) {
+      return services[name]
     },
   }
   registerApi(ctx, store)
@@ -294,7 +297,7 @@ test('a screenshot that is not an image data URL is refused', async () => {
   }
 })
 
-test('unknown rounds and failed cold builds are refused with the API error shape', async () => {
+test('unknown rounds and malformed test bodies are refused with the API error shape', async () => {
   const store = new RoundStore()
   store.open({
     id: 't1',
@@ -325,4 +328,19 @@ test('unknown rounds and failed cold builds are refused with the API error shape
     badAccept,
   )
   assert.equal(badAccept.status, 400)
+})
+
+test('the test surface has no process endpoints', async () => {
+  const store = new RoundStore()
+  const handler = mount(store, {})
+  for (const [method, route] of [
+    ['POST', '/test/start'],
+    ['POST', '/test/cancel'],
+    ['GET', '/test/output'],
+  ]) {
+    const response = fakeResponse()
+    await handler(fakeRequest(method, '/clarity/api' + route, method === 'POST' ? '{}' : undefined), response)
+    assert.equal(response.status, 404, `${route} must not exist: the tab never owns a process`)
+    assert.equal(json(response).error.code, 'not-found')
+  }
 })

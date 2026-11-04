@@ -122,7 +122,7 @@ What it gets wrong is treating the question, rather than the decision object, as
 | Failure | Response | Rule |
 |---|---|---|
 | The interview narrows the product | A round shows the decision as an artifact, names a recommendation, and states what it forecloses | One decision per round; three rounds, then decide or abandon |
-| The suite replaces the real test | Contract tests, cold build, and a human real test are separate gates | Only a test record can mark `tested` |
+| The suite replaces the real test | Contract tests, a prepared build, and a human real test are separate gates | Only a test record can mark `tested` |
 | UX is discovered late | Copy lives in the artifact at real size; UX debt is a blocking annotation | No lorem, no "TBD"; show the states the decision touches |
 | The programmer loses the code | Every round carries a code map and a pseudo-code spine | Show ten lines rather than describe a hundred |
 

@@ -40,7 +40,7 @@ is the shortest explanation of what the mode feels like.
 | Failure | What it looks like today | Response in this draft |
 |---|---|---|
 | Grilling drifts | Quarters of prose questions; the product is the intersection of answers; documents turn defensive and contradict each other | Every question becomes a round with an artifact, a recommendation, and a stated foreclosure. Three rounds per decision, then decide or abandon. |
-| Unit tests replace real tests | The suite is green, the human never runs the product, production finds the edges | Contract tests, a cold build, and a human-run real test are separate gates. Only the last one can mark a feature tested. |
+| Unit tests replace real tests | The suite is green, the human never runs the product, production finds the edges | Contract tests, a prepared build, and a human-run real test are separate gates. Only the last one can mark a feature tested. |
 | UX and wording are discovered late | Copy is written in code by the agent; the user sees it when it ships; the agent does not remind | Copy is part of the artifact, at real size, in context. UX debt is a blocking annotation, not a footnote. |
 | The programmer loses the codebase | The agent turns code into prose and asks for wishes; pseudo-code disappears | Every round carries a code map and a pseudo-code spine. The default is to show ten lines, not describe a hundred. |
 
@@ -51,7 +51,7 @@ is the shortest explanation of what the mode feels like.
 3. **Wait.** It calls `clarity_round` (or `clarity_test`). The round opens in the right sidebar. The tool call blocks; waiting costs no tokens.
 4. **Annotate.** The user selects a word, an element, or a line; comments, proposes replacement text, or edits the file. They choose a variant or ask for a revision.
 5. **Decide.** The tool returns a structured decision, not prose. The agent resolves every annotation and writes the decision and ledger row.
-6. **Build, then prove.** The agent implements, runs the cold build, and enables the page's **I'm ready to test** trigger. A recorded human test is the only path to `done`.
+6. **Build, then prove.** The agent implements, prepares the build, and enables the page's **I'm ready to test** trigger. A recorded human test is the only path to `done`.
 
 ## What this is not
 
@@ -68,7 +68,8 @@ This draft tries to practise what it specifies. A claim is only as strong as its
 - **Proposed** — an argument or design choice in this draft.
 - **Agreed** — a decision recorded in [LEDGER.md](LEDGER.md).
 - **Built** — code exists; not yet verified.
-- **Cold-built** — builds from pinned inputs on a clean state.
+- **Prepared** — the build the agent ran before opening the gate, recorded with its
+  command and exit code.
 - **Tested** — a human ran the recorded scenario and observed the result.
 - **Verified** — tested for a named scenario, not for everything.
 

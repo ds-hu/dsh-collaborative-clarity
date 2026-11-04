@@ -10,7 +10,7 @@ The protocol assumes a Web client with a right Sidebar. The surface is specified
 
 | Role | Owns | Does not own |
 |---|---|---|
-| **Agent** | Preparing the round, the recommendation, the foreclosures, the code map; resolving annotations; implementing; preparing the cold build and the test scenario | Choosing for the user; declaring a feature tested |
+| **Agent** | Preparing the round, the recommendation, the foreclosures, the code map; resolving annotations; implementing; preparing the build and the test scenario | Choosing for the user; declaring a feature tested |
 | **User** | Annotating, choosing or editing, accepting foreclosures, running the real test | Writing a specification in prose; guessing what the artifact omits |
 | **Tool** | Publishing the round, blocking the turn, returning the structured decision | Interpreting the decision; deciding when the round is done |
 
@@ -26,8 +26,8 @@ The protocol assumes a Web client with a right Sidebar. The surface is specified
 ## The round state machine
 
 ```
-                 submit                     implement              cold build
-   open ───────────────▶ decided ───────────────▶ built ───────────────▶ cold-built
+                 submit                     implement              prepare
+   open ───────────────▶ decided ───────────────▶ built ───────────────▶ prepared
      │  ▲                    │                                            │
      │  └──── revise ────────┘                                            │ real test
      │                                                                   ▼
@@ -105,13 +105,12 @@ type TestRound = {
   kind: "test";
   id: string;                    // usually the same round id as the decision
   candidate: string;             // commit SHA, or "dirty:<hash>"
-  coldBuild: {
-    command: string;             // the exact command that was run
-    startedAt: string;           // ISO 8601
-    finishedAt: string;
+  prepared: {
+    command: string;             // the build the agent already ran
     exitCode: number;            // must be 0
-    artifacts: string[];         // what the build produced
+    builtAt: string;             // ISO 8601
   };
+  runThis?: string;              // one command line the user can copy and run
   scenario: {
     preconditions: string[];
     steps: string[];             // 3-7 steps
@@ -119,17 +118,14 @@ type TestRound = {
     failureSignature: string;    // what the user should report
     rollback: string;
   };
-  trigger: {
-    command: string;             // the command the page's button runs
-    cwd: string;
-    timeoutSec: number;
-  };
   timeout?: number;
 };
 ```
 
-The `coldBuild` record is evidence, not a promise. The tool refuses a `test` round whose
-cold build did not exit 0 at the named candidate.
+The `prepared` record is evidence, not a promise. The tool refuses a `test` round whose
+prepared build did not exit 0 at the named candidate, and refuses the retired `warmStart`
+argument outright. `runThis` is text for the user to copy: the tab never starts, stops, or
+reads a process, so the round records no start, no output, and no stop.
 
 ### Result
 
@@ -213,7 +209,7 @@ type Edit = {
    silently overwrite version `n`.
 3. If `accept`, write `decision.md` and the ledger row before writing implementation code.
 4. If `reject`, write the rejection and stop; do not implement a rejected variant.
-5. If `test` returns `fail`, the feature is not done. Fix, rebuild cold, and open another
+5. If `test` returns `fail`, the feature is not done. Fix, prepare again, and open another
    test round. A failure is evidence, not a setback to explain away.
 
 ## Round rules
@@ -278,11 +274,11 @@ artifact is the logic. Prose is for the framing, not for the code.
 and narrow widths are part of the round. If one is unresolved, it is a blocking annotation
 the agent raised, not a silence.
 
-**A6 — Prepare the test before asking for it.** The cold build, the scenario, the expected
+**A6 — Prepare the test before asking for it.** The prepared build, the command to run, the scenario, the expected
 observable, the failure signature, and the rollback exist before the test round opens.
 
-**A7 — Never claim a stronger state than the evidence.** `built` until the cold build;
-`cold-built` until the test; `tested` only with a test record. The claim states are defined
+**A7 — Never claim a stronger state than the evidence.** `built` until the prepared build;
+`prepared` until the test; `tested` only with a test record. The claim states are defined
 in [05-draft-integrity.md](05-draft-integrity.md).
 
 **A8 — Keep the drafts.** Never delete a rejected variant, a superseded decision, or a
@@ -331,7 +327,7 @@ If the user rejects the premise ("we should not build this at all"), the round c
 |---|---|
 | `decided` | A decision record and a ledger row |
 | `built` | Code exists; contract tests may pass |
-| `cold-built` | A cold build at the named candidate exited 0 |
+| `prepared` | A prepared build at the named candidate exited 0 |
 | `tested` | A human ran the scenario and a test record exists |
 | `done` | `tested`, plus merged or shipped |
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+`clarity_test` takes a **prepared** build and an optional **command to run** instead of a "cold
+build" — and the tab no longer owns a process at all. This is a breaking schema change twice over:
+`coldBuild` became `prepared`, and `warmStart` became `runThis`.
+
+- `prepared: { command, exitCode, builtAt }`; a non-zero exit refuses the round.
+- `runThis: string` replaces `warmStart`, and is **text**: the tab shows it with a copy button and
+  never executes it. Whoever starts the app — the agent as a background job, or the user in their
+  own terminal — ends it.
+- `POST /clarity/api/test/start`, `POST /test/cancel` and `GET /test/output` are gone, with the
+  running state, **Stop**, the output pane, and `round.start`. Nothing is spawned, so leaving the
+  conversation and coming back cannot desync a phase: there is no phase.
+- Why: `ctx.shell` returns a handle with no pid, so the process tree cannot be swept, and a
+  measured Windows run left a sandboxed descendant serving its port after **Stop** and after the
+  verdict. A tab that cannot stop what it started must not start it — see
+  `docs/collaboration-draft/rounds/0010-withdraw-process-management`.
+- A test round opened by an older host (no `prepared` record) stays testable: the bar says so and
+  the trigger opens the observation.
+- The docs no longer ask the agent to remove caches: a clean environment is reached by building in a
+  scratch checkout, and the clean-machine claim belongs to CI.
+
 ## 0.3.2 — 2026-10-31
 
 Markdown artifacts are parsed by `markdown-it` instead of a local subset, so a table now reaches

@@ -87,14 +87,20 @@ _Avoid_: log, changelog, history.
 ### Evidence
 
 **Claim state**:
-One of `proposed`, `agreed`, `built`, `cold-built`, `tested`, `verified`, `abandoned`.
+One of `proposed`, `agreed`, `built`, `prepared`, `tested`, `verified`, `abandoned`.
 A document may not claim a stronger state than its evidence supports.
 _Avoid_: status (overloaded with round status), confidence.
 
-**Cold build**:
-A build from pinned inputs with no incremental state that could hide a missing dependency
-or a stale artifact. It proves the candidate can be built, not that it behaves.
-_Avoid_: clean build (ambiguous: clean what?), CI build.
+**Prepared build**:
+A build of the named candidate that the agent ran before opening the test gate, recorded with
+its command, exit code, and artifact. It proves the candidate builds, not that it behaves.
+_Avoid_: cold build, clean build, CI build.
+
+**Command to run** (`runThis`):
+The one command that brings the prepared artifact up for the user, with no install and no build.
+It is text on the tab with a copy button; whoever runs it owns the process, and the tab records
+no start, no output, and no stop.
+_Avoid_: warm start, dev server (a command, not a mode), "run the build again".
 
 **Real test**:
 A human running the built change in the real runtime or environment, following a recorded
@@ -113,7 +119,8 @@ _Avoid_: test report, test log (logs are inputs to the record).
 - A **Round** produces exactly one **Decision record**.
 - A **Decision record** resolves zero or more **Annotations**; no blocking annotation may remain open.
 - A **Round** occupies exactly one row in the **Ledger**.
-- A **Cold build** is a precondition for a **Real test**; a **Real test** produces a **Test record**.
+- A **Prepared build** and, when the change needs something running, a **Command to run** are
+  preconditions for a **Real test**; a **Real test** produces a **Test record**.
 - A **Test record** is the only evidence that can raise a claim to `tested` or `verified`.
 - A **Park** leaves the **Round** open; it does not produce a **Decision record**.
 
@@ -135,7 +142,7 @@ _Avoid_: test report, test log (logs are inputs to the record).
 - **"Artifact"** is also a DSH storage term for a session file. Resolved: in this
   directory an artifact is a **draft artifact** unless the sentence says "session
   artifact".
-- **"Test"** is used for contract tests, cold builds, and real tests. Resolved: always
+- **"Test"** is used for contract tests, prepared builds, and real tests. Resolved: always
   qualify. An unqualified "test" in a status claim means a real test.
 - **"Done"** is used for "code exists" and "shipped". Resolved: `built` means code exists;
   `done` means tested and merged. The two are never interchangeable.

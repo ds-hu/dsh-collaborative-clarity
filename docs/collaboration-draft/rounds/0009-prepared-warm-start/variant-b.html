@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0009 · B — Consent to leave the sandbox</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; padding: 28px 16px; background: #f4f5f7; color: #171a1f;
+         font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif }
+  .stage { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; align-items: flex-start }
+  .shot { width: 360px }
+  .cap { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; margin: 0 0 6px 2px }
+  .frame { background: #fff; border: 1px solid #e2e5e9; border-radius: 12px; padding: 14px;
+           box-shadow: 0 1px 2px rgba(16, 24, 40, .04) }
+  .eyebrow { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #6b7280 }
+  h1 { font-size: 15px; font-weight: 600; margin: 6px 0 10px; letter-spacing: -.01em }
+  table.scen { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px }
+  .scen td { padding: 3px 0; color: #6b7280 }
+  .scen td + td { text-align: right; color: #171a1f }
+  .bar { border-top: 1px solid #eef0f2; padding-top: 10px }
+  .prep { font-size: 12px; color: #6b7280 }
+  .prep b { font-weight: 500; color: #3f4650 }
+  .needs { font-size: 12px; color: #a15c00; margin-top: 2px }
+  button { font: inherit; border-radius: 8px; border: 1px solid transparent; padding: 7px 12px }
+  .primary { width: 100%; background: #2f6feb; color: #fff; margin-top: 8px; font-weight: 500 }
+  .ghost { background: #fff; border-color: #e2e5e9; color: #3f4650 }
+  .sheet { margin-top: 14px; border: 1px solid #e2e5e9; border-radius: 10px; padding: 12px; background: #fbfcfd }
+  .sheet h2 { font-size: 12px; font-weight: 600; margin: 0 0 10px }
+  .kv { display: grid; grid-template-columns: 76px 1fr; gap: 7px 8px; font-size: 12px }
+  .kv dt { color: #6b7280 }
+  .kv dd { margin: 0; color: #171a1f; overflow-wrap: anywhere }
+  code { font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace }
+  .row2 { display: flex; gap: 8px; margin-top: 12px }
+  .row2 .primary { width: auto; flex: 1; margin-top: 0 }
+  .check { display: flex; gap: 8px; margin-top: 12px; padding: 9px; border: 1px solid #e2e5e9;
+           border-radius: 8px; background: #fff }
+  .check .box { width: 14px; height: 14px; border: 1px solid #b9c0c9; border-radius: 4px;
+                flex: 0 0 auto; margin-top: 2px; position: relative }
+  .check.on { border-color: #e8b96a; background: #fffaf1 }
+  .check.on .box { background: #2f6feb; border-color: #2f6feb }
+  .check.on .box::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
+                          border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg) }
+  .check .t { font-size: 12px }
+  .check .t small { display: block; color: #6b7280; font-size: 11px; margin-top: 2px }
+  .note { font-size: 12px; color: #6b7280; margin: 8px 0 0 }
+</style>
+</head>
+<body>
+<main class="stage">
+
+  <section class="shot">
+    <div class="cap">Ready state</div>
+    <div class="frame">
+      <div class="eyebrow">Real test · 4f2a1c9</div>
+      <h1>Retry after a gateway timeout</h1>
+      <table class="scen">
+        <tr><td>Steps</td><td>4</td></tr>
+        <tr><td>Expected</td><td>3 observables</td></tr>
+        <tr><td>Adversarial</td><td>duplicate filename</td></tr>
+      </table>
+      <div class="bar">
+        <div class="prep">Prepared <b>18:04</b> · <b>pnpm build</b></div>
+        <div class="needs">Start needs network</div>
+        <button class="primary" type="button">I’m ready to test</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="shot">
+    <div class="cap">After pressing it</div>
+    <div class="frame">
+      <div class="eyebrow">Real test · 4f2a1c9</div>
+      <h1>Retry after a gateway timeout</h1>
+      <div class="bar">
+        <div class="prep">Prepared <b>18:04</b> · <b>pnpm build</b></div>
+        <div class="sheet">
+          <h2>Start the test</h2>
+          <dl class="kv">
+            <dt>Warm start</dt><dd><code>pnpm preview --port 4173</code></dd>
+            <dt>Prepared</dt><dd><code>pnpm build</code> · exit 0 · 18:04</dd>
+            <dt>Scenario</dt><dd>Open the project and upload a 20 MB file on 3G.</dd>
+          </dl>
+          <div class="check">
+            <span class="box" aria-hidden="true"></span>
+            <span class="t">Allow this run to leave the sandbox
+              <small>needs network · one run · the host asks again</small></span>
+          </div>
+          <div class="row2">
+            <button class="primary" type="button">Start</button>
+            <button class="ghost" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shot">
+    <div class="cap">Consent ticked</div>
+    <div class="frame">
+      <div class="eyebrow">Real test · 4f2a1c9</div>
+      <h1>Retry after a gateway timeout</h1>
+      <div class="bar">
+        <div class="prep">Prepared <b>18:04</b> · <b>pnpm build</b></div>
+        <div class="sheet">
+          <h2>Start the test</h2>
+          <dl class="kv">
+            <dt>Warm start</dt><dd><code>pnpm preview --port 4173</code></dd>
+            <dt>Prepared</dt><dd><code>pnpm build</code> · exit 0 · 18:04</dd>
+            <dt>Scenario</dt><dd>Open the project and upload a 20 MB file on 3G.</dd>
+          </dl>
+          <div class="check on">
+            <span class="box" aria-hidden="true"></span>
+            <span class="t">Allow this run to leave the sandbox
+              <small>needs network · one run · the host asks again</small></span>
+          </div>
+          <div class="row2">
+            <button class="primary" type="button">Ask and start</button>
+            <button class="ghost" type="button">Cancel</button>
+          </div>
+          <div class="note">The host asks for approval, then runs it once.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

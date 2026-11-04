@@ -58,18 +58,23 @@ clarity_round / clarity_test
 The model is blocked on the tool promise; there is no polling and no token cost while
 waiting. If the tool call is aborted, the waiter resolves `{status:"cancelled"}`.
 
-## Cold build
+## Prepared build
 
-Run from the repository root on 2026-10-29 at 23:08 +08:00, exit 0 (6 store, 4 client,
-3 API tests):
+This package has no build step: `index.js` and `client.js` are shipped as written. The prepared
+build is therefore a load check, not a compile — the host entry is actually imported, so a missing
+export fails, and the client half is syntax-checked:
 
 ```powershell
-node scripts/run-tests.mjs
+node --check index.js && node --check client.js && node scripts/verify-package.mjs
 ```
 
-The client half is a classic script with no bundler, so the check is syntax plus the
-contract tests; the host is actually imported so a missing export fails the build. This is
-a cold build for a no-build package, not a claim that the browser surface was exercised.
+Run from the repository root on 2026-10-29 at 23:08 +08:00, exit 0. The contract tests are a
+separate gate: a suite that passes is not a build, and counting it here would collapse two of the
+three gates into one.
+
+There is no command to run for this package: it is a plugin, the browser reload serves the change,
+and there is no server to boot. The tab therefore shows no `runThis` line for its own test rounds —
+it would only be a command the user already has.
 
 ## What was verified
 
@@ -77,9 +82,12 @@ a cold build for a no-build package, not a claim that the browser surface was ex
 
 | Check | Command | Result |
 |---|---|---|
-| Host store and tool bodies | `node tests/store.test.mjs` | 6 passed |
-| Client facade, bridge injection, anchor labels, Add render | `node tests/client.test.mjs` | 4 passed |
-| HTTP routes, anchor validation, error shapes | `node tests/api.test.mjs` | 3 passed |
+| Host store and tool bodies | `node tests/store.test.mjs` | 9 passed |
+| Client facade, bridge injection, anchor labels, test gate | `node tests/client.test.mjs` | 12 passed |
+| HTTP routes, anchor validation, error shapes | `node tests/api.test.mjs` | 7 passed |
+| Markdown and source rendering | `node tests/artifacts.test.mjs` | 17 passed |
+| Variant normalisation | `node tests/variant.test.mjs` | 7 passed |
+| Guidance section and non-blocking jobs | `node tests/guidance.test.mjs`, `node tests/jobs.test.mjs` | 3 + 7 passed |
 | Syntax | `node --check index.js`, `node --check client.js` | passed |
 
 `node --test` cannot run in this sandbox (it spawns a child process and dies with
@@ -218,10 +226,19 @@ These are gaps against the specification, not hidden features:
   optional `data-path` and `data-line-start`); a UI-only artifact has no line anchor.
 - **The text anchor needs a drag.** A plain click on text becomes an element anchor, which
   is deliberate: a click should not silently become a one-word quote.
-- **The test gate records a result; it does not run a command.** The agent supplies the
-  cold-build record and the scenario; the user presses the trigger and records pass, fail,
-  or blocked. The "run the recorded command" part of [03](03-surface.md) and
-  [04](04-verification.md) is still a target.
+- **The test trigger runs nothing.** The agent runs the prepared build first and passes it to
+  `clarity_test`, plus an optional `runThis` command. The tab shows both as text; the user runs
+  the command, and the verdict is recorded from what they saw. There is no process to start, stop,
+  or read, and therefore no elevation path, no sandbox policy to resolve, and no phase to resume.
+- **The prepared build is evidence, not a gate.** `clarity_test` refuses a non-zero exit; it cannot
+  prove the command ran. The record is honest because the agent must name a command the user could
+  re-run.
+- **Why the tab owns no process.** Round 0009 let the tab start the app through `ctx.shell`. Two
+  measurements killed it: the handle exposes no pid, so the tree cannot be swept, and on Windows the
+  seam's kill left the descendants of a sandboxed command serving their port after a `Stop` and after
+  the verdict. The plugin would have had to either spawn unconfined (an escalation the user cannot
+  see) or promise a stop it could not deliver. It hands over the command instead — see
+  [round 0010](./rounds/0010-withdraw-process-management/round.md).
 - **Rounds are in-memory.** A restart loses open rounds. The decision remains in the
   session log and the tracked round folder, but the live tab cannot survive a restart.
 - **Host changes need a restart.** Client changes hot-reload. The anchor schema was added
@@ -230,8 +247,6 @@ These are gaps against the specification, not hidden features:
   client will show the controls after a browser reload, but the round-trip is only complete
   after the DSH web process is restarted.
 - **Single-user, single-browser.** There is no multi-user presence or assignment.
-- **No real cold-build runner.** "Cold build" is evidence passed to `clarity_test`; the
-  plugin does not execute it.
 
 ## Install and remove
 
@@ -263,7 +278,7 @@ node scripts/verify-package.mjs # the installed shape: exports, files, icon, loc
    accept instead of disappearing.
 3. Write `annotations.jsonl` next to the round's tracked artifacts, append-only, and cite the
    annotation ids in the decision record.
-4. Make the test trigger run the recorded cold-build command in a terminal tab and write
-   `test.md`.
+4. Write `test.md` from the verdict, and decide where the command to run lives once the tab no
+   longer owns a process.
 5. Persist round manifests and decisions to `docs/collaboration/rounds/` automatically.
 6. Re-test the session-row dot in a second workspace and while another agent is running.

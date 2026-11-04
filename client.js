@@ -190,30 +190,8 @@ window.__ModuleLoader__.load({
     }
     const errorText = { color: ERROR }
     const successText = { color: 'var(--dsw-alias-state-success-primary)' }
-    const pill = {
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '0 5px',
-      borderRadius: '99px',
-      background: 'var(--dsw-alias-bg-layer-2)',
-      color: 'var(--dsw-alias-label-secondary)',
-      fontSize: '10px',
-      lineHeight: '16px',
-      whiteSpace: 'nowrap',
-    }
     const list = { margin: 0, paddingLeft: '18px', color: 'var(--dsw-alias-label-secondary)' }
-    const pre = {
-      margin: 0,
-      padding: '7px 8px',
-      background: 'var(--dsw-alias-bg-base)',
-      border: HAIRLINE,
-      borderRadius: 'var(--dsw-radius-sm)',
-      fontFamily: MONO,
-      fontSize: '11px',
-      lineHeight: '16px',
-      whiteSpace: 'pre-wrap',
-      overflowWrap: 'anywhere',
-    }
+    const preparedLine = { color: 'var(--dsw-alias-label-secondary)', fontSize: '12px', margin: '0 0 8px' }
 
     function ClarityIcon(props) {
       const size = props && props.size ? props.size : 14
@@ -257,6 +235,13 @@ window.__ModuleLoader__.load({
       if (!id) return 'Round'
       const found = round.variants.find((variant) => variant.id === id)
       return found ? found.label : id
+    }
+
+    /** HH:MM for an ISO timestamp or epoch millis; the raw value when it does not parse. */
+    function clock(value) {
+      const at = new Date(value)
+      if (Number.isNaN(at.getTime())) return String(value)
+      return String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0')
     }
 
     function contentHash(html) {
@@ -611,7 +596,6 @@ window.__ModuleLoader__.load({
               'div',
               { style: meta },
               h('span', null, h('b', null, 'Candidate '), round.candidate),
-              h('span', null, h('b', null, 'Cold build '), round.coldBuild.command, ' · exit ', String(round.coldBuild.exitCode), ' · ', round.coldBuild.builtAt),
             )
           : h(
               'div',
@@ -1002,12 +986,18 @@ window.__ModuleLoader__.load({
     function TestView(props) {
       const round = props.round
       const sent = props.sent
+      const prepared = round.prepared && typeof round.prepared.command === 'string' ? round.prepared : null
+      // The tab never runs anything: `runThis` is a line the user copies into a
+      // terminal. Whoever starts the process owns it, so the round records no
+      // start, no output, and no stop.
+      const runThis = typeof round.runThis === 'string' && round.runThis !== '' ? round.runThis : null
       const [phase, setPhase] = React.useState('ready')
       const [observed, setObserved] = React.useState('')
       const [shots, setShots] = React.useState([])
       const [selectedShot, setSelectedShot] = React.useState(0)
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
+      const [copied, setCopied] = React.useState(false)
       const fileRef = React.useRef(null)
       const panelRef = React.useRef(null)
       const disabled = busy || sent !== null
@@ -1058,7 +1048,7 @@ window.__ModuleLoader__.load({
       // Paste is scoped to this panel: the harness installs its own document
       // drop target, and the chat composer owns pastes outside this tab.
       React.useEffect(() => {
-        if (phase !== 'running' || disabled) return undefined
+        if (phase !== 'observe' || disabled) return undefined
         const onPaste = (event) => {
           const root = panelRef.current
           if (!root) return
@@ -1098,6 +1088,18 @@ window.__ModuleLoader__.load({
         }
       }
 
+      /** Put the command on the clipboard; the user runs it, the tab never does. */
+      async function copyRun() {
+        if (runThis === null) return
+        if (typeof navigator === 'undefined' || !navigator.clipboard) return
+        try {
+          await navigator.clipboard.writeText(runThis)
+          setCopied(true)
+        } catch {
+          setCopied(false)
+        }
+      }
+
       return h(
         React.Fragment,
         null,
@@ -1114,23 +1116,40 @@ window.__ModuleLoader__.load({
           h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, round.scenario.failureSignature),
           h('div', { style: sectionTitle }, 'Rollback'),
           h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, round.scenario.rollback),
-          h('div', { style: { ...meta, marginTop: '2px' } }, h('span', { style: pill }, 'cold build exit 0'), h('span', { style: pill }, round.candidate)),
         ),
         phase === 'ready'
           ? h(
               'div',
-              { style: actions },
+              { style: section },
+              prepared
+                ? h(
+                    'div',
+                    { style: preparedLine },
+                    'Prepared ',
+                    h('b', null, clock(prepared.builtAt)),
+                    ' · ',
+                    h('b', null, prepared.command),
+                  )
+                : h('div', { style: preparedLine }, 'No prepared build recorded.'),
+              runThis === null
+                ? null
+                : h(
+                    'div',
+                    { style: { ...preparedLine, display: 'flex', gap: '8px', alignItems: 'baseline', flexWrap: 'wrap' } },
+                    'Run ',
+                    h('code', { style: { overflowWrap: 'anywhere' } }, runThis),
+                    h('button', { type: 'button', style: linkButton, onClick: copyRun }, copied ? 'Copied' : 'Copy'),
+                  ),
               h(
                 'button',
                 {
                   type: 'button',
                   style: disabled ? { ...buttonPrimary, ...buttonDisabled } : buttonPrimary,
-                  onClick: () => setPhase('running'),
+                  onClick: () => setPhase('observe'),
                   disabled,
                 },
                 'I’m ready to test',
               ),
-              h('span', { style: { color: MUTED } }, 'The build is already cold-built. Run the scenario now.'),
             )
           : h(
               'div',

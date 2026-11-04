@@ -14,7 +14,7 @@ A draft is tracked when all five hold:
 
 1. It is a file in the repository, not an attachment in a chat.
 2. It has a stable round id and a version (a commit or a content hash).
-3. Its status is explicit (`open`, `decided`, `built`, `cold-built`, `tested`, `done`,
+3. Its status is explicit (`open`, `decided`, `built`, `prepared`, `tested`, `done`,
    `abandoned`, `superseded`).
 4. It is linked from the ledger.
 5. It is never deleted, only superseded.
@@ -37,7 +37,7 @@ docs/collaboration/
       variant-b.html
       annotations.jsonl      # append-only; one JSON object per line
       decision.md            # verdict, selected, resolutions, accepted foreclosures
-      test.md                # cold build + real test record
+      test.md                # prepared build + real test record
     0002-upload-retry/
       ...
 ```
@@ -72,8 +72,8 @@ Round status is one value:
 |---|---|---|
 | `open` | Waiting for the user; no decision yet | `decided`, `abandoned` |
 | `decided` | A verdict is recorded | `built` |
-| `built` | Code exists; contract tests may pass | `cold-built` |
-| `cold-built` | Cold build at the candidate exited 0 | `tested` |
+| `built` | Code exists; contract tests may pass | `prepared` |
+| `prepared` | The prepared build at the candidate exited 0 | `tested` |
 | `tested` | A human ran the scenario; a test record exists | `done` |
 | `done` | Tested and merged or shipped | — |
 | `abandoned` | Rejected or dropped, with a reason | — |
@@ -108,7 +108,7 @@ stronger than its state.
 | `proposed` | "We propose…", "The draft argues…" | "supports", "works", "is designed to" (as a fact) |
 | `agreed` | "We decided…", "The round accepted…" | "works", "is implemented" |
 | `built` | "Implemented; not yet verified" | "done", "works", "tested" |
-| `cold-built` | "Builds from clean at `<sha>`" | "tested", "verified" |
+| `prepared` | "Prepared at `<sha>`" | "tested", "verified" |
 | `tested` | "Tested by `<name>` on `<env>`: `<result>`" | "production-ready", "all cases" |
 | `verified` | "Verified for `<scenario>`" | "verified" without the scenario |
 | `abandoned` | "Rejected because…" | omit it from the record |
@@ -192,7 +192,7 @@ Before a round is marked `done`, or a doc is merged:
 - [ ] The ledger row exists and its status matches the evidence.
 - [ ] The claim states match the table above; no banned word is unearned.
 - [ ] The decision record cites the artifact version it decided.
-- [ ] The test record exists, or the status is honestly `built`/`cold-built`.
+- [ ] The test record exists, or the status is honestly `built`/`prepared`.
 - [ ] Rejected variants and failed tests are still present.
 - [ ] No document contradicts the ledger; every scope claim links to its decision.
 - [ ] The links resolve.

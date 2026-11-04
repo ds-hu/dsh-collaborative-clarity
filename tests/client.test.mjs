@@ -344,7 +344,7 @@ test('Ctrl+Enter adds the comment and plain Enter does not', () => {
   assert.equal(prevented, 1, 'Ctrl+Enter adds instead')
 })
 
-test('the test gate offers screenshots once the run starts', () => {
+test('the test gate shows prepared and the command to run, then the observation', () => {
   const runtime = statefulReact()
   const client = loadClient(runtime.React)
   const round = {
@@ -353,7 +353,8 @@ test('the test gate offers screenshots once the run starts', () => {
     sessionId: 'session-1',
     decision: 'Real test',
     candidate: 'dirty:abc',
-    coldBuild: { command: 'node build.mjs', exitCode: 0, builtAt: '2026-10-30T10:00:00+08:00' },
+    prepared: { command: 'node build.mjs', exitCode: 0, builtAt: '2026-10-30T10:00:00+08:00' },
+    runThis: 'node serve.mjs',
     scenario: {
       preconditions: [],
       steps: ['Do the thing.'],
@@ -366,19 +367,100 @@ test('the test gate offers screenshots once the run starts', () => {
   }
   const props = { round, sent: null, onSent() {} }
   let tree = runtime.render(client.__test.TestView, props)
+  const prepared = findNode(tree, (node) => Array.isArray(node.children) && node.children.includes('Prepared '))
+  assert.ok(prepared, 'prepared is a line before the trigger, not a gate of its own')
+  const command = findNode(tree, (node) => node.type === 'code' && node.children.includes('node serve.mjs'))
+  assert.ok(command, 'the command to run is shown as text')
+  const copy = findNode(
+    tree,
+    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('Copy'),
+  )
+  assert.ok(copy, 'and it can be copied instead of retyped')
+  const start = findNode(
+    tree,
+    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('Start'),
+  )
+  assert.equal(start, null, 'the tab never starts the app itself')
   const ready = findNode(
     tree,
     (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('I’m ready to test'),
   )
-  assert.ok(ready, 'the run gate renders first')
   ready.props.onClick()
   tree = runtime.render(client.__test.TestView, props)
-
   const add = findNode(tree, (node) => node.props && node.props['aria-label'] === 'Add screenshot')
-  assert.ok(add, 'the screenshot add control is rendered after the run starts')
-  const file = findNode(tree, (node) => node.type === 'input' && node.props.type === 'file')
-  assert.ok(file, 'a file input backs the add control')
-  assert.equal(file.props.accept, 'image/png,image/jpeg,image/webp')
+  assert.ok(add, 'the observation form opens directly')
+})
+
+test('a test round without a prepared record and without a run command still opens the observation', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 't0',
+    kind: 'test',
+    sessionId: 'session-1',
+    decision: 'Real test',
+    scenario: {
+      preconditions: [],
+      steps: ['Do the thing.'],
+      expected: ['It works.'],
+      failureSignature: 'It does not.',
+      rollback: 'Revert.',
+    },
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  let tree = runtime.render(client.__test.TestView, { round, sent: null, onSent() {} })
+  const note = findNode(tree, (node) => Array.isArray(node.children) && node.children.includes('No prepared build recorded.'))
+  assert.ok(note, 'a round from an older host says why it has no prepared line')
+  const command = findNode(tree, (node) => node.type === 'code')
+  assert.equal(command, null, 'no run command, no line for it')
+  const gate = findNode(
+    tree,
+    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('I’m ready to test'),
+  )
+  assert.ok(gate, 'the gate is still drawn')
+  assert.equal(gate.props.disabled, false, 'such a round is still testable')
+  gate.props.onClick()
+  tree = runtime.render(client.__test.TestView, { round, sent: null, onSent() {} })
+  const add = findNode(tree, (node) => node.props && node.props['aria-label'] === 'Add screenshot')
+  assert.ok(add, 'the observation form opens')
+})
+
+test('a round from the old host never draws a process control', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 't3',
+    kind: 'test',
+    sessionId: 'session-1',
+    decision: 'Real test',
+    prepared: { command: 'node build.mjs', exitCode: 0, builtAt: '2026-11-03T12:40:00+08:00' },
+    warmStart: { command: 'node serve.mjs' },
+    start: { at: Date.parse('2026-11-03T12:50:00+08:00'), command: 'node serve.mjs' },
+    scenario: {
+      preconditions: [],
+      steps: ['Do the thing.'],
+      expected: ['It works.'],
+      failureSignature: 'It does not.',
+      rollback: 'Revert.',
+    },
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const tree = runtime.render(client.__test.TestView, { round, sent: null, onSent() {} })
+  const labels = ['Started ', 'Stop', 'Output', 'Hide output']
+  for (const label of labels) {
+    const found = findNode(
+      tree,
+      (node) => (node.type === 'button' || Array.isArray(node.children)) && node.children.includes(label),
+    )
+    assert.equal(found, null, `${label} belongs to a process the tab no longer owns`)
+  }
+  const gate = findNode(
+    tree,
+    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('I’m ready to test'),
+  )
+  assert.ok(gate, 'the record is still testable: it asks for the observation, not a start')
 })
 
 test('a round event opens a tab only for the mounted conversation', () => {

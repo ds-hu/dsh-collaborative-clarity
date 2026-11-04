@@ -103,7 +103,12 @@ click to the line the user pointed at.
 
 Opens a real-test gate and waits.
 
-- candidate, cold-build command and exit code, and a 3–7 step scenario;
+- candidate, the **prepared** build (command and exit code) the agent already ran, an optional
+  **command to run** the user can copy (`runThis`, omitted when the change is already running),
+  and a 3–7 step scenario;
+- the tab starts nothing: the command is text with a copy button, so whoever runs the app — the
+  agent as a background job, or the user in a terminal — also ends it. The round records no start,
+  no output, and no stop;
 - the user presses **I’m ready to test**, runs the scenario, and records pass, fail, or blocked;
 - up to four screenshots can be attached by picker, drop, or paste (both scoped to the panel: the
   harness's document drop target would otherwise add the file to the chat composer as well); the

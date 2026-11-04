@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0009 · A — Confined start</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; padding: 28px 16px; background: #f4f5f7; color: #171a1f;
+         font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif }
+  .stage { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; align-items: flex-start }
+  .shot { width: 360px }
+  .cap { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; margin: 0 0 6px 2px }
+  .frame { background: #fff; border: 1px solid #e2e5e9; border-radius: 12px; padding: 14px;
+           box-shadow: 0 1px 2px rgba(16, 24, 40, .04) }
+  .eyebrow { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #6b7280 }
+  h1 { font-size: 15px; font-weight: 600; margin: 6px 0 10px; letter-spacing: -.01em }
+  table.scen { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px }
+  .scen td { padding: 3px 0; color: #6b7280 }
+  .scen td + td { text-align: right; color: #171a1f }
+  .bar { border-top: 1px solid #eef0f2; padding-top: 10px }
+  .prep { font-size: 12px; color: #6b7280 }
+  .prep b { font-weight: 500; color: #3f4650 }
+  button { font: inherit; border-radius: 8px; border: 1px solid transparent; padding: 7px 12px }
+  .primary { width: 100%; background: #2f6feb; color: #fff; margin-top: 8px; font-weight: 500 }
+  .ghost { background: #fff; border-color: #e2e5e9; color: #3f4650 }
+  .sheet { margin-top: 14px; border: 1px solid #e2e5e9; border-radius: 10px; padding: 12px; background: #fbfcfd }
+  .sheet h2 { font-size: 12px; font-weight: 600; margin: 0 0 10px }
+  .kv { display: grid; grid-template-columns: 76px 1fr; gap: 7px 8px; font-size: 12px }
+  .kv dt { color: #6b7280 }
+  .kv dd { margin: 0; color: #171a1f; overflow-wrap: anywhere }
+  code { font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace }
+  .row2 { display: flex; gap: 8px; margin-top: 12px }
+  .row2 .primary { width: auto; flex: 1; margin-top: 0 }
+  .edge { margin-top: 14px; padding: 10px; border: 1px dashed #d7dbe0; border-radius: 10px }
+  .edge .t { font-size: 12px; margin-bottom: 8px }
+  .note { font-size: 12px; color: #6b7280; margin: 8px 0 0 }
+</style>
+</head>
+<body>
+<main class="stage">
+
+  <section class="shot">
+    <div class="cap">Ready state</div>
+    <div class="frame">
+      <div class="eyebrow">Real test · 4f2a1c9</div>
+      <h1>Retry after a gateway timeout</h1>
+      <table class="scen">
+        <tr><td>Steps</td><td>4</td></tr>
+        <tr><td>Expected</td><td>3 observables</td></tr>
+        <tr><td>Adversarial</td><td>duplicate filename</td></tr>
+      </table>
+      <div class="bar">
+        <div class="prep">Prepared <b>18:04</b> · <b>pnpm build</b></div>
+        <button class="primary" type="button">I’m ready to test</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="shot">
+    <div class="cap">After pressing it</div>
+    <div class="frame">
+      <div class="eyebrow">Real test · 4f2a1c9</div>
+      <h1>Retry after a gateway timeout</h1>
+      <div class="bar">
+        <div class="prep">Prepared <b>18:04</b> · <b>pnpm build</b></div>
+        <div class="sheet">
+          <h2>Start the test</h2>
+          <dl class="kv">
+            <dt>Warm start</dt><dd><code>pnpm preview --port 4173</code></dd>
+            <dt>Runs</dt><dd>in this workspace, as the agent</dd>
+            <dt>Prepared</dt><dd><code>pnpm build</code> · exit 0 · 18:04</dd>
+            <dt>Scenario</dt><dd>Open the project and upload a 20 MB file on 3G.</dd>
+          </dl>
+          <div class="row2">
+            <button class="primary" type="button">Start</button>
+            <button class="ghost" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="shot">
+    <div class="cap">When the start needs network or admin</div>
+    <div class="frame">
+      <div class="eyebrow">Real test · 4f2a1c9</div>
+      <h1>Retry after a gateway timeout</h1>
+      <div class="bar">
+        <div class="prep">Prepared <b>18:04</b> · <b>pnpm build</b></div>
+        <div class="edge">
+          <div class="t">This start needs admin, so the tab will not run it.</div>
+          <code>docker compose up -d</code>
+          <div class="row2">
+            <button class="primary" type="button">Copy command</button>
+          </div>
+          <div class="note">Run it in your terminal, then record what you saw.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

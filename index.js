@@ -637,9 +637,11 @@ export function testTool(store, ctx = { get: () => undefined }) {
     name: TEST_TOOL,
     description: [
       'Open a real-test gate in the user\'s right Sidebar and wait for the result.',
-      'Use it only after the candidate has been built cold successfully: pass the commit or dirty hash, the exact cold-build command and its exit code, and a 3-7 step scenario with an expected observable, a failure signature, and a rollback.',
-      'The tool blocks while the user runs the scenario. They press "I\'m ready to test", then record pass, fail, or blocked with what they observed, and may attach up to four screenshots.',
-      'A pass is the only evidence that can mark the change tested. A fail is evidence too: fix, rebuild cold, and open a new test gate. Never call a feature done because contract tests are green.',
+      'Run the build yourself first, then pass it as `prepared`: the command, its exit code (0), and when it finished. The tab shows that record; it never runs anything.',
+      'Pass `runThis` when the user needs something running to see the change: one command line they can copy and run in their own terminal. The tab never starts, stops, or reads a process — whoever starts it owns it.',
+      'Also pass a 3-7 step scenario with an expected observable, a failure signature, and a rollback.',
+      'The tool blocks while the user runs the scenario. They record pass, fail, or blocked with what they observed, and may attach up to four screenshots.',
+      'A pass is the only evidence that can mark the change tested. A fail is evidence too: fix, prepare again, and open a new test gate. Never call a feature done because contract tests are green.',
       'Screenshots come back as `screenshots: [{ path, bytes }]`; open one with read_image when the observation alone is ambiguous.',
     ].join(' '),
     parameters: {
@@ -647,7 +649,7 @@ export function testTool(store, ctx = { get: () => undefined }) {
       additionalProperties: false,
       properties: {
         candidate: { type: 'string', description: 'Commit SHA, or "dirty:<hash>" when the tree is dirty.' },
-        coldBuild: {
+        prepared: {
           type: 'object',
           additionalProperties: false,
           properties: {
@@ -656,7 +658,13 @@ export function testTool(store, ctx = { get: () => undefined }) {
             builtAt: { type: 'string' },
           },
           required: ['command', 'exitCode', 'builtAt'],
-          description: 'Evidence of the cold build that preceded this gate. exitCode must be 0.',
+          description:
+            'The build you already ran at this candidate: the exact command, its exit code (must be 0), and when it finished. The tab shows it as a secondary line, not as an action.',
+        },
+        runThis: {
+          type: 'string',
+          description:
+            'One command line the user can copy and run to see the change, e.g. "node demo/serve.mjs". The tab shows it with a copy button and never executes it. Omit when the change is already running.',
         },
         scenario: {
           type: 'object',
@@ -672,19 +680,27 @@ export function testTool(store, ctx = { get: () => undefined }) {
           description: 'A person must be able to follow this without asking questions.',
         },
       },
-      required: ['candidate', 'coldBuild', 'scenario'],
+      required: ['candidate', 'prepared', 'scenario'],
     },
     output: {
       schema: RESULT_SCHEMA,
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
     },
     async execute(args, exec) {
-      refuseUnknown(args ?? {}, ['candidate', 'coldBuild', 'scenario'], 'arguments')
+      refuseUnknown(args ?? {}, ['candidate', 'prepared', 'runThis', 'scenario'], 'arguments')
       const sessionId = sessionOf(exec)
       const candidate = requireString(args.candidate, 'candidate', 200)
-      const coldBuild = args.coldBuild
-      if (coldBuild === null || typeof coldBuild !== 'object') throw new Error('coldBuild is required')
-      if (coldBuild.exitCode !== 0) throw new Error('the cold build did not exit 0; fix it before opening a test gate')
+      const prepared = args.prepared
+      if (prepared === null || typeof prepared !== 'object') throw new Error('prepared is required')
+      if (prepared.exitCode !== 0) {
+        throw new Error('the prepared build did not exit 0; fix it before opening a test gate')
+      }
+      const cwd = workingDirectoryOf(ctx, exec)
+      const preparedCommand = requireString(prepared.command, 'prepared.command', 2_000).trim()
+      const runThis =
+        args.runThis === undefined || args.runThis === null
+          ? null
+          : requireString(args.runThis, 'runThis', 2_000).trim()
       const scenario = args.scenario
       if (scenario === null || typeof scenario !== 'object') throw new Error('scenario is required')
       const normalisedScenario = {
@@ -700,13 +716,14 @@ export function testTool(store, ctx = { get: () => undefined }) {
         sessionId,
         decision: `Real test: ${candidate}`,
         candidate,
-        coldBuild: {
-          command: requireString(coldBuild.command, 'coldBuild.command', 2_000),
-          exitCode: coldBuild.exitCode,
-          builtAt: requireString(coldBuild.builtAt, 'coldBuild.builtAt', 200),
+        prepared: {
+          command: preparedCommand,
+          exitCode: prepared.exitCode,
+          builtAt: requireString(prepared.builtAt, 'prepared.builtAt', 200),
         },
+        runThis,
         scenario: normalisedScenario,
-        cwd: workingDirectoryOf(ctx, exec),
+        cwd,
         status: 'open',
         createdAt: Date.now(),
       }

@@ -159,11 +159,12 @@ test('aborting a waiting round closes it and tells the browser', async () => {
   }
 })
 
-test('a test gate refuses a cold build that did not pass', async () => {
+test('a test gate refuses a prepared build that did not pass', async () => {
   const store = new RoundStore()
   const args = {
     candidate: '4f2a1c9',
-    coldBuild: { command: 'pnpm build', exitCode: 1, builtAt: '2026-10-29T18:04:00+08:00' },
+    prepared: { command: 'pnpm build', exitCode: 1, builtAt: '2026-10-29T18:04:00+08:00' },
+    runThis: 'pnpm preview',
     scenario: {
       preconditions: ['signed in'],
       steps: ['open', 'click'],
@@ -175,11 +176,29 @@ test('a test gate refuses a cold build that did not pass', async () => {
   await assert.rejects(testTool(store).execute(args, exec()), /did not exit 0/)
 })
 
+test('a test gate refuses the retired warmStart argument', async () => {
+  const store = new RoundStore()
+  const args = {
+    candidate: '4f2a1c9',
+    prepared: { command: 'pnpm build', exitCode: 0, builtAt: '2026-10-29T18:04:00+08:00' },
+    warmStart: { command: 'pnpm preview' },
+    scenario: {
+      preconditions: ['signed in'],
+      steps: ['open', 'click'],
+      expected: ['one toast'],
+      failureSignature: 'two toasts',
+      rollback: 'none',
+    },
+  }
+  await assert.rejects(testTool(store).execute(args, exec()), /warmStart is not a field/)
+})
+
 test('a test gate resolves pass with the observation', async () => {
   const store = new RoundStore()
   const args = {
     candidate: '4f2a1c9',
-    coldBuild: { command: 'pnpm build', exitCode: 0, builtAt: '2026-10-29T18:04:00+08:00' },
+    prepared: { command: 'pnpm build', exitCode: 0, builtAt: '2026-10-29T18:04:00+08:00' },
+    runThis: 'pnpm preview --port 4173',
     scenario: {
       preconditions: ['signed in'],
       steps: ['open', 'click'],
@@ -191,6 +210,14 @@ test('a test gate resolves pass with the observation', async () => {
   const pending = testTool(store).execute(args, exec())
   const round = await firstRound(store)
   assert.equal(round.kind, 'test')
+  assert.deepEqual(round.prepared, {
+    command: 'pnpm build',
+    exitCode: 0,
+    builtAt: '2026-10-29T18:04:00+08:00',
+  })
+  assert.equal(round.runThis, 'pnpm preview --port 4173', 'the command is recorded as text, nothing more')
+  assert.equal('warmStart' in round, false, 'the retired field is gone from the record')
+  assert.equal('start' in round, false, 'the round records no start: the tab owns no process')
   store.test(round.id, { verdict: 'pass', observed: 'One toast, no duplicate.' })
   const result = await pending
   assert.equal(result.status, 'tested')

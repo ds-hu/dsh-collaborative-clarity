@@ -29,7 +29,7 @@ place. It is not a chat card and not two stock document previews.
 ├──────────────────────────────────────────────────────────────────────────┤
 │ [Accept A]  [Revise]  [Reject]  [Decide later]                           │
 ├──────────────────────────────────────────────────────────────────────────┤
-│ Cold build passed 18:04 at 4f2a1c · [I’m ready to test]                  │
+│ Prepared 18:04 · pnpm build · [I’m ready to test]                        │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -54,7 +54,7 @@ The internal split is a CSS grid, not a second docking surface. It can be one co
 | Variant viewport | One or two artifacts, each with label and fidelity footer | Yes |
 | Annotation rail | Annotations grouped by variant, blocking first; resolution state | Collapsible |
 | Action bar | Accept, Revise, Reject, Decide later | Yes |
-| Test bar | Cold-build status and the **I’m ready to test** trigger | Only for a built round |
+| Test bar | The prepared build as a secondary line, and the **I’m ready to test** trigger | Only for a built round |
 
 The header is the decision's title, not a marketing headline. It is one sentence. The
 foreclosure line is always visible; it is not behind an info icon. If the user accepts
@@ -322,16 +322,21 @@ The test bar appears only when the round has a `test` payload. Its states:
 | State | What it shows | Action |
 |---|---|---|
 | `not-planned` | "No real test planned" | The agent must plan one before the round can be `done` |
-| `cold-build-pending` | "Cold build not run at this candidate" | Disabled; the agent must run it |
-| `cold-build-failed` | The failing command and exit | Disabled; the agent must fix it |
-| `ready` | "Cold build passed at <candidate> · <time>" | **I’m ready to test** |
-| `running` | Live output, elapsed, cancel | Cancel |
+| `ready` | "Prepared <time> · <command>", and the command to run with **Copy** | **I’m ready to test** |
 | `passed` / `failed` / `blocked` | The recorded verdict and evidence | View record |
 
-Pressing the button opens a confirmation sheet with the scenario, the expected observable,
-the failure signature, and the rollback. Only then does it run. This is the moment the
-protocol is designed around: the user is at the machine, the build is already done, and
-the test is one action away.
+The gate opens only when the agent has already prepared the build; there is no
+"cold-build-pending" state to wait out, because the agent does not open the round until it has
+run the command and can report exit 0. A round opened by an older host has no prepared record;
+it is still testable, and the bar says so instead of closing the door.
+
+The tab owns no process. There is no **Start**, no **Stop**, no output pane and no elapsed
+clock: whoever starts the app — the agent as a background job, or the user in their own
+terminal — owns it, and the round records only what the user observed. The command is text for
+the user to copy, and a round with no command simply skips the line.
+
+Pressing the button opens the observation form with the scenario, the expected observable, the
+failure signature, and the rollback.
 
 ## Grounding
 
@@ -352,7 +357,11 @@ Assumed, not built:
   the normal tab body contract, but no such tab exists yet.
 - A `postMessage` annotation protocol can run inside the sandbox without same-origin
   access. This is standard for cross-origin iframes, but it is a design assumption.
-- A host service can expose the cold-build status and run the recorded test command in a
-  terminal tab. The terminal controller and jobs exist; the wiring does not.
 
-These three assumptions are the first thing a prototype must prove.
+One assumption was built and then withdrawn: that the host can start the recorded command
+under the agent's sandbox and stop it when the verdict lands. `ctx.shell` returns a handle with
+no pid, and on Windows the seam's kill does not reach the descendants of a sandboxed command —
+the tab could not promise "I stopped it". It no longer starts anything; see
+[round 0010](./rounds/0010-withdraw-process-management/round.md).
+
+These two assumptions are the first thing a prototype must prove.
