@@ -1,189 +1,119 @@
+<div align="right">English | <a href="README.zh-CN.md">中文</a></div>
+
 # Collaborative Clarity
 
-Artifact rounds for DeepSeek Harness. The agent opens a decision in the right sidebar, shows
-the smallest file that makes it concrete, and waits inside a tool call while the user
-annotates the artifact and chooses. The decision returns as structured data.
+<p>
+  <a href="https://www.npmjs.com/package/@ds-hu/dsh-collaborative-clarity"><img src="https://img.shields.io/npm/v/@ds-hu/dsh-collaborative-clarity" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@ds-hu/dsh-collaborative-clarity"><img src="https://img.shields.io/npm/dm/@ds-hu/dsh-collaborative-clarity" alt="downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="license"></a>
+  <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-5b4bd6" alt="DeepSeek Harness plugin">
+</p>
 
-This is a prototype. The verified scope and the remaining gaps are recorded in
-[docs/collaboration-draft/06-implementation.md](docs/collaboration-draft/06-implementation.md).
+*A right-sidebar tab where the agent shows you a decision instead of describing one — and
+waits, inside the tool call, until you have answered it.*
+
+## What goes wrong when you vibe code
+
+Handing the build to an agent is fast, and three things go wrong in the same way each time.
+None of them is a badly worded prompt; each is a missing object.
+
+- **You meet the interface late.** The agent decides how a screen behaves, builds it, and you
+  see it when it is finished — so the disagreement arrives as rework. *A round puts the screen
+  in front of you before it is built.*
+- **The architecture becomes someone else's.** Hand the code over wholesale and you lose the
+  map: which choice is risky, what it costs, and why it was made stay invisible until a user
+  finds them for you. *A round carries the ten lines that matter, a recommendation, and what
+  that recommendation forecloses.*
+- **Green tests stand in for a real test.** A unit test asserts what its author imagined. The
+  repeated, hands-on checking a developer does while building does not survive as a test case.
+  *A round ends at a gate a human has to run.*
+
+This plugin supplies the object. The agent writes the smallest file that makes one decision
+concrete — a screen, a type, a function — opens it in the right sidebar, names the variant it
+recommends, and says what that choice forecloses. Then it waits.
+
+The unit of collaboration becomes a **round**: one decision, one artifact set, one wait, one
+record. Everything else here follows from that sentence.
+
+## Why it works
+
+**The artifact does not have to be your product.** HTML is the cheapest thing to render and the
+widest: a terminal, a diff, a table, a screen. A project that is not a web app can still be shown
+as one — at real size, without building a demo app in order to demo it. The file is evidence, not
+inventory.
+
+**The two halves are good at opposite things.** An agent is weak at long tool loops: every turn
+re-reads a growing context — a cache hit is a discount, not a refund — and drifts a little. It is
+very good at producing a whole screen in one pass. A person is the reverse: nobody writes a
+finished HTML page from nothing in one sitting, and nobody wants to rewrite one that already
+exists. The round spends the agent's first pass on the thing it is good at, and spends your
+attention on the judgement it cannot supply.
+
+**And the last mile is a person.** Whatever ships ends up in front of a user, so somebody has to
+have used it first — on the real build, with their own eyes, before the user does. That is why the
+real test is a gate and not a checkbox.
+
+## A round, end to end
+
+1. **The agent puts the decision on screen.** Two variants at most, each a real file rather
+   than a description of one.
+2. **You point at what you disagree with.** Click an element, drag-select a phrase, or click a
+   line. The comment keeps its location, so "this label is wrong" arrives with the label
+   attached.
+3. **You decide.** Accept, revise, reject, or decide later. Your annotations and the chosen
+   variant come back to the agent as structured data, not prose it has to interpret.
+4. **The agent writes the decision down.** The verdict, the foreclosures you accepted, and
+   every comment still open land in the repository beside the artifact.
+
+## The last step is a real test
+
+`clarity_test` opens the gate after the build. The agent records the build it has already run,
+hands you one command to bring the app up, and writes down a scenario of three to seven steps.
+You run it, you look, and you record what happened — pass, fail, or blocked — with screenshots
+when the words alone are ambiguous. Until then the change is *built*, not *tested*.
 
 ## Install
 
-The package is the repository root, so every route installs the same files:
-
 ```powershell
-# from npm — the shortest route
 dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity
-
-# this checkout
-dsh plugin --profile web add link:D:/Projects/dsh-collaborative-clarity
-
-# any machine, straight from GitHub
-dsh plugin --profile web add github:ds-hu/dsh-collaborative-clarity
 ```
 
-`dsh.bundle.patch` contributes one Loader row (`collaborative-clarity`) and `dsh.client`
-declares the browser half. There is no build step. The one runtime dependency is
-`markdown-it` (pure JavaScript, nothing to compile), so there is still no `prepare` script for
-pnpm to block and no `allowBuilds` line to approve.
+Requires DeepSeek Harness with the web profile. From a checkout, add
+`link:D:/path/to/dsh-collaborative-clarity` instead; from GitHub,
+`github:ds-hu/dsh-collaborative-clarity`. There is no build step and one runtime dependency
+(`markdown-it`). Non-blocking rounds also need `@deepseek-ai/dsh-tool-jobs` in the profile.
 
-**Coming from the `plugin/` layout (≤ 0.1.0):** the installed link points at a directory that
-no longer exists, so remove and re-add:
+The version is 0.x, and what works is written down rather than implied:
+[docs/collaboration-draft/06-implementation.md](docs/collaboration-draft/06-implementation.md)
+lists the verified surfaces and the remaining gaps.
+
+<details>
+<summary>Coming from the <code>plugin/</code> layout (≤ 0.1.0)?</summary>
+
+The installed link points at a directory that no longer exists, so remove and re-add:
 
 ```powershell
 dsh plugin --profile web remove @ds-hu/dsh-collaborative-clarity
-dsh plugin --profile web add link:D:/Projects/dsh-collaborative-clarity
+dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity
 ```
 
-The client half hot-reloads. A change to the host half needs a restart of the DSH web process.
+</details>
 
-## The prompt
+## What a round leaves behind
 
-The plugin publishes one system section, `clarity:guidance` at order `2950` — inside the
-tool-section region, between `tool:report` and `tool:computer_use`. It carries the timing rule
-only: open a round when a request leaves a visual or behavioural choice open, and do not open
-one once a direction is accepted. The tool description carries the mechanism, so each fact is
-stated once.
+- **Round record** — the decision, the recommendation, and the foreclosures you accepted.
+- **Annotations** — what you pointed at, and whether it was resolved.
+- **Test record** — who ran the scenario, and what they saw.
 
-The section is registered through `ctx.get('systemPrompt')` rather than an inject
-requirement: a composition without the prompt service keeps the tools and loses only the
-section. There is no switch — disable the plugin to drop it.
+The artifact itself is disposable evidence. The tab is not a document store.
 
-## Tools
+## Read more
 
-### `clarity_round`
+- [AGENTS.md](AGENTS.md) — the architecture, the invariants, and how to run the tests.
+- [docs/collaboration-draft/](docs/collaboration-draft/README.md) — why this exists, in six
+  documents and an ADR.
+- [CHANGELOG.md](CHANGELOG.md) — what each version changed.
 
-Opens a decision round and waits, or returns a job id.
-
-- one decision and one or two variants;
-- every variant is a file, named by `path` (relative paths resolve against the session working
-  directory); the round records the `source` it read, so the artifact is also the record and
-  can be edited and reopened without resending it;
-- a named recommendation and at least one stated foreclosure;
-- the user selects, comments, revises, rejects, or cancels;
-- each comment may carry an `anchor` (`element`, `text`, `line`, or `variant`) and an
-  `artifactHash`; the composer is a two-line textarea — Enter writes a new line, Ctrl/Cmd+Enter
-  adds the comment;
-- blocking (default) returns `{ status, verdict, selected, comments, note }`;
-- `blocking: false` returns `{ status: "pending", roundId, jobId, recommendation }` at once and
-  registers the round as a background job. The user's decision settles it, `job_output` collects
-  the JSON result, and killing the job cancels the round.
-
-Arguments are refused, not dropped: a field the schema does not declare fails the call with
-`<where>.<field> is not a field`. The registry hands arguments over unvalidated, so this is
-where the schema is enforced.
-
-### Non-blocking rounds
-
-`blocking: false` registers the round with the harness `jobs` service (`ctx.jobs`). The job is
-owned by the calling conversation, so it is listed and collected with the ordinary
-`job_output` / `job_kill` tools, and its completion notice wakes the agent when the user
-decides. If the backend finishes first, the agent implements the recommendation and says so;
-a late decision still arrives as a notice and can be honoured or turned into a new round.
-
-This needs `@deepseek-ai/dsh-tool-jobs` in the profile: without it `ctx.jobs` is absent and a
-non-blocking request is refused before any round is published.
-
-### What a variant file renders as
-
-| Extension | Rendering |
-| --- | --- |
-| `.html`, `.htm`, `.svg` | the document, unchanged |
-| `.md`, `.markdown`, `.mdown` | prose: CommonMark blocks and inline syntax, GFM tables, strikethrough, bare-URL links |
-| anything else | numbered source, `data-line-start="1"`, path on every line anchor |
-
-Markdown is parsed by `markdown-it`, so tables, nested lists, setext headings, strikethrough, and
-autolinks are CommonMark/GFM rules rather than a local subset. Raw HTML stays escaped
-(`html: false`), a `javascript:`-style destination never reaches an `href`, and an image becomes
-a link to its source: the sandboxed document must make no network request. The source view keeps
-one text node per line and draws its gutter with a CSS counter, so `pre.textContent` still maps a
-click to the line the user pointed at.
-
-### `clarity_test`
-
-Opens a real-test gate and waits.
-
-- candidate, the **prepared** build (command and exit code) the agent already ran, an optional
-  **command to run** the user can copy (`runThis`, omitted when the change is already running),
-  and a 3–7 step scenario;
-- the tab starts nothing: the command is text with a copy button, so whoever runs the app — the
-  agent as a background job, or the user in a terminal — also ends it. The round records no start,
-  no output, and no stop;
-- the user presses **I’m ready to test**, runs the scenario, and records pass, fail, or blocked;
-- up to four screenshots can be attached by picker, drop, or paste (both scoped to the panel: the
-  harness's document drop target would otherwise add the file to the chat composer as well); the
-  selected one is shown at full width with a thumbnail strip, and the files land in
-  `.clarity/screenshots/<roundId>/shot-N.<png|jpg|webp>` inside the session directory;
-- returns `{ status, verdict, observed, screenshots }`, where each screenshot is
-  `{ path, bytes }` — open it with `read_image` when the words alone are ambiguous.
-
-A blocking call waits without consuming tokens; a non-blocking round returns at once and settles
-as a job. The model sees the structured result, not the UI activity.
-
-## The sidebar
-
-The `Clarity` tab is registered under `sidebar.right.pane.tab`, is one tab per conversation, and
-has a guide entry. A round opens automatically on the mounted conversation, and opening a
-conversation whose round is still waiting brings it back. The tab holds no round id of its own:
-on every mount, reconnect, and round event it asks the host (`GET /clarity/api/rounds`) what is
-open in that conversation, so a reload, a layout switch, or a second window cannot leave it
-pointing at a round that no longer exists.
-
-While a round waits, the session row gets a runtime `pendingInteraction` of kind `question`, so
-the shared warning dot and the trailing `Answer` label appear. The row also gets a yellow
-leading dot when it is otherwise idle. There is no bottom-right pill.
-
-### Annotating an artifact
-
-Annotation is on when the round opens. Point at what should change:
-
-- click an element (or an ancestor with `data-anchor` / `data-clarity-anchor`) to anchor to its
-  selector;
-- drag-select text to anchor to the quote;
-- click a line in a `<pre>` for one line. For a range, press **Annotate** again and Shift-click
-  a second line. Put `data-path` and `data-line-start` on the `<pre>` for a file path and a
-  real first line number.
-
-After the click, the target keeps a 2px outline and **Annotate turns off**. The artifact is
-then released for normal clicking, so the user can test the control they just commented on.
-Press **Annotate** to pick another target.
-
-The click does not open a second editor inside the artifact. The comment field at the bottom of
-the tab shows the anchor chip and sends the comment with the decision. Clicking a sent comment
-flashes the spot in the artifact. A comment without an anchor is a `variant`-level comment.
-
-The artifact iframe is sandboxed without same-origin. The bridge is injected into `srcDoc` and
-talks to the panel by `postMessage`; the panel checks `event.source`, and the host validates
-every anchor before the model sees it.
-
-## What is here
-
-| Path | What it is |
-| --- | --- |
-| [index.js](index.js) | Host half: `clarity_round`, `clarity_test`, the round store, `/clarity/api`, the wait |
-| [client.js](client.js) | Browser half: the `Clarity` tab, the artifact iframe and bridge, the session-row dot |
-| [artifacts.js](artifacts.js) | Renders a variant file by extension: document, prose, or numbered source |
-| [cordis.patch.yml](cordis.patch.yml) | The one Loader row this package contributes |
-| [icon.svg](icon.svg), [locale/](locale/) | Plugins-panel icon, title and description |
-| [tests/](tests/) | Seven files, one per surface; `scripts/run-tests.mjs` runs them all |
-| [docs/collaboration-draft/](docs/collaboration-draft/) | The diagnosis, protocol, surface design, verification rules, and the real round records |
-
-## Tests
-
-```powershell
-pnpm test              # or: node scripts/run-tests.mjs
-```
-
-Each file runs in its own Node process with inherited stdio. `node --test` is avoided because
-this sandbox denies the child process it spawns.
-
-## Read the design
-
-Start with [docs/collaboration-draft/README.md](docs/collaboration-draft/README.md). The short
-version: the unit of collaboration is a round, not a sentence; a round has one decision, an
-artifact, a recommendation, and a stated foreclosure; a human-run real test is the only thing
-that marks a feature tested.
-
-## License
+---
 
 Apache License 2.0. See [LICENSE](LICENSE).
