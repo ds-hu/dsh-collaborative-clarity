@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 B — 沉进变体</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note {
+    max-width: 520px; margin: 0 auto 10px; padding: 8px 11px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); font-size: 12px;
+  }
+  .note b { color: var(--ink); }
+  .panel {
+    max-width: 520px; margin: 0 auto; background: #fff;
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  }
+  .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { font-size: 10px; line-height: 15px; font-weight: 650; letter-spacing: .06em; color: var(--muted); }
+  h1 { margin: 0; font-size: 15px; line-height: 21px; font-weight: 650; }
+  .context { margin: 0; color: var(--muted); font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+  .card { border: 1px solid var(--line); border-radius: 8px; background: var(--layer1); overflow: hidden; }
+  .head { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  .radio { color: var(--brand); font-size: 13px; line-height: 13px; }
+  .vlabel { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .art { height: 96px; background: repeating-linear-gradient(#fff, #fff 22px, #f4f5f7 22px, #f4f5f7 24px); }
+  .tag { display: flex; align-items: center; gap: 5px; font-size: 10px; line-height: 15px; color: var(--muted); padding: 5px 8px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #2da44e; flex: none; }
+  .foot { border-top: 1px solid var(--line); padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; background: #fff; }
+  .row { font-size: 10px; line-height: 15px; color: var(--muted); }
+  .row b { color: var(--ink); font-weight: 650; letter-spacing: .06em; }
+  .row.rec b { color: var(--brand); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 12px; line-height: 18px; padding: 5px 10px;
+    border-radius: 6px; border: 1px solid var(--line); background: var(--layer2); color: var(--ink);
+  }
+  button.primary { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+  .wire {
+    max-width: 520px; margin: 10px auto 0; padding: 10px 12px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  }
+  .wire h2 { margin: 0 0 6px; font-size: 11px; font-weight: 650; color: var(--muted); letter-spacing: .06em; }
+  pre { margin: 0; font: 11.5px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>B — 沉进变体。</b>每个变体自己带着「推荐」和「代价」，卡片就是完整的论点。整轮不再有单独一块代价，
+  按钮紧跟卡片。
+</div>
+
+<div class="panel">
+  <div class="body">
+    <div class="eyebrow">需要你定</div>
+    <h1>空态里要不要放一句话，告诉用户这里会来什么？</h1>
+    <p class="context">这是示例轮，用来让你看布局。真正的问题是推荐和代价放在哪儿。</p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="head">
+          <span class="radio">○</span>
+          <span class="vlabel">A — 放一句</span>
+        </div>
+        <div class="art"></div>
+        <div class="tag"><span class="dot"></span>真实 · 整块面板</div>
+        <div class="foot">
+          <div class="row rec"><b>推荐</b>　空态最省事的一步，就是先给一句话。</div>
+          <div class="row"><b>代价</b>　老用户每次都看到；它解释不了「现在为什么是空的」。</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="head">
+          <span class="radio">○</span>
+          <span class="vlabel">B — 什么都不放</span>
+        </div>
+        <div class="art"></div>
+        <div class="tag"><span class="dot"></span>真实 · 整块面板</div>
+        <div class="foot">
+          <div class="row"><b>代价</b>　第一次打开的人不知道这块面板会来什么。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary">接受 A</button>
+      <button>修改 B</button>
+      <button>都不要 A&amp;B</button>
+      <button>取消这一轮</button>
+    </div>
+  </div>
+</div>
+
+<div class="wire">
+  <h2>这版的数据形状（要改工具 schema）</h2>
+<pre>variants[].recommendation = "空态最省事的一步，就是先给一句话。"  // 有它即推荐
+variants[].cost           = ["…", "…"]
+round.recommendation / round.foreclosures 删除</pre>
+</div>
+
+</body>
+</html>

@@ -71,9 +71,9 @@ test('health, round read, and decision write go through the routes', async () =>
     sessionId: 's1',
     decision: 'A or B?',
     context: '',
-    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>' }],
-    recommendation: 'a',
-    foreclosures: ['B is lost.'],
+    variants: [
+      { id: 'a', label: 'A', html: '<h1>A</h1>', recommendation: 'It is the smaller change.', cost: ['B is lost.'] },
+    ],
     status: 'open',
     createdAt: Date.now(),
   })
@@ -111,9 +111,9 @@ test('anchored comments pass validation and malformed anchors are refused', asyn
     sessionId: 's1',
     decision: 'A or B?',
     context: '',
-    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>' }],
-    recommendation: 'a',
-    foreclosures: ['B is lost.'],
+    variants: [
+      { id: 'a', label: 'A', html: '<h1>A</h1>', recommendation: 'It is the smaller change.', cost: ['B is lost.'] },
+    ],
     status: 'open',
     createdAt: Date.now(),
   }
@@ -197,9 +197,9 @@ test('the open-round list serves exactly what the browser must recover', async (
     kind: 'decision',
     decision: 'A or B?',
     context: '',
-    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>' }],
-    recommendation: 'a',
-    foreclosures: ['B is lost.'],
+    variants: [
+      { id: 'a', label: 'A', html: '<h1>A</h1>', recommendation: 'It is the smaller change.', cost: ['B is lost.'] },
+    ],
     status: 'open',
   }
   store.open({ ...base, id: 's1-a', sessionId: 's1', createdAt: 1 })

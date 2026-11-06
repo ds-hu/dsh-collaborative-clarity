@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant A — keep the phrase</title>
+<style>
+  :root { --ink:#1f2328; --muted:#59636e; --line:#d1d9e0; --brand:#0969da; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: #f6f8fa; color: var(--ink);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note {
+    max-width: 460px; margin: 0 auto 12px; padding: 9px 12px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); font-size: 12.5px;
+  }
+  .note b { color: var(--ink); }
+  .page {
+    max-width: 460px; margin: 0 auto; background: #fff;
+    border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px 20px;
+  }
+  .lang { text-align: right; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .lang a { color: var(--brand); text-decoration: none; }
+  h1 { margin: 0 0 10px; font-size: 26px; line-height: 1.25; font-weight: 600; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .badge { font-size: 10.5px; line-height: 18px; padding: 0 7px; border-radius: 4px; background: #eef2f6; color: #3d444d; border: 1px solid var(--line); }
+  .tagline { margin: 0 0 18px; color: var(--muted); font-style: italic; }
+  h2 { margin: 18px 0 10px; font-size: 19px; line-height: 1.3; font-weight: 600; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .marked { background: #fff8c5; box-shadow: 0 0 0 2px #fff8c5; border-radius: 2px; }
+  p { margin: 0 0 12px; }
+  ul { margin: 0 0 12px; padding-left: 22px; }
+  li { margin: 0 0 9px; }
+  li i { color: var(--muted); }
+  .keep { display: inline-block; margin-top: 4px; font-size: 11px; line-height: 16px; padding: 0 6px; border-radius: 99px; background: #dafbe1; color: #116329; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A — 留着。</b>标题一字不动：<code>What goes wrong when you vibe code</code>。认这个词的人一眼知道
+  这是给谁的；不认的人看下面三条也照样懂。
+</div>
+
+<div class="page">
+  <div class="lang">English | <a href="#">中文</a></div>
+  <h1>Collaborative Clarity</h1>
+  <div class="badges">
+    <span class="badge">npm 0.3.2</span>
+    <span class="badge">downloads</span>
+    <span class="badge">Apache-2.0</span>
+    <span class="badge">DeepSeek Harness plugin</span>
+  </div>
+  <p class="tagline">A right-sidebar tab where the agent shows you a decision instead of describing
+    one — and waits, inside the tool call, until you have answered it.</p>
+
+  <h2><span class="marked">What goes wrong when you vibe code</span><span class="keep">留</span></h2>
+  <p>Handing the build to an agent is fast, and three things go wrong in the same way each time.
+    None of them is a badly worded prompt; each is a missing object.</p>
+  <ul>
+    <li><b>You meet the interface late.</b> The agent decides how a screen behaves, builds it, and
+      you see it when it is finished. <i>A round puts the screen in front of you before it is
+      built.</i></li>
+    <li><b>The architecture becomes someone else's.</b> <i>A round carries the ten lines that
+      matter, a recommendation, and what it forecloses.</i></li>
+    <li><b>Green tests stand in for a real test.</b> <i>A round ends at a gate a human has to
+      run.</i></li>
+  </ul>
+</div>
+
+</body>
+</html>

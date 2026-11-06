@@ -21,6 +21,42 @@ build" — and the tab no longer owns a process at all. This is a breaking schem
   the trigger opens the observation.
 - The docs no longer ask the agent to remove caches: a clean environment is reached by building in a
   scratch checkout, and the clean-machine claim belongs to CI.
+- **Docs.** The README is now a short *why + how* page — three ways vibe coding goes wrong, one
+  round end to end, one real-test gate — with badges and a language switch. The mechanisms moved to
+  the new `AGENTS.md`, and `README.zh-CN.md` is the same page in Chinese. See
+  `docs/collaboration-draft/rounds/0011-readme`.
+- A comment typed into the composer but never added now travels with the decision instead of being
+  dropped. The box clears only after the request lands, so a failed send keeps the text.
+- The action row says what it acts on: `Revise B` names the selected variant, `Reject A&B` names
+  both, and `Cancel` is now `Decide later`. See `docs/collaboration-draft/rounds/0012-unsent-comment`.
+- The panel speaks the GUI's language. Every user-visible string now lives in one `MESSAGES` table
+  (`en` and `zh`, identical key sets), registered as the `collaborativeClarity` namespace through
+  `ctx.locale`, so Settings → General switches the tab without a reload. A composition without the
+  locale service keeps the English table. See `docs/collaboration-draft/rounds/0013-ui-chinese`.
+- A visual review of the Chinese panel then rewrote most of it: 「推荐：」 and 「代价：」 end in a
+  colon and the foreclosures and fidelity notes are one line each, the anchored notes are
+  「批注」, the reject and revise buttons read 「都不要」 and 「继续修改 A」, and the last button
+  says 「取消这一轮」 because that is what it does. See
+  `docs/collaboration-draft/rounds/0014-naming`.
+- The anchor labels follow the GUI language too. `Whole variant`, `Element · …`, `Line 3` and
+  `Lines 12–14` were the last English literals on a render path — they leaked into the comment rows
+  and the 「正在批注」 line of a Chinese panel — and now come from `anchor.*` keys.
+- The test gate ends one way: **Pass**, **Fail**, or **Cancel this test** — cancelling closes the
+  round without a verdict, and the prepared build and command stay on screen while you observe. A
+  test round's title is its kind rather than `Real test: <candidate>`, and the fidelity map under
+  each variant is three aligned rows instead of one dotted line. See
+  `docs/collaboration-draft/rounds/0015-test-gate-fixes`.
+- **The advice belongs to the variant, not to the round.** `variants[].recommendation` (whichever
+  variant carries it is the recommendation; exactly one must) and `variants[].cost` replace
+  `round.recommendation` and `round.foreclosures`, which are now **refused** rather than ignored.
+  A card reads 产物 → 推荐/代价 → 真实/模拟/省略, and the round-level cost block is gone. Breaking
+  for any caller still sending the old fields. See
+  `docs/collaboration-draft/rounds/0016-recommendation-place`.
+- **An added comment can be rewritten where it sits.** 「编辑」 turns that row's own text into an
+  input with 保存 / 取消; the anchor, the variant and the place in the list all survive, an empty
+  save is refused instead of deleting the comment, and an edit typed but not saved travels with the
+  decision the same way an unsent comment does. See
+  `docs/collaboration-draft/rounds/0017-edit-added-comments`.
 
 ## 0.3.2 — 2026-10-31
 

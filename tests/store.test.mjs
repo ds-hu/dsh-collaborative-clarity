@@ -26,11 +26,15 @@ function decisionArgs() {
     decision: 'Should the empty state lead with a verb?',
     context: 'New users land here with no projects.',
     variants: [
-      { id: 'a', label: 'Verb-first', path: 'fixtures/verb-first.html' },
+      {
+        id: 'a',
+        label: 'Verb-first',
+        path: 'fixtures/verb-first.html',
+        recommendation: 'It is the smaller change.',
+        cost: ['The outcome-first framing is lost.'],
+      },
       { id: 'b', label: 'Outcome-first', path: 'fixtures/outcome-first.html' },
     ],
-    recommendation: 'a',
-    foreclosures: ['The outcome-first framing is lost.'],
   }
 }
 
@@ -100,11 +104,27 @@ test('a decision result keeps element, text, and line anchors', async () => {
   assert.equal(result.comments[2].anchor.start, 12)
 })
 
-test('a round rejects a recommendation that names no variant', async () => {
+test('exactly one variant carries the recommendation', async () => {
   const store = new RoundStore()
-  const args = decisionArgs()
-  args.recommendation = 'missing'
-  await assert.rejects(decisionTool(store, ctx()).execute(args, exec()), /does not match a variant id/)
+  const none = decisionArgs()
+  none.variants = none.variants.map(({ recommendation, ...rest }) => rest)
+  await assert.rejects(
+    decisionTool(store, ctx()).execute(none, exec()),
+    /exactly one variant carries a recommendation; none does/,
+  )
+
+  const both = decisionArgs()
+  both.variants[1] = { ...both.variants[1], recommendation: 'It puts the outcome first.' }
+  await assert.rejects(
+    decisionTool(store, ctx()).execute(both, exec()),
+    /exactly one variant carries a recommendation; 2 do/,
+  )
+})
+
+test('a retired round-level field is refused, not dropped', async () => {
+  const store = new RoundStore()
+  const args = { ...decisionArgs(), foreclosures: ['B is lost.'] }
+  await assert.rejects(decisionTool(store, ctx()).execute(args, exec()), /arguments\.foreclosures is not a field/)
 })
 
 test('a round rejects an argument the schema does not declare', async () => {
@@ -223,4 +243,29 @@ test('a test gate resolves pass with the observation', async () => {
   assert.equal(result.status, 'tested')
   assert.equal(result.verdict, 'pass')
   assert.equal(result.observed, 'One toast, no duplicate.')
+})
+
+test('a test gate can be cancelled instead of answered', async () => {
+  const store = new RoundStore()
+  const args = {
+    candidate: '4f2a1c9',
+    prepared: { command: 'pnpm build', exitCode: 0, builtAt: '2026-10-29T18:04:00+08:00' },
+    scenario: {
+      preconditions: ['signed in'],
+      steps: ['open'],
+      expected: ['one toast'],
+      failureSignature: 'two toasts',
+      rollback: 'none',
+    },
+  }
+  const pending = testTool(store).execute(args, exec())
+  const round = await firstRound(store)
+
+  const cancelled = store.test(round.id, { verdict: 'cancel' })
+  assert.equal(cancelled.status, 'cancelled', 'cancelling closes the round, it does not test it')
+  assert.equal('verdict' in cancelled, false, 'a cancelled gate records no verdict')
+  assert.equal(round.status, 'cancelled')
+
+  const result = await pending
+  assert.equal(result.status, 'cancelled', 'the waiting tool call sees the cancel')
 })

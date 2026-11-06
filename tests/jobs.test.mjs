@@ -7,9 +7,7 @@ import { RoundStore, decisionTool } from '../index.js'
 function args(overrides = {}) {
   return {
     decision: 'Which surface?',
-    variants: [{ id: 'a', path: 'tests/fixtures/outcome-first.html' }],
-    recommendation: 'a',
-    foreclosures: ['B is gone.'],
+    variants: [{ id: 'a', path: 'tests/fixtures/outcome-first.html', recommendation: 'It is the surface we have.', cost: ['B is gone.'] }],
     ...overrides,
   }
 }

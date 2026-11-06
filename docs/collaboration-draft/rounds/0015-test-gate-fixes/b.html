@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 B — 先放一放</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note {
+    max-width: 580px; margin: 0 auto 10px; padding: 8px 11px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); font-size: 12px;
+  }
+  .note b { color: var(--ink); }
+  .panel {
+    max-width: 580px; margin: 0 auto; background: #fff;
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  }
+  .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  h1 { margin: 0; font-size: 16px; line-height: 22px; font-weight: 650; }
+  .meta { color: var(--muted); }
+  .meta b { color: var(--ink); font-weight: 650; }
+  .card {
+    border: 1px solid var(--line); border-radius: 8px; background: var(--layer1);
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .label { font-size: 10px; line-height: 15px; font-weight: 650; letter-spacing: .06em; color: var(--muted); }
+  ul, ol { margin: 0 0 6px; padding-left: 18px; }
+  li { margin: 0 0 2px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  textarea {
+    font: inherit; font-size: 12px; padding: 5px 7px; min-height: 52px; resize: vertical;
+    border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); width: 100%;
+  }
+  .shots { display: flex; align-items: center; gap: 6px; }
+  .plus {
+    width: 46px; height: 34px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--layer2); color: var(--muted); text-align: center; line-height: 32px;
+  }
+  .hint { color: var(--muted); font-size: 10px; }
+  .prepared { color: var(--muted); }
+  .prepared b { color: var(--ink); font-weight: 600; }
+  code {
+    font: 11.5px ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: rgba(129,139,152,.12); border-radius: 4px; padding: 1px 4px;
+  }
+  .run { color: var(--muted); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .run a { color: var(--brand); text-decoration: none; font-size: 12px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 12px; line-height: 18px; padding: 5px 10px;
+    border-radius: 6px; border: 1px solid var(--line); background: var(--layer2); color: var(--ink); cursor: pointer;
+  }
+  button.primary { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+  button.danger { color: #b42318; }
+  .wire {
+    max-width: 580px; margin: 10px auto 0; padding: 10px 12px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  }
+  .wire h2 { margin: 0 0 6px; font-size: 11px; font-weight: 650; color: var(--muted); letter-spacing: .06em; }
+  pre { margin: 0; font: 11.5px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>B — 先放一放。</b>标题和命令的改法和 A 一样；不同的是第三个按钮：它不关这一轮，只是回到
+  「准备完成，开始测试」，agent 继续等——等你有空再测。
+</div>
+
+<div class="panel">
+  <div class="body">
+    <h1>真机测试</h1>
+    <div class="meta"><b>版本：</b>5be9c91 + 未提交的改动</div>
+
+    <div class="card">
+      <div class="label">前期准备</div>
+      <ul><li>仓库在 D:\Projects\dsh-collaborative-clarity</li><li>GUI 语言是中文</li></ul>
+      <div class="label">测试步骤</div>
+      <ol><li>打开 Clarity 标签页</li><li>点「准备完成，开始测试」</li><li>看底部的按钮</li></ol>
+      <div class="label">预期结果</div>
+      <ul><li>三个按钮：通过 / 失败 / 取消该测试</li></ul>
+      <div class="label">失败迹象</div>
+      <div>按钮还是四个，或者「无法测试」还在</div>
+      <div class="label">回滚方法</div>
+      <div>dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity@0.3.2</div>
+    </div>
+
+    <div class="field">
+      <div class="label">你看到了什么？</div>
+      <textarea placeholder="一两句话：发生了什么，哪里和预期不一样。"></textarea>
+    </div>
+
+    <div class="field">
+      <div class="label">截图</div>
+      <div class="shots"><div class="plus">+</div></div>
+      <div class="hint">粘贴进说明里、拖进来，或者选一张 PNG/JPEG。</div>
+    </div>
+
+    <div class="prepared">已构建 <b>08:39</b> · <b>node scripts/run-tests.mjs</b></div>
+    <div class="run">命令：<code>dsh web</code> <a href="#">复制</a></div>
+
+    <div class="actions">
+      <button class="primary">通过</button>
+      <button class="danger">失败</button>
+      <button>先放一放</button>
+    </div>
+  </div>
+</div>
+
+<div class="wire">
+  <h2>agent 那边收到</h2>
+  <pre>（什么都没收到：工具调用还挂着，round 仍然是 open）</pre>
+</div>
+
+</body>
+</html>

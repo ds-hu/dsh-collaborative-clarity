@@ -6,6 +6,7 @@ window.__ModuleLoader__.load({
 
     const KIND = 'clarity'
     const TAB_ID = 'dsh-collaborative-clarity'
+    const NS = 'collaborativeClarity'
     const API = '/clarity/api'
 
     const HAIRLINE = '0.5px solid var(--dsw-alias-border-l2)'
@@ -14,6 +15,195 @@ window.__ModuleLoader__.load({
     const BRAND = 'var(--dsw-alias-brand-primary, var(--dsw-alias-label-primary))'
     const FONT = 'var(--dsw-font-family, ui-sans-serif, system-ui, "Segoe UI", sans-serif)'
     const MONO = 'var(--ds-font-family-code, ui-monospace, Consolas, monospace)'
+
+    // Every string the panel draws lives here, so a language switch never has to
+    // hunt through a render function. `en` is the baseline: `ctx.locale` requires
+    // it, and it is what shows when the locale service is absent.
+    const MESSAGES = {
+      en: {
+        'header.realTest': 'Real test',
+        'header.decision': 'Decision',
+        'header.candidate': 'Version: ',
+        'advice.why': 'why',
+        'advice.cost': 'cost',
+        'fidelity.real': 'real',
+        'fidelity.mocked': 'mock',
+        'fidelity.omitted': 'omit',
+        'anchor.variant': 'Whole variant',
+        'anchor.element': 'Element',
+        'anchor.line': 'Line {n}',
+        'anchor.lines': 'Lines {from}–{to}',
+        'anchor.other': 'Anchor',
+        'comment.empty': 'Write a comment first.',
+        'comment.chooseVariant': 'Choose a variant first.',
+        'comment.needsText': 'A revision or rejection needs a comment or a note.',
+        'annotate.on': 'Annotating',
+        'annotate.off': 'Annotate',
+        'annotate.anchored': 'Anchored: {anchor}. Interaction is unlocked; press Annotate to pick another.',
+        'annotate.hint': 'Click an element, drag-select text, or click a code line in either card.',
+        'annotate.offHint': 'Comment on the whole variant, or turn on Annotate.',
+        'comments.title': 'Comments',
+        'comments.commentingOn': 'Commenting on',
+        'comments.clear': 'Clear',
+        'comments.emptyAnchored': 'Write the comment that belongs at that spot.',
+        'comments.empty': 'No comments yet. Use Annotate to point at an element, text, or code line.',
+        'comments.showSpot': 'Show this spot in the artifact',
+        'comments.remove': 'Remove comment',
+        'comments.edit': 'Edit',
+        'comments.save': 'Save',
+        'comments.cancelEdit': 'Cancel',
+        'comments.onVariant': 'Comment on variant',
+        'anchor.whole': 'Whole variant',
+        'anchor.element': 'Element · {text}',
+        'anchor.text': '“{quote}”',
+        'anchor.line': 'Line {line}',
+        'anchor.lines': 'Lines {start}–{end}',
+        'anchor.other': 'Anchor',
+        'composer.placeholderAnchored': 'What should change here? (Ctrl+Enter adds)',
+        'composer.placeholder': 'What should change? (Ctrl+Enter adds)',
+        'composer.add': 'Add',
+        'note.label': 'Note to the agent (optional)',
+        'note.placeholder': 'One sentence the agent should carry into the implementation.',
+        'action.sending': 'Sending…',
+        'action.accept': 'Accept',
+        'action.revise': 'Revise',
+        'action.rejectAll': 'Reject {variants}',
+        'action.cancel': 'Cancel this round',
+        'test.preconditions': 'Preconditions',
+        'test.steps': 'Steps',
+        'test.expected': 'Expected',
+        'test.failure': 'Failure signature',
+        'test.rollback': 'Rollback',
+        'test.prepared': 'Prepared ',
+        'test.noPrepared': 'No prepared build recorded.',
+        'test.run': 'Command: ',
+        'test.copied': 'Copied',
+        'test.copy': 'Copy',
+        'test.ready': 'I’m ready to test',
+        'test.observed': 'What did you observe?',
+        'test.observedPlaceholder': 'One or two sentences: what happened, and where it differed from expected.',
+        'test.needsObservation': 'Record what you saw before marking this failed.',
+        'test.screenshot': 'Screenshot',
+        'test.screenshotOf': 'Screenshot {index} of {total}',
+        'test.remove': 'Remove',
+        'test.dropHint': 'Paste into the note, drop, or choose a PNG/JPEG.',
+        'test.pass': 'Pass',
+        'test.fail': 'Fail',
+        'test.cancel': 'Cancel this test',
+                'test.addScreenshot': 'Add screenshot',
+        'state.reading': 'Reading round…',
+        'state.decisionSent': 'Decision sent to the agent.',
+        'state.resultSent': 'Result sent to the agent.',
+        'state.cancelled': 'Round cancelled.',
+        'state.close': 'You can close this tab. The agent has the structured result.',
+        'state.noRound': 'No round is open',
+        'state.noRoundHint':
+          'A round opens here automatically when the agent calls clarity_round or clarity_test. Keep this tab; it will show the next round in this conversation.',
+        'state.roundCancelled': 'This round was cancelled.',
+        'state.answered': 'This round is already answered.',
+        'state.hasResult': 'The agent has the result. Open a new round for the next decision.',
+        'state.returned': 'The tool call has returned.',
+        'state.verdict': 'Verdict: {verdict}',
+        'state.selected': ' · selected: {selected}',
+        'tab.guide': 'Artifact rounds: a decision shown, annotated, and chosen while the agent waits.',
+      },
+      zh: {
+        'header.realTest': '真机测试',
+        'header.decision': '决定',
+        'header.candidate': '版本：',
+        'advice.why': '推荐',
+        'advice.cost': '代价',
+        'fidelity.real': '真实',
+        'fidelity.mocked': '模拟',
+        'fidelity.omitted': '省略',
+        'anchor.variant': '整条变体',
+        'anchor.element': '元素',
+        'anchor.line': '第 {n} 行',
+        'anchor.lines': '第 {from}–{to} 行',
+        'anchor.other': '锚点',
+        'comment.empty': '先写一条批注。',
+        'comment.chooseVariant': '先选一条变体。',
+        'comment.needsText': '要求修改或者拒绝，总得留下一条批注或说明。',
+        'annotate.on': '标注中',
+        'annotate.off': '标注',
+        'annotate.anchored': '已锚定：{anchor}。交互已解锁，再点「标注」可以选别处。',
+        'annotate.hint': '点一个元素、划一段文字，或者点代码里的某一行。',
+        'annotate.offHint': '可以批注整条变体，也可以打开「标注」。',
+        'comments.title': '批注',
+        'comments.commentingOn': '正在批注',
+        'comments.clear': '取消',
+        'comments.emptyAnchored': '在这里写下你要说的。',
+        'comments.empty': '还没有批注。点一个元素、划一段文字，或者点一行代码，就可以在这里写。',
+        'comments.showSpot': '在 artifact 里指给我看',
+        'comments.remove': '删掉这条批注',
+        'comments.edit': '编辑',
+        'comments.save': '保存',
+        'comments.cancelEdit': '取消',
+        'comments.onVariant': '批注哪条变体',
+        'anchor.whole': '整条变体',
+        'anchor.element': '元素 · {text}',
+        'anchor.text': '“{quote}”',
+        'anchor.line': '第 {line} 行',
+        'anchor.lines': '第 {start}–{end} 行',
+        'anchor.other': '锚点',
+        'composer.placeholderAnchored': '这里要改什么？（Ctrl+Enter 添加）',
+        'composer.placeholder': '要改什么？（Ctrl+Enter 添加）',
+        'composer.add': '添加',
+        'note.label': '给 agent 的话（可选）',
+        'note.placeholder': '一句话，让 agent 带进实现里。',
+        'action.sending': '发送中…',
+        'action.accept': '接受',
+        'action.revise': '继续修改',
+        'action.rejectAll': '都不要',
+        'action.cancel': '取消这一轮',
+        'test.preconditions': '前期准备',
+        'test.steps': '测试步骤',
+        'test.expected': '预期结果',
+        'test.failure': '失败迹象',
+        'test.rollback': '回滚方法',
+        'test.prepared': '已构建 ',
+        'test.noPrepared': '没有记录构建。',
+        'test.run': '命令：',
+        'test.copied': '已复制',
+        'test.copy': '复制',
+        'test.ready': '准备完成，开始测试',
+        'test.observed': '你看到了什么？',
+        'test.observedPlaceholder': '一两句话：发生了什么，哪里和预期不一样。',
+        'test.needsObservation': '标成失败之前，先记下你看到了什么。',
+        'test.screenshot': '截图',
+        'test.screenshotOf': '截图 {index} / {total}',
+        'test.remove': '移除',
+        'test.dropHint': '粘贴进说明里、拖进来，或者选一张 PNG/JPEG。',
+        'test.pass': '通过',
+        'test.fail': '失败',
+        'test.cancel': '取消该测试',
+                'test.addScreenshot': '添加截图',
+        'state.reading': '正在读取 round…',
+        'state.decisionSent': '决定已经发给 agent。',
+        'state.resultSent': '结果已经发给 agent。',
+        'state.cancelled': 'round 已取消。',
+        'state.close': '可以关掉这个标签页了，agent 已经拿到结构化结果。',
+        'state.noRound': '现在没有打开的 round',
+        'state.noRoundHint':
+          'agent 调用 clarity_round 或 clarity_test 时，round 会自动开在这里。别关这个标签页；这个会话的下一个 round 还会出现在这儿。',
+        'state.roundCancelled': '这个 round 已经取消。',
+        'state.answered': '这个 round 已经答过了。',
+        'state.hasResult': 'agent 已经拿到结果，下一个决定请开新的一轮。',
+        'state.returned': '工具调用已经返回。',
+        'state.verdict': '结论：{verdict}',
+        'state.selected': ' · 选中：{selected}',
+        'tab.guide': 'Artifact round：把一个决定摆出来，你标注、你选，agent 在旁边等。',
+      },
+    }
+
+    function fillMessage(text, vars) {
+      if (!vars) return text
+      return text.replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match))
+    }
+
+    // `apply` rebinds this through the locale service; until then the English table
+    // is the answer, which is also what a composition without the service gets.
+    let t = (key, vars) => fillMessage(MESSAGES.en[key] === undefined ? key : MESSAGES.en[key], vars)
 
     const root = {
       display: 'flex',
@@ -46,7 +236,6 @@ window.__ModuleLoader__.load({
       lineHeight: '15px',
       fontWeight: 650,
       letterSpacing: '0.06em',
-      textTransform: 'uppercase',
     }
     const card = {
       display: 'flex',
@@ -80,17 +269,6 @@ window.__ModuleLoader__.load({
     }
     const radio = { color: BRAND, fontSize: '13px', lineHeight: '13px', flex: 'none' }
     const vlabel = { fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-    const badge = {
-      marginLeft: 'auto',
-      flex: 'none',
-      color: BRAND,
-      border: '0.5px solid var(--dsw-alias-border-l2)',
-      borderRadius: '99px',
-      padding: '0 6px',
-      fontSize: '10px',
-      lineHeight: '16px',
-      whiteSpace: 'nowrap',
-    }
     const frame = {
       width: '100%',
       height: '300px',
@@ -98,7 +276,40 @@ window.__ModuleLoader__.load({
       display: 'block',
       background: '#fff',
     }
-    const fidelity = { padding: '6px 8px', color: MUTED, fontSize: '10px', lineHeight: '15px' }
+    const FIDELITY_TONE = {
+      real: 'var(--dsw-alias-state-success-primary, #2da44e)',
+      mocked: '#d4a72c',
+      omitted: MUTED,
+    }
+    const fidelity = {
+      padding: '6px 8px',
+      color: MUTED,
+      fontSize: '10px',
+      lineHeight: '15px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '2px',
+    }
+    // The dot sits on the same visual centre as the 15px line it labels. With
+    // `baseline` alignment it lands a pixel low: the glyph box and the dot box
+    // have different heights, so only an explicit offset lines them up.
+    const fidelityRow = { display: 'flex', alignItems: 'flex-start', gap: '5px' }
+    const fidelityDot = { flex: 'none', width: '5px', height: '5px', marginTop: '5px', borderRadius: '50%' }
+    const fidelityLabel = { flex: 'none', width: '2.6em', whiteSpace: 'nowrap' }
+    // What this variant argues for and what it costs, inside the card it belongs
+    // to: the alternative was a round-level list the eye had to pair with a badge.
+    const advice = {
+      padding: '6px 8px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '2px',
+      fontSize: '10px',
+      lineHeight: '15px',
+      borderTop: HAIRLINE,
+    }
+    const adviceRow = { display: 'flex', alignItems: 'flex-start', gap: '5px' }
+    const adviceLabel = { flex: 'none', width: '2.6em', fontWeight: 650, letterSpacing: '.06em', color: MUTED, whiteSpace: 'nowrap' }
+    const adviceValue = { flex: '1 1 0', minWidth: 0, color: 'var(--dsw-alias-label-secondary)' }
     const sourceLine = {
       padding: '0 8px 5px',
       color: MUTED,
@@ -259,15 +470,17 @@ window.__ModuleLoader__.load({
     }
 
     function anchorLabel(anchor) {
-      if (!anchor || anchor.kind === 'variant') return 'Whole variant'
+      if (!anchor || anchor.kind === 'variant') return t('anchor.whole')
       if (anchor.kind === 'element') {
-        return anchor.text ? 'Element · ' + shortText(anchor.text, 42) : 'Element · ' + shortText(anchor.selector, 42)
+        return t('anchor.element', { text: shortText(anchor.text || anchor.selector, 42) })
       }
-      if (anchor.kind === 'text') return '“' + shortText(anchor.quote, 40) + '”'
+      if (anchor.kind === 'text') return t('anchor.text', { quote: shortText(anchor.quote, 40) })
       if (anchor.kind === 'line') {
-        return anchor.start === anchor.end ? 'Line ' + anchor.start : 'Lines ' + anchor.start + '–' + anchor.end
+        return anchor.start === anchor.end
+          ? t('anchor.line', { line: anchor.start })
+          : t('anchor.lines', { start: anchor.start, end: anchor.end })
       }
-      return 'Anchor'
+      return t('anchor.other')
     }
 
     function isAnchor(anchor) {
@@ -585,44 +798,90 @@ window.__ModuleLoader__.load({
     function Header(props) {
       const round = props.round
       const isTest = round.kind === 'test'
+      // A test round's decision string is composed for the model ("Real test: …").
+      // It is not what a person should read at the top of the tab, so the title is
+      // the kind and the candidate moves into the meta line.
       return h(
         'div',
         { style: section },
-        h('div', { style: eyebrow }, isTest ? 'Real test' : 'Decision'),
-        h('h2', { style: title }, round.decision),
+        isTest ? null : h('div', { style: eyebrow }, t('header.decision')),
+        h('h2', { style: title }, isTest ? t('header.realTest') : round.decision),
         round.context ? h('p', { style: context }, round.context) : null,
         isTest
-          ? h(
-              'div',
-              { style: meta },
-              h('span', null, h('b', null, 'Candidate '), round.candidate),
-            )
-          : h(
-              'div',
-              { style: meta },
-              h('span', null, h('b', null, 'Recommended '), variantLabel(round, round.recommendation)),
-              h('span', null, h('b', null, 'Forecloses '), round.foreclosures.join('; ')),
-            ),
+          ? h('div', { style: meta }, h('span', null, h('b', null, t('header.candidate')), round.candidate))
+          : null,
       )
+    }
+
+    function Advice(props) {
+      const variant = props.variant
+      const rows = []
+      if (variant.recommendation) {
+        rows.push(
+          h(
+            'div',
+            { key: 'recommendation', style: adviceRow },
+            h('span', { style: { ...adviceLabel, color: BRAND } }, t('advice.why')),
+            h('span', { style: adviceValue }, variant.recommendation),
+          ),
+        )
+      }
+      const cost = Array.isArray(variant.cost) ? variant.cost : []
+      cost.forEach((item, index) => {
+        rows.push(
+          h(
+            'div',
+            { key: `cost-${index}`, style: adviceRow },
+            h('span', { style: adviceLabel }, index === 0 ? t('advice.cost') : ''),
+            h('span', { style: adviceValue }, item),
+          ),
+        )
+      })
+      if (rows.length === 0) return null
+      // Inside the card and above the fidelity rows: the argument and its price
+      // belong to the variant they describe, not to a list below both cards.
+      return h('div', { style: advice }, rows)
     }
 
     function Fidelity(props) {
       const variant = props.variant
-      const parts = []
-      if (variant.real && variant.real.length) parts.push('real: ' + variant.real.join(', '))
-      if (variant.mocked && variant.mocked.length) parts.push('mocked: ' + variant.mocked.join(', '))
-      if (variant.omitted && variant.omitted.length) parts.push('omitted: ' + variant.omitted.join(', '))
-      if (parts.length === 0) return null
-      return h('div', { style: fidelity }, parts.join(' · '))
+      const rows = []
+      if (variant.real && variant.real.length) rows.push({ key: 'fidelity.real', tone: FIDELITY_TONE.real, value: variant.real.join(', ') })
+      if (variant.mocked && variant.mocked.length) rows.push({ key: 'fidelity.mocked', tone: FIDELITY_TONE.mocked, value: variant.mocked.join(', ') })
+      if (variant.omitted && variant.omitted.length) rows.push({ key: 'fidelity.omitted', tone: FIDELITY_TONE.omitted, value: variant.omitted.join(', ') })
+      if (rows.length === 0) return null
+      // Three rows with a dot and an aligned label: as one joined line the three
+      // words read as a single grey sentence and stop being distinguishable.
+      return h(
+        'div',
+        { style: fidelity },
+        rows.map((row) =>
+          h(
+            'div',
+            { key: row.key, style: fidelityRow },
+            h('span', { style: { ...fidelityDot, background: row.tone } }),
+            h('span', { style: fidelityLabel }, t(row.key)),
+            h('span', { style: { flex: '1 1 0', minWidth: 0 } }, row.value),
+          ),
+        ),
+      )
     }
 
     function DecisionView(props) {
       const round = props.round
       const sent = props.sent
-      const [selected, setSelected] = React.useState(round.recommendation)
+      // The recommendation is the variant that carries its own sentence. A round
+      // stored before that shape existed falls back to its first variant.
+      const recommended = round.variants.find((variant) => variant.recommendation)
+      const recommendedId = (recommended ?? round.variants[0] ?? {}).id ?? null
+      const [selected, setSelected] = React.useState(recommendedId)
       const [comments, setComments] = React.useState([])
       const [commentText, setCommentText] = React.useState('')
-      const [commentVariantId, setCommentVariantId] = React.useState(round.recommendation)
+      const [commentVariantId, setCommentVariantId] = React.useState(recommendedId)
+      // One comment at a time turns back into an input: its anchor and the
+      // variant it belongs to stay on screen while its text is rewritten.
+      const [editingIndex, setEditingIndex] = React.useState(null)
+      const [editText, setEditText] = React.useState('')
       const [pendingAnchor, setPendingAnchor] = React.useState(null)
       const [annotate, setAnnotate] = React.useState(true)
       const [note, setNote] = React.useState('')
@@ -676,13 +935,13 @@ window.__ModuleLoader__.load({
       function addComment() {
         const text = commentText.trim()
         if (text === '') {
-          setError('Write a comment first.')
+          setError(t('comment.empty'))
           return
         }
         const variantId = pendingAnchor ? pendingAnchor.variantId : commentVariantId
         const variant = round.variants.find((entry) => entry.id === variantId)
         if (!variant) {
-          setError('Choose a variant first.')
+          setError(t('comment.chooseVariant'))
           return
         }
         setComments((current) => [
@@ -714,22 +973,90 @@ window.__ModuleLoader__.load({
 
       function removeComment(index) {
         setComments((current) => current.filter((_, i) => i !== index))
+        // An edit that was open follows the list: it closes with the comment it
+        // belonged to, and shifts up when an earlier comment goes.
+        if (editingIndex === index) {
+          setEditingIndex(null)
+          setEditText('')
+        } else if (editingIndex !== null && index < editingIndex) {
+          setEditingIndex(editingIndex - 1)
+        }
+      }
+
+      // Rewriting a comment keeps its anchor, its variant, and its place in the
+      // list: only the text is replaced. An empty save is refused rather than
+      // silently deleting the comment.
+      function saveEdit() {
+        const text = editText.trim()
+        if (text === '') {
+          setError(t('comment.empty'))
+          return false
+        }
+        setComments((current) => current.map((entry, i) => (i === editingIndex ? { ...entry, text } : entry)))
+        setEditingIndex(null)
+        setEditText('')
+        setError(null)
+        return true
+      }
+
+      function beginEdit(index) {
+        if (editingIndex === index) return
+        // Opening another comment saves the one being edited; refusing the save
+        // keeps the current one open instead of losing what was typed.
+        if (editingIndex !== null && !saveEdit()) return
+        setEditingIndex(index)
+        setEditText(comments[index].text)
+        setError(null)
+      }
+
+      function cancelEdit() {
+        setEditingIndex(null)
+        setEditText('')
+        setError(null)
       }
 
       async function submit(verdict) {
+        // A comment typed into the box but never added travels with the decision.
+        // Losing what you just wrote is worse than sending one comment too many.
+        const unsent = commentText.trim()
+        const variantId = pendingAnchor ? pendingAnchor.variantId : commentVariantId
+        const variant = round.variants.find((entry) => entry.id === variantId)
+        const carried =
+          unsent === '' || !variant
+            ? null
+            : {
+                variantId,
+                text: unsent,
+                anchor: pendingAnchor ? pendingAnchor.anchor : { kind: 'variant' },
+                artifactHash: contentHash(variant.html),
+              }
+        // An edit typed but not saved travels with the decision too: it is the
+        // same loss as an unsent comment, and this decision is what it was for.
+        const rewritten = editingIndex !== null && editText.trim() !== ''
+        const base = rewritten
+          ? comments.map((entry, i) => (i === editingIndex ? { ...entry, text: editText.trim() } : entry))
+          : comments
+        const outgoing = carried === null ? base : [...base, carried]
+
         if (verdict === 'accept' && !selected) {
-          setError('Choose a variant first.')
+          setError(t('comment.chooseVariant'))
           return
         }
-        if ((verdict === 'revise' || verdict === 'reject') && comments.length === 0 && note.trim() === '') {
-          setError('A revision or rejection needs a comment or a note.')
+        if ((verdict === 'revise' || verdict === 'reject') && outgoing.length === 0 && note.trim() === '') {
+          setError(t('comment.needsText'))
           return
         }
         setBusy(true)
         setError(null)
         try {
-          const body = { roundId: round.id, verdict, selected, comments, note }
+          const body = { roundId: round.id, verdict, selected, comments: outgoing, note }
           const result = await api('/decide', { method: 'POST', body: JSON.stringify(body) })
+          if (carried !== null || rewritten) {
+            setPendingAnchor(null)
+            setCommentText('')
+            setEditingIndex(null)
+            setEditText('')
+          }
           props.onSent(result.result)
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause))
@@ -753,21 +1080,21 @@ window.__ModuleLoader__.load({
               onClick: () => setAnnotate((current) => !current),
               disabled,
             },
-            annotate ? 'Annotating' : 'Annotate',
+            annotate ? t('annotate.on') : t('annotate.off'),
           ),
           pendingAnchor
             ? h(
                 'span',
                 { style: { color: 'var(--dsw-alias-label-secondary)' } },
-                'Anchored: ' + anchorLabel(pendingAnchor.anchor) + '. Interaction is unlocked; press Annotate to pick another.',
+                t('annotate.anchored', { anchor: anchorLabel(pendingAnchor.anchor) }),
               )
             : annotate
               ? h(
                   'span',
                   { style: { color: 'var(--dsw-alias-label-secondary)' } },
-                  'Click an element, drag-select text, or click a code line in either card.',
+                  t('annotate.hint'),
                 )
-              : h('span', { style: { color: MUTED } }, 'Comment on the whole variant, or turn on Annotate.'),
+              : h('span', { style: { color: MUTED } }, t('annotate.offHint')),
         ),
         h(
           'div',
@@ -801,7 +1128,6 @@ window.__ModuleLoader__.load({
                 { style: vhead },
                 h('span', { style: radio }, selected === variant.id ? '●' : '○'),
                 h('span', { style: vlabel }, variant.label),
-                variant.id === round.recommendation ? h('span', { style: badge }, 'recommended') : null,
               ),
               variant.source ? h('div', { style: sourceLine, title: variant.source }, variant.source) : null,
               h('iframe', {
@@ -816,6 +1142,7 @@ window.__ModuleLoader__.load({
                 onLoad: (event) => postMode(event.currentTarget),
               }),
               variant.note ? h('div', { style: { ...fidelity, color: 'var(--dsw-alias-label-secondary)' } }, variant.note) : null,
+              h(Advice, { variant }),
               h(Fidelity, { variant }),
             ),
           ),
@@ -823,7 +1150,7 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { style: section },
-          h('div', { style: sectionTitle }, 'Comments'),
+          h('div', { style: sectionTitle }, t('comments.title')),
           pendingAnchor
             ? h(
                 'div',
@@ -831,7 +1158,7 @@ window.__ModuleLoader__.load({
                 h(
                   'div',
                   { style: { display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' } },
-                  h('span', { style: eyebrow }, 'Commenting on'),
+                  h('span', { style: eyebrow }, t('comments.commentingOn')),
                   h('span', { style: anchorTag }, anchorLabel(pendingAnchor.anchor)),
                   h(
                     'button',
@@ -841,7 +1168,7 @@ window.__ModuleLoader__.load({
                       onClick: () => setPendingAnchor(null),
                       disabled,
                     },
-                    'Clear',
+                    t('comments.clear'),
                   ),
                 ),
                 h('div', { style: { color: MUTED, fontSize: '10px' } }, variantLabel(round, pendingAnchor.variantId)),
@@ -852,20 +1179,21 @@ window.__ModuleLoader__.load({
                 'div',
                 { style: { color: MUTED } },
                 pendingAnchor
-                  ? 'Write the comment that belongs at that spot.'
-                  : 'No comments yet. Use Annotate to point at an element, text, or code line.',
+                  ? t('comments.emptyAnchored')
+                  : t('comments.empty'),
               )
             : h(
                 'div',
                 { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
-                comments.map((comment, index) =>
-                  h(
+                comments.map((comment, index) => {
+                  const editing = editingIndex === index
+                  return h(
                     'div',
                     {
                       key: String(index),
-                      style: { ...commentItem, cursor: 'pointer' },
-                      title: 'Show this spot in the artifact',
-                      onClick: () => focusComment(comment),
+                      style: editing ? commentItem : { ...commentItem, cursor: 'pointer' },
+                      title: editing ? undefined : t('comments.showSpot'),
+                      onClick: editing ? undefined : () => focusComment(comment),
                     },
                     h(
                       'div',
@@ -876,24 +1204,90 @@ window.__ModuleLoader__.load({
                         h('span', { style: commentVariant }, variantLabel(round, comment.variantId)),
                         h('span', { style: { color: MUTED, fontSize: '10px' } }, anchorLabel(comment.anchor)),
                       ),
-                      h('span', { style: { overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' } }, comment.text),
+                      editing
+                        ? h('textarea', {
+                            value: editText,
+                            rows: 2,
+                            autoFocus: true,
+                            onChange: (event) => setEditText(event.target.value),
+                            onKeyDown: (event) => {
+                              // Esc drops the edit; Ctrl/Cmd+Enter saves it.
+                              if (event.key === 'Escape') {
+                                event.preventDefault()
+                                cancelEdit()
+                              }
+                              if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                                event.preventDefault()
+                                saveEdit()
+                              }
+                            },
+                            style: { ...input, minHeight: '44px', resize: 'vertical', lineHeight: '18px' },
+                            disabled,
+                          })
+                        : h('span', { style: { overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' } }, comment.text),
+                      editing
+                        ? h(
+                            'div',
+                            { style: { display: 'flex', gap: '4px', justifyContent: 'flex-end', marginTop: '2px' } },
+                            h(
+                              'button',
+                              {
+                                type: 'button',
+                                style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase,
+                                onClick: cancelEdit,
+                                disabled,
+                              },
+                              t('comments.cancelEdit'),
+                            ),
+                            h(
+                              'button',
+                              {
+                                type: 'button',
+                                style: disabled ? { ...buttonPrimary, ...buttonDisabled } : buttonPrimary,
+                                onClick: saveEdit,
+                                disabled,
+                              },
+                              t('comments.save'),
+                            ),
+                          )
+                        : null,
                     ),
-                    h(
-                      'button',
-                      {
-                        type: 'button',
-                        title: 'Remove comment',
-                        style: { ...buttonBase, padding: '0 4px', border: 0, background: 'transparent', color: MUTED },
-                        onClick: (event) => {
-                          event.stopPropagation()
-                          removeComment(index)
-                        },
-                        disabled,
-                      },
-                      '×',
-                    ),
-                  ),
-                ),
+                    editing
+                      ? null
+                      : h(
+                          'div',
+                          { style: { display: 'flex', flex: 'none', alignItems: 'flex-start', gap: '2px' } },
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              title: t('comments.edit'),
+                              style: { ...buttonBase, padding: '0 4px', border: 0, background: 'transparent', color: MUTED },
+                              onClick: (event) => {
+                                event.stopPropagation()
+                                beginEdit(index)
+                              },
+                              disabled,
+                            },
+                            t('comments.edit'),
+                          ),
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              title: t('comments.remove'),
+                              style: { ...buttonBase, padding: '0 4px', border: 0, background: 'transparent', color: MUTED },
+                              onClick: (event) => {
+                                event.stopPropagation()
+                                removeComment(index)
+                              },
+                              disabled,
+                            },
+                            '×',
+                          ),
+                        ),
+                  )
+                }),
               ),
           h(
             'div',
@@ -906,7 +1300,7 @@ window.__ModuleLoader__.load({
                     value: commentVariantId,
                     onChange: (event) => setCommentVariantId(event.target.value),
                     style: { ...input, width: 'auto', flex: 'none' },
-                    'aria-label': 'Comment on variant',
+                    'aria-label': t('comments.onVariant'),
                     disabled,
                   },
                   round.variants.map((variant) => h('option', { key: variant.id, value: variant.id }, variant.label)),
@@ -924,28 +1318,28 @@ window.__ModuleLoader__.load({
                 }
               },
               placeholder: pendingAnchor
-                ? 'What should change here? (Ctrl+Enter adds)'
-                : 'What should change? (Ctrl+Enter adds)',
+                ? t('composer.placeholderAnchored')
+                : t('composer.placeholder'),
               style: { ...input, flex: '1 1 160px', width: 'auto', minHeight: '44px', resize: 'vertical', lineHeight: '18px' },
               disabled,
             }),
             h(
               'button',
               { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: addComment, disabled },
-              'Add',
+              t('composer.add'),
             ),
           ),
         ),
         h(
           'div',
           { style: section },
-          h('label', { style: sectionTitle, htmlFor: 'clarity-note' }, 'Note to the agent (optional)'),
+          h('label', { style: sectionTitle, htmlFor: 'clarity-note' }, t('note.label')),
           h('textarea', {
             id: 'clarity-note',
             value: note,
             onChange: (event) => setNote(event.target.value),
             rows: 2,
-            placeholder: 'One sentence the agent should carry into the implementation.',
+            placeholder: t('note.placeholder'),
             style: { ...input, resize: 'vertical', minHeight: '40px' },
             disabled,
           }),
@@ -962,22 +1356,22 @@ window.__ModuleLoader__.load({
               onClick: () => submit('accept'),
               disabled,
             },
-            busy ? 'Sending…' : `Accept ${variantLabel(round, selected)}`,
+            busy ? t('action.sending') : `${t('action.accept')} ${variantLabel(round, selected)}`,
           ),
           h(
             'button',
             { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: () => submit('revise'), disabled },
-            'Revise',
+            selected ? `${t('action.revise')} ${selected.toUpperCase()}` : t('action.revise'),
           ),
           h(
             'button',
             { type: 'button', style: disabled ? { ...buttonDanger, ...buttonDisabled } : buttonDanger, onClick: () => submit('reject'), disabled },
-            'Reject',
+            t('action.rejectAll', { variants: round.variants.map((variant) => variant.id.toUpperCase()).join('&') }),
           ),
           h(
             'button',
             { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: () => submit('cancel'), disabled },
-            'Cancel',
+            t('action.cancel'),
           ),
         ),
       )
@@ -1066,8 +1460,9 @@ window.__ModuleLoader__.load({
       })
 
       async function submit(verdict) {
-        if (verdict !== 'pass' && observed.trim() === '') {
-          setError('Record what you saw before marking this failed or blocked.')
+        // A failure has to say what was seen; cancelling records no verdict at all.
+        if (verdict === 'fail' && observed.trim() === '') {
+          setError(t('test.needsObservation'))
           return
         }
         setBusy(true)
@@ -1100,46 +1495,54 @@ window.__ModuleLoader__.load({
         }
       }
 
+      // The build and the command stay on screen in both phases: once you are
+      // looking at the app, the line tells you which build you are looking at.
+      const preparedBlock = h(
+        'div',
+        { style: section },
+        prepared
+          ? h(
+              'div',
+              { style: preparedLine },
+              t('test.prepared'),
+              h('b', null, clock(prepared.builtAt)),
+              ' · ',
+              h('b', null, prepared.command),
+            )
+          : h('div', { style: preparedLine }, t('test.noPrepared')),
+        runThis === null
+          ? null
+          : h(
+              'div',
+              { style: { ...preparedLine, display: 'flex', gap: '8px', alignItems: 'baseline', flexWrap: 'wrap' } },
+              t('test.run'),
+              h('code', { style: { overflowWrap: 'anywhere' } }, runThis),
+              h('button', { type: 'button', style: linkButton, onClick: copyRun }, copied ? t('test.copied') : t('test.copy')),
+            ),
+      )
+
       return h(
         React.Fragment,
         null,
         h(
           'div',
           { style: card },
-          h('div', { style: sectionTitle }, 'Preconditions'),
+          h('div', { style: sectionTitle }, t('test.preconditions')),
           h('ul', { style: list }, round.scenario.preconditions.map((item, index) => h('li', { key: String(index) }, item))),
-          h('div', { style: sectionTitle }, 'Steps'),
+          h('div', { style: sectionTitle }, t('test.steps')),
           h('ol', { style: list }, round.scenario.steps.map((item, index) => h('li', { key: String(index) }, item))),
-          h('div', { style: sectionTitle }, 'Expected'),
+          h('div', { style: sectionTitle }, t('test.expected')),
           h('ul', { style: list }, round.scenario.expected.map((item, index) => h('li', { key: String(index) }, item))),
-          h('div', { style: sectionTitle }, 'Failure signature'),
+          h('div', { style: sectionTitle }, t('test.failure')),
           h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, round.scenario.failureSignature),
-          h('div', { style: sectionTitle }, 'Rollback'),
+          h('div', { style: sectionTitle }, t('test.rollback')),
           h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, round.scenario.rollback),
         ),
         phase === 'ready'
           ? h(
               'div',
               { style: section },
-              prepared
-                ? h(
-                    'div',
-                    { style: preparedLine },
-                    'Prepared ',
-                    h('b', null, clock(prepared.builtAt)),
-                    ' · ',
-                    h('b', null, prepared.command),
-                  )
-                : h('div', { style: preparedLine }, 'No prepared build recorded.'),
-              runThis === null
-                ? null
-                : h(
-                    'div',
-                    { style: { ...preparedLine, display: 'flex', gap: '8px', alignItems: 'baseline', flexWrap: 'wrap' } },
-                    'Run ',
-                    h('code', { style: { overflowWrap: 'anywhere' } }, runThis),
-                    h('button', { type: 'button', style: linkButton, onClick: copyRun }, copied ? 'Copied' : 'Copy'),
-                  ),
+              preparedBlock,
               h(
                 'button',
                 {
@@ -1148,18 +1551,19 @@ window.__ModuleLoader__.load({
                   onClick: () => setPhase('observe'),
                   disabled,
                 },
-                'I’m ready to test',
+                t('test.ready'),
               ),
             )
           : h(
               'div',
               { style: section, ref: panelRef },
-              h('div', { style: sectionTitle }, 'What did you observe?'),
+              preparedBlock,
+              h('div', { style: sectionTitle }, t('test.observed')),
               h('textarea', {
                 value: observed,
                 onChange: (event) => setObserved(event.target.value),
                 rows: 3,
-                placeholder: 'One or two sentences: what happened, and where it differed from expected.',
+                placeholder: t('test.observedPlaceholder'),
                 style: { ...input, resize: 'vertical', minHeight: '52px' },
                 disabled,
               }),
@@ -1186,7 +1590,7 @@ window.__ModuleLoader__.load({
                 h(
                   'div',
                   { style: sectionTitle },
-                  shots.length === 0 ? 'Screenshot' : `Screenshot ${activeShot + 1} of ${shots.length}`,
+                  shots.length === 0 ? t('test.screenshot') : t('test.screenshotOf', { index: activeShot + 1, total: shots.length }),
                 ),
                 shots.length === 0
                   ? null
@@ -1237,7 +1641,7 @@ window.__ModuleLoader__.load({
                     'button',
                     {
                       type: 'button',
-                      'aria-label': 'Add screenshot',
+                      'aria-label': t('test.addScreenshot'),
                       style: { ...buttonBase, width: '46px', height: '34px', padding: 0 },
                       onClick: () => fileRef.current && fileRef.current.click(),
                     },
@@ -1264,12 +1668,12 @@ window.__ModuleLoader__.load({
                         style: { ...linkButton, color: MUTED, marginTop: '4px' },
                         onClick: () => removeShot(activeShot),
                       },
-                      'Remove',
+                      t('test.remove'),
                     ),
                 h(
                   'div',
                   { style: { color: MUTED, fontSize: '10px', marginTop: '4px' } },
-                  'Paste into the note, drop, or choose a PNG/JPEG.',
+                  t('test.dropHint'),
                 ),
               ),
               error ? h('div', { style: errorText, role: 'alert' }, error) : null,
@@ -1279,19 +1683,18 @@ window.__ModuleLoader__.load({
                 h(
                   'button',
                   { type: 'button', style: disabled ? { ...buttonPrimary, ...buttonDisabled } : buttonPrimary, onClick: () => submit('pass'), disabled },
-                  'Pass',
+                  t('test.pass'),
                 ),
                 h(
                   'button',
                   { type: 'button', style: disabled ? { ...buttonDanger, ...buttonDisabled } : buttonDanger, onClick: () => submit('fail'), disabled },
-                  'Fail',
+                  t('test.fail'),
                 ),
                 h(
                   'button',
-                  { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: () => submit('blocked'), disabled },
-                  'Blocked',
+                  { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: () => submit('cancel'), disabled },
+                  t('test.cancel'),
                 ),
-                h('button', { type: 'button', style: buttonBase, onClick: () => setPhase('ready'), disabled }, 'Back'),
               ),
             ),
       )
@@ -1380,7 +1783,7 @@ window.__ModuleLoader__.load({
       }, [paramRoundId, props.sessionId])
 
       if (state.loading) {
-        return h('div', { style: root }, h('div', { style: { color: MUTED } }, 'Reading round…'))
+        return h('div', { style: root }, h('div', { style: { color: MUTED } }, t('state.reading')))
       }
       if (state.error) {
         return h('div', { style: root }, h('div', { style: errorText, role: 'alert' }, state.error))
@@ -1394,8 +1797,8 @@ window.__ModuleLoader__.load({
             h(
               'div',
               { style: { ...card, borderColor: 'var(--dsw-alias-state-success-primary)' } },
-              h('div', { style: { ...successText, fontWeight: 600 } }, 'Decision sent to the agent.'),
-              h('p', { style: { ...context, margin: 0 } }, 'You can close this tab. The agent has the structured result.'),
+              h('div', { style: { ...successText, fontWeight: 600 } }, t('state.decisionSent')),
+              h('p', { style: { ...context, margin: 0 } }, t('state.close')),
             ),
           )
         }
@@ -1403,11 +1806,11 @@ window.__ModuleLoader__.load({
           'div',
           { style: root },
           h('div', { style: eyebrow }, 'Collaborative Clarity'),
-          h('h2', { style: title }, 'No round is open'),
+          h('h2', { style: title }, t('state.noRound')),
           h(
             'p',
             { style: context },
-            'A round opens here automatically when the agent calls clarity_round or clarity_test. Keep this tab; it will show the next round in this conversation.',
+            t('state.noRoundHint'),
           ),
         )
       }
@@ -1419,8 +1822,8 @@ window.__ModuleLoader__.load({
           h(
             'div',
             { style: card },
-            h('div', { style: { fontWeight: 600 } }, round.status === 'cancelled' ? 'This round was cancelled.' : 'This round is already answered.'),
-            h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, 'The agent has the result. Open a new round for the next decision.'),
+            h('div', { style: { fontWeight: 600 } }, round.status === 'cancelled' ? t('state.roundCancelled') : t('state.answered')),
+            h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, t('state.hasResult')),
           ),
         )
       }
@@ -1432,15 +1835,15 @@ window.__ModuleLoader__.load({
           h(
             'div',
             { style: { ...card, borderColor: 'var(--dsw-alias-state-success-primary)' } },
-            h('div', { style: { ...successText, fontWeight: 600 } }, sent.status === 'tested' ? 'Result sent to the agent.' : sent.status === 'cancelled' ? 'Round cancelled.' : 'Decision sent to the agent.'),
+            h('div', { style: { ...successText, fontWeight: 600 } }, sent.status === 'tested' ? 'Result sent to the agent.' : sent.status === 'cancelled' ? 'Round cancelled.' : t('state.decisionSent')),
             h(
               'div',
               { style: { color: 'var(--dsw-alias-label-secondary)' } },
-              sent.verdict ? 'Verdict: ' + sent.verdict : 'The tool call has returned.',
-              sent.selected ? ' · selected: ' + sent.selected : '',
+              sent.verdict ? t('state.verdict', { verdict: sent.verdict }) : t('state.returned'),
+              sent.selected ? t('state.selected', { selected: sent.selected }) : '',
             ),
           ),
-          h('p', { style: { ...context, marginTop: '2px' } }, 'You can close this tab. The agent has the structured result.'),
+          h('p', { style: { ...context, marginTop: '2px' } }, t('state.close')),
         )
       }
       const complete = (result) => {
@@ -1577,6 +1980,27 @@ window.__ModuleLoader__.load({
     const pluginApi = {
       inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'uiSession'],
       apply(ctx) {
+        // The panel speaks the GUI's language when the locale service is there: the
+        // user picks it in Settings → General, and the choice reaches this tab
+        // without a reload. `ctx.inject` waits for the service rather than sampling
+        // it once, so load order does not decide the language; a composition without
+        // the service never runs this callback and keeps the English table.
+        if (typeof ctx.inject === 'function') {
+          ctx.inject(['locale'], (arena) => {
+            const locale = arena.locale
+            if (!locale || typeof locale.register !== 'function' || typeof locale.bind !== 'function') return
+            const bound = locale.bind(NS)
+            arena.effect(
+              () => locale.register(NS, { en: MESSAGES.en, zh: MESSAGES.zh }),
+              'collaborative-clarity: dictionaries',
+            )
+            const previous = t
+            t = (key, vars) => fillMessage(bound(key), vars)
+            return () => {
+              t = previous
+            }
+          })
+        }
         publishPendingInteraction = ctx.uiSession.registerPendingInteraction(() => 5)
         openRound = (roundId) => {
           try {
@@ -1602,7 +2026,7 @@ window.__ModuleLoader__.load({
                   id: 'clarity',
                   order: 40,
                   title: () => 'Clarity',
-                  description: () => 'Artifact rounds: a decision shown, annotated, and chosen while the agent waits.',
+                  description: () => t('tab.guide'),
                   icon: ClarityIcon,
                 },
               ],
@@ -1716,7 +2140,7 @@ window.__ModuleLoader__.load({
       },
     }
     Object.defineProperty(pluginApi, '__test', {
-      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, DecisionView, TestView, RoundPanel, newestOpenRound },
+      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, MESSAGES, DecisionView, TestView, RoundPanel, newestOpenRound },
       enumerable: false,
     })
     return pluginApi

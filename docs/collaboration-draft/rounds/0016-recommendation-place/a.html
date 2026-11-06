@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A — 留在整轮</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note {
+    max-width: 520px; margin: 0 auto 10px; padding: 8px 11px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); font-size: 12px;
+  }
+  .note b { color: var(--ink); }
+  .panel {
+    max-width: 520px; margin: 0 auto; background: #fff;
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  }
+  .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { font-size: 10px; line-height: 15px; font-weight: 650; letter-spacing: .06em; color: var(--muted); }
+  h1 { margin: 0; font-size: 15px; line-height: 21px; font-weight: 650; }
+  .context { margin: 0; color: var(--muted); font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+  .card { border: 1px solid var(--line); border-radius: 8px; background: var(--layer1); overflow: hidden; }
+  .head { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  .radio { color: var(--brand); font-size: 13px; line-height: 13px; }
+  .vlabel { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge {
+    margin-left: auto; color: var(--brand); border: .5px solid var(--line);
+    border-radius: 99px; padding: 0 6px; font-size: 10px; line-height: 16px; white-space: nowrap;
+  }
+  .art { height: 96px; background: repeating-linear-gradient(#fff, #fff 22px, #f4f5f7 22px, #f4f5f7 24px); }
+  .tag { display: flex; align-items: center; gap: 5px; font-size: 10px; line-height: 15px; color: var(--muted); padding: 5px 8px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #2da44e; flex: none; }
+  .section { display: flex; flex-direction: column; gap: 3px; }
+  .stitle { font-size: 10px; line-height: 15px; font-weight: 650; letter-spacing: .06em; color: var(--muted); }
+  ul { margin: 0; padding-left: 16px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 12px; line-height: 18px; padding: 5px 10px;
+    border-radius: 6px; border: 1px solid var(--line); background: var(--layer2); color: var(--ink);
+  }
+  button.primary { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+  .wire {
+    max-width: 520px; margin: 10px auto 0; padding: 10px 12px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  }
+  .wire h2 { margin: 0 0 6px; font-size: 11px; font-weight: 650; color: var(--muted); letter-spacing: .06em; }
+  pre { margin: 0; font: 11.5px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A — 留在整轮。</b>推荐还是卡片角上那个「推荐」小标，代价还是单独一块，放在两张卡片下面、按钮上面。
+  整轮只有一处「代价」，读起来像这个选择本身的代价。
+</div>
+
+<div class="panel">
+  <div class="body">
+    <div class="eyebrow">需要你定</div>
+    <h1>空态里要不要放一句话，告诉用户这里会来什么？</h1>
+    <p class="context">这是示例轮，用来让你看布局。真正的问题是推荐和代价放在哪儿。</p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="head">
+          <span class="radio">○</span>
+          <span class="vlabel">A — 放一句</span>
+          <span class="badge">推荐</span>
+        </div>
+        <div class="art"></div>
+        <div class="tag"><span class="dot"></span>真实 · 整块面板</div>
+      </div>
+      <div class="card">
+        <div class="head">
+          <span class="radio">○</span>
+          <span class="vlabel">B — 什么都不放</span>
+        </div>
+        <div class="art"></div>
+        <div class="tag"><span class="dot"></span>真实 · 整块面板</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="stitle">代价</div>
+      <ul>
+        <li>空态多一句话，老用户每次都看到。</li>
+        <li>「这里会来什么」解释不了「现在为什么是空的」。</li>
+      </ul>
+    </div>
+
+    <div class="actions">
+      <button class="primary">接受 A</button>
+      <button>修改 B</button>
+      <button>都不要 A&amp;B</button>
+      <button>取消这一轮</button>
+    </div>
+  </div>
+</div>
+
+<div class="wire">
+  <h2>这版的数据形状</h2>
+<pre>round.recommendation = "a"        // 角标
+round.foreclosures  = ["…", "…"]  // 变体下面那块</pre>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 B — 回填输入框</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; --ring:rgba(47,111,219,.42); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note {
+    max-width: 360px; margin: 0 auto 10px; padding: 8px 11px;
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); font-size: 12px;
+  }
+  .note b { color: var(--ink); }
+  .panel { max-width: 360px; margin: 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .body { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .eyebrow { font-size: 10px; line-height: 15px; font-weight: 650; letter-spacing: .06em; color: var(--muted); }
+  .item { display: flex; gap: 6px; align-items: flex-start; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--layer1); }
+  .item.editing { border-color: var(--ring); background: #fff; }
+  .col { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+  .meta { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .vid { flex: none; color: var(--brand); font-weight: 600; font-size: 10px; line-height: 16px; }
+  .anc { color: var(--muted); font-size: 10px; }
+  .flag { flex: none; font-size: 10px; line-height: 14px; padding: 0 5px; border-radius: 99px; background: var(--layer2); color: var(--ink); }
+  .txt { overflow-wrap: anywhere; white-space: pre-wrap; }
+  .tools { display: flex; flex: none; align-items: flex-start; gap: 2px; }
+  .mini { font: inherit; font-size: 10px; line-height: 16px; padding: 0 4px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+  .mini:hover { color: var(--ink); }
+  textarea {
+    font: inherit; font-size: 12px; line-height: 18px; width: 100%; padding: 5px 7px;
+    border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink);
+    min-height: 44px; resize: vertical;
+  }
+  button {
+    font: inherit; font-size: 12px; line-height: 18px; padding: 4px 9px;
+    border-radius: 6px; border: 1px solid var(--line); background: var(--layer2); color: var(--ink); cursor: pointer;
+  }
+  button.primary { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+  .edithint {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    font-size: 10px; line-height: 15px; color: var(--muted); padding-top: 4px;
+  }
+  .composer { display: flex; gap: 4px; align-items: flex-end; flex-wrap: wrap; }
+  .composer select { font: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); flex: none; }
+  .composer textarea { flex: 1 1 150px; width: auto; }
+  .wire { max-width: 360px; margin: 10px auto 0; padding: 10px 12px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .wire h2 { margin: 0 0 6px; font-size: 11px; font-weight: 650; color: var(--muted); letter-spacing: .06em; }
+  .wire ul { margin: 0; padding-left: 16px; font-size: 12px; color: var(--ink); }
+  .wire li { margin: 3px 0; }
+  code { font: 11.5px ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--layer2); padding: 0 3px; border-radius: 3px; }
+  .foot { max-width: 360px; margin: 10px auto 0; color: var(--muted); font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>B — 回填输入框。</b>点「编辑」，那一行的字搬到底下唯一那个输入框里，那一行只留高亮和「正在修改」；
+  「添加」变成「保存」，旁边多一个「取消修改」。
+</div>
+
+<div class="panel">
+  <div class="body">
+    <div class="eyebrow">批注</div>
+
+    <div class="item">
+      <div class="col">
+        <div class="meta"><span class="vid">●A</span><span class="anc">整条变体</span></div>
+        <span class="txt">按钮不要贴在卡片底部。</span>
+      </div>
+      <div class="tools">
+        <button class="mini" type="button">编辑</button>
+        <button class="mini" type="button">×</button>
+      </div>
+    </div>
+
+    <div class="item editing">
+      <div class="col">
+        <div class="meta"><span class="vid">●B</span><span class="anc">整条变体</span><span class="flag">正在修改</span></div>
+        <span class="txt">空态那句话太长了。</span>
+      </div>
+      <div class="tools">
+        <button class="mini" type="button">×</button>
+      </div>
+    </div>
+
+    <div class="item">
+      <div class="col">
+        <div class="meta"><span class="vid">●B</span><span class="anc">元素 · 提交按钮</span></div>
+        <span class="txt">这个按钮和上面的「取消」一样宽。</span>
+      </div>
+      <div class="tools">
+        <button class="mini" type="button">编辑</button>
+        <button class="mini" type="button">×</button>
+      </div>
+    </div>
+
+    <div class="edithint">正在修改第 2 条 · ●B · 整条变体</div>
+    <div class="composer">
+      <select disabled><option>B — 回填输入框</option></select>
+      <textarea rows="2">空态那句话太长了，砍掉后半句。</textarea>
+      <button type="button">取消修改</button>
+      <button class="primary" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="wire">
+  <h2>要写的东西（B）</h2>
+  <ul>
+    <li>状态还是两个：<code>editingIndex</code> + 复用现有的 <code>commentText</code>（回填进去），「添加」按钮按 <code>editingIndex</code> 切文案。</li>
+    <li>点「编辑」时必须先 <code>setPendingAnchor(null)</code>：输入框是锚点专用的，两个用途不能同时占。</li>
+    <li>保存同样只换 <code>text</code>，锚点、变体、<code>artifactHash</code> 不动；空文字保存 → 现有「先写一条批注」拒绝。</li>
+    <li>编辑中「所属变体」下拉要禁掉（变体不可改），否则保存会把批注搬到另一条变体上。</li>
+    <li>未点 Add 的字仍然随决定送出——编辑中的字算不算？我按「算，存回去之后才随决定走」写。</li>
+  </ul>
+</div>
+
+<div class="foot">
+  注：批注行里的锚点标签现在还是英文硬编码（<code>Whole variant</code> / <code>Element · …</code> / <code>Line 3</code>），
+  0013 漏的，我另修；这里画的是它该有的样子。
+</div>
+
+</body>
+</html>

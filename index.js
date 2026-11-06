@@ -71,12 +71,22 @@ const VARIANT_SCHEMA = {
     real: { type: 'array', items: { type: 'string' }, description: 'What this artifact actually is.' },
     mocked: { type: 'array', items: { type: 'string' }, description: 'What is faked.' },
     omitted: { type: 'array', items: { type: 'string' }, description: 'What is deliberately not shown.' },
+    recommendation: {
+      type: 'string',
+      description:
+        'One sentence arguing for this variant. Exactly one variant in the round carries it; that variant is the recommendation, and the sentence is shown inside its card.',
+    },
+    cost: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'What taking this variant costs, one line each. Shown inside its card, above the fidelity rows.',
+    },
   },
   required: ['id', 'path'],
 }
 
 /** The fields a variant may carry — the same list the schema declares. */
-const VARIANT_FIELDS = ['id', 'label', 'path', 'note', 'real', 'mocked', 'omitted']
+const VARIANT_FIELDS = ['id', 'label', 'path', 'note', 'real', 'mocked', 'omitted', 'recommendation', 'cost']
 
 /**
  * Where a comment points inside an artifact.
@@ -294,6 +304,16 @@ export class RoundStore {
    */
   test(roundId, payload) {
     const round = this.requireOpen(roundId)
+    if (payload.verdict === 'cancel') {
+      // The tab's exit from a gate it will not finish: no verdict, round closed.
+      const cancelled = { status: 'cancelled', roundId, reason: 'the user cancelled the test' }
+      round.status = 'cancelled'
+      round.result = cancelled
+      this.settle(roundId, cancelled)
+      this.broadcast('decided', { roundId, status: 'cancelled' })
+      round.onSettled?.(cancelled)
+      return cancelled
+    }
     const value = {
       status: 'tested',
       roundId,
@@ -466,7 +486,7 @@ export function decisionTool(store, ctx) {
     name: ROUND_TOOL,
     description: [
       'Open a decision round in the user\'s right Sidebar and wait for their decision.',
-      'One decision, one or two variants, a named recommendation, and at least one stated foreclosure.',
+      'One decision, one or two variants. Each variant carries its own advice: `recommendation` is the one sentence that argues for it, `cost` is what taking it costs. Exactly one variant is recommended — that is the round\'s recommendation, and it lives on the card it argues for.',
       'Each variant names one file: `.html` renders as a document, Markdown as prose, any other text file as numbered source whose lines can be annotated. Keep it self-contained — no network, no external assets, no build; show final copy, mock only the change and its immediate context, and design at 360px first. The file is the record, so it can be edited and reopened without resending it.',
       'By default the call blocks until the user accepts, requests a revision, rejects, or cancels. With `blocking: false` it returns { status: "pending", roundId, jobId, recommendation } at once and the decision arrives as a background job; collect it with `job_output` (and the job settles when the user decides). Use blocking for core design, non-blocking for a UI choice the backend does not depend on.',
       'The blocking result is structured: { status, verdict, selected, comments, note }.',
@@ -484,33 +504,30 @@ export function decisionTool(store, ctx) {
           items: VARIANT_SCHEMA,
           description: 'One or two variants. Two is the maximum shown side by side; one is fine when the decision is a yes/no.',
         },
-        recommendation: { type: 'string', description: 'The variant id the agent recommends. Must match a variant.' },
-        foreclosures: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'At least one: what the recommendation makes hard, expensive, or impossible later. "Nothing" is not an answer.',
-        },
         blocking: {
           type: 'boolean',
           description:
             'Default true: the call waits for the decision. False returns { status: "pending", jobId } immediately; the round becomes a background job that settles when the user decides, and `job_output` collects the decision.',
         },
       },
-      required: ['decision', 'variants', 'recommendation', 'foreclosures'],
+      required: ['decision', 'variants'],
     },
     output: {
       schema: RESULT_SCHEMA,
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
     },
     async execute(args, exec) {
-      refuseUnknown(args ?? {}, ['decision', 'context', 'variants', 'recommendation', 'foreclosures', 'blocking'], 'arguments')
+      refuseUnknown(args ?? {}, ['decision', 'context', 'variants', 'blocking'], 'arguments')
       const sessionId = sessionOf(exec)
       const variants = await normaliseVariants(args.variants, workingDirectoryOf(ctx, exec))
-      const recommendation = requireString(args.recommendation, 'recommendation', 200)
-      if (!variants.some((variant) => variant.id === recommendation)) {
-        throw new Error(`recommendation "${recommendation}" does not match a variant id`)
+      // The recommendation lives on the card it argues for, so the round is the
+      // set of variants and nothing else: no second copy to drift out of sync.
+      const recommended = variants.filter((variant) => variant.recommendation !== '')
+      if (recommended.length !== 1) {
+        throw new Error(
+          `exactly one variant carries a recommendation; ${recommended.length === 0 ? 'none does' : `${recommended.length} do`}`,
+        )
       }
-      const foreclosures = normaliseStrings(args.foreclosures, 'foreclosures', 10_000, 1)
       if (args.blocking !== undefined && typeof args.blocking !== 'boolean') {
         throw new Error('blocking must be a boolean')
       }
@@ -523,8 +540,6 @@ export function decisionTool(store, ctx) {
         decision: requireString(args.decision, 'decision', 500),
         context: args.context === undefined ? '' : requireString(args.context, 'context', 3_000),
         variants,
-        recommendation,
-        foreclosures,
         status: 'open',
         createdAt: Date.now(),
       }
@@ -535,7 +550,7 @@ export function decisionTool(store, ctx) {
           status: 'pending',
           roundId: round.id,
           jobId,
-          recommendation: round.recommendation,
+          recommendation: recommended[0].id,
         }
       }
       return await store.wait(round.id, exec.signal)
@@ -772,6 +787,9 @@ export async function normaliseVariants(value, cwd = process.cwd()) {
       real: normaliseStrings(variant.real, `variants[${index}].real`, 500, 0),
       mocked: normaliseStrings(variant.mocked, `variants[${index}].mocked`, 500, 0),
       omitted: normaliseStrings(variant.omitted, `variants[${index}].omitted`, 500, 0),
+      recommendation:
+        variant.recommendation === undefined ? '' : requireString(variant.recommendation, `variants[${index}].recommendation`, 1_000),
+      cost: normaliseStrings(variant.cost, `variants[${index}].cost`, 1_000, 0),
     })
   }
   return variants
@@ -931,9 +949,9 @@ export function registerApi(ctx, store) {
         if (req.method === 'POST' && route === '/test') {
           const body = await readBody(req)
           const roundId = requireString(body.roundId, 'roundId', 200)
-          const verdict = requireVerdict(body.verdict, ['pass', 'fail', 'blocked'])
+          const verdict = requireVerdict(body.verdict, ['pass', 'fail', 'blocked', 'cancel'])
           const observed = body.observed === undefined ? '' : requireString(body.observed, 'observed', 4_000)
-          if (verdict !== 'pass' && observed === '') {
+          if (verdict !== 'pass' && verdict !== 'cancel' && observed === '') {
             throw new HttpError(400, 'bad-request', 'fail and blocked need an observation')
           }
           const round = store.requireOpen(roundId)

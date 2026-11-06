@@ -167,6 +167,56 @@ function findNode(tree, predicate) {
   return null
 }
 
+function textOf(tree) {
+  if (tree === null || tree === undefined || tree === false) return ''
+  if (typeof tree === 'string' || typeof tree === 'number') return String(tree)
+  if (Array.isArray(tree)) return tree.map(textOf).join('')
+  // A function-type node is an unrendered component (the fake React does not
+  // invoke them); render it by hand to reach its text.
+  if (typeof tree.type === 'function') return textOf(tree.type(tree.props))
+  return (tree.children || []).map(textOf).join('')
+}
+
+test('the recommendation and its cost sit inside the card, above the fidelity rows', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 'session-1',
+    decision: 'Should this ship?',
+    context: '',
+    variants: [
+      {
+        id: 'a',
+        label: 'A',
+        html: '<h1>A</h1>',
+        note: '',
+        real: ['the panel'],
+        mocked: [],
+        omitted: [],
+        recommendation: 'It is the smaller change.',
+        cost: ['B is lost.', 'C waits.'],
+      },
+      { id: 'b', label: 'B', html: '<h1>B</h1>', note: '', real: [], mocked: [], omitted: [] },
+    ],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const tree = runtime.render(client.__test.DecisionView, { round, sent: null, onSent() {} })
+  const card = findNode(tree, (node) => node.props && node.props.role === 'button' && node.props['aria-pressed'] === true)
+  assert.ok(card, 'the variant that carries the recommendation starts selected')
+  const text = textOf(card)
+  const why = text.indexOf('why')
+  const cost = text.indexOf('cost')
+  const real = text.indexOf('real')
+  assert.ok(why !== -1, `the card carries the recommendation: ${text}`)
+  assert.ok(text.includes('It is the smaller change.'), 'the reason reads inside the card')
+  assert.ok(cost > why, 'the cost follows the reason')
+  assert.ok(text.includes('C waits.'), 'every cost line is shown, not just the first')
+  assert.ok(real > cost, 'the fidelity rows come last')
+})
+
 function makeCtx() {
   const calls = { openTab: [], registered: [], bodies: [], titles: [] }
   let mounted = 'session-1'
@@ -272,9 +322,7 @@ test('adding a comment never passes a string style to a host element', () => {
     sessionId: 'session-1',
     decision: 'Should this ship?',
     context: '',
-    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [] }],
-    recommendation: 'a',
-    foreclosures: ['B is lost.'],
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [], recommendation: 'It is the smaller change.', cost: ['B is lost.'] }],
     status: 'open',
     createdAt: Date.now(),
   }
@@ -311,9 +359,7 @@ test('Ctrl+Enter adds the comment and plain Enter does not', () => {
     sessionId: 'session-1',
     decision: 'Should this ship?',
     context: '',
-    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [] }],
-    recommendation: 'a',
-    foreclosures: ['B is lost.'],
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [], recommendation: 'It is the smaller change.', cost: ['B is lost.'] }],
     status: 'open',
     createdAt: Date.now(),
   }
@@ -542,9 +588,7 @@ test('a Clarity tab with no round id asks the host for this conversation’s rou
     sessionId: 's2',
     decision: 'Which one?',
     context: '',
-    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>' }],
-    recommendation: 'a',
-    foreclosures: ['B is lost.'],
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', recommendation: 'It is the smaller change.', cost: ['B is lost.'] }],
     status: 'open',
     createdAt: 1,
   }
@@ -564,4 +608,381 @@ test('a Clarity tab with no round id asks the host for this conversation’s rou
   assert.ok(seen.some((url) => url.includes('/rounds?sessionId=s2')), 'the host is asked, not localStorage')
   const header = findNode(tree, (node) => node.props && node.props.round && node.props.round.id === 'r9')
   assert.ok(header, 'the conversation’s round is shown')
+})
+
+test('a comment typed but never added travels with the decision', async () => {
+  const runtime = statefulReact()
+  const bodies = []
+  const client = loadClient(runtime.React, async (path, init) => {
+    bodies.push({ path, body: JSON.parse(init.body) })
+    return { ok: true, json: async () => ({ ok: true, result: { verdict: 'accept' } }) }
+  })
+  const round = {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 'session-1',
+    decision: 'Should this ship?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [], recommendation: 'It is the smaller change.', cost: ['B is lost.'] }],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const props = { round, sent: null, onSent() {} }
+  const composer = (tree) =>
+    findNode(
+      tree,
+      (node) =>
+        node.type === 'textarea' &&
+        typeof node.props.placeholder === 'string' &&
+        node.props.placeholder.startsWith('What should change?'),
+    )
+
+  let tree = runtime.render(client.__test.DecisionView, props)
+  composer(tree).props.onChange({ target: { value: 'Typed but never added.' } })
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  const accept = findNode(
+    tree,
+    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('Accept A'),
+  )
+  assert.ok(accept, 'the accept button names the recommended variant')
+  await accept.props.onClick()
+
+  assert.equal(bodies.length, 1)
+  const sent = bodies[0].body.comments
+  assert.equal(sent.length, 1, 'the unsent comment is sent instead of dropped')
+  assert.equal(sent[0].text, 'Typed but never added.')
+  assert.deepEqual(sent[0].anchor, { kind: 'variant' })
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.equal(composer(tree).props.value, '', 'the box is cleared once the decision lands')
+})
+
+test('the action row names the variant each verb acts on', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 'session-1',
+    decision: 'Which one?',
+    context: '',
+    variants: [
+      { id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [] },
+      { id: 'b', label: 'B', html: '<h1>B</h1>', note: '', real: [], mocked: [], omitted: [], recommendation: 'It is the smaller change.', cost: ['A is lost.'] },
+    ],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const tree = runtime.render(client.__test.DecisionView, { round, sent: null, onSent() {} })
+
+  const labels = []
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return
+    if (node.type === 'button' && Array.isArray(node.children)) {
+      const text = node.children.filter((child) => typeof child === 'string').join('')
+      if (text !== '') labels.push(text)
+    }
+    for (const child of node.children || []) walk(child)
+  }
+  walk(tree)
+
+  assert.ok(labels.includes('Accept B'), 'accept names the recommendation')
+  assert.ok(labels.includes('Revise B'), 'revise names the variant it would revise')
+  assert.ok(labels.includes('Reject A&B'), 'reject names every variant it would reject')
+  assert.ok(labels.includes('Cancel this round'), 'leaving the round says that it cancels it')
+  assert.equal(labels.includes('Cancel'), false, 'the bare word alone reads as a safe undo')
+})
+
+test('cancelling a test gate sends cancel and needs no observation', async () => {
+  const runtime = statefulReact()
+  const bodies = []
+  const client = loadClient(runtime.React, async (path, init) => {
+    bodies.push(JSON.parse(init.body))
+    return { ok: true, json: async () => ({ ok: true, result: { status: 'cancelled' } }) }
+  })
+  const round = {
+    id: 't1',
+    kind: 'test',
+    sessionId: 'session-1',
+    candidate: '4f2a1c9',
+    prepared: { command: 'pnpm build', exitCode: 0, builtAt: 1 },
+    runThis: 'pnpm preview',
+    scenario: {
+      preconditions: ['signed in'],
+      steps: ['open'],
+      expected: ['one toast'],
+      failureSignature: 'two toasts',
+      rollback: 'none',
+    },
+    status: 'open',
+    createdAt: 1,
+  }
+  const props = { round, sent: null, onSent() {} }
+  const button = (tree, label) =>
+    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+
+  let tree = runtime.render(client.__test.TestView, props)
+  assert.ok(button(tree, 'I’m ready to test'), 'the gate opens on the prepared build')
+  button(tree, 'I’m ready to test').props.onClick()
+
+  tree = runtime.render(client.__test.TestView, props)
+  assert.ok(button(tree, 'Cancel this test'), 'the gate offers one way out, not two')
+  assert.equal(button(tree, 'Blocked'), null, 'blocked is no longer a button of its own')
+  assert.equal(button(tree, 'Back'), null, 'and neither is going back')
+  await button(tree, 'Cancel this test').props.onClick()
+
+  assert.equal(bodies.length, 1)
+  assert.equal(bodies[0].verdict, 'cancel', 'the button cancels instead of inventing a verdict')
+  assert.equal(bodies[0].observed, '', 'an empty observation is allowed for a cancel')
+})
+
+test('the English and Chinese tables carry the same keys', () => {
+  const { MESSAGES } = loadClient().__test
+  assert.deepEqual(Object.keys(MESSAGES.zh).sort(), Object.keys(MESSAGES.en).sort())
+  for (const [key, value] of Object.entries(MESSAGES.zh)) {
+    assert.equal(typeof value, 'string', `zh ${key} is a string`)
+    assert.notEqual(value, '', `zh ${key} is not empty`)
+  }
+})
+
+test('the panel speaks the GUI language, and English without the service', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const round = {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 'session-1',
+    decision: 'Which one?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [], recommendation: 'It is the smaller change.', cost: ['B is lost.'] }],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+  const props = { round, sent: null, onSent() {} }
+  const buttonText = (tree) => {
+    const found = []
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return
+      if (node.type === 'button' && Array.isArray(node.children)) {
+        const text = node.children.filter((child) => typeof child === 'string').join('')
+        if (text !== '') found.push(text)
+      }
+      for (const child of node.children || []) walk(child)
+    }
+    walk(tree)
+    return found
+  }
+
+  assert.ok(buttonText(runtime.render(client.__test.DecisionView, props)).includes('Accept A'))
+
+  const registered = []
+  const { ctx } = makeCtx()
+  ctx.inject = (deps, callback) => {
+    // The array comes from the vm realm, so compare its contents, not its prototype.
+    assert.equal(deps.length, 1)
+    assert.equal(deps[0], 'locale')
+    callback({
+      locale: {
+        register(namespace, messages) {
+          registered.push({ namespace, messages })
+        },
+        bind() {
+          return (key) => client.__test.MESSAGES.zh[key] ?? key
+        },
+      },
+      effect(fn) {
+        fn()
+      },
+    })
+    return { then() {} }
+  }
+  client.apply(ctx)
+
+  assert.equal(registered[0].namespace, 'collaborativeClarity')
+  assert.equal(registered[0].messages.zh['action.accept'], '接受')
+  assert.ok(buttonText(runtime.render(client.__test.DecisionView, props)).includes('接受 A'))
+})
+
+function editableRound() {
+  return {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 'session-1',
+    decision: 'Should this ship?',
+    context: '',
+    variants: [
+      { id: 'a', label: 'A', html: '<h1>A</h1>', note: '', real: [], mocked: [], omitted: [], recommendation: 'It is the smaller change.', cost: ['B is lost.'] },
+      { id: 'b', label: 'B', html: '<h1>B</h1>', note: '', real: [], mocked: [], omitted: [], cost: ['A is lost.'] },
+    ],
+    status: 'open',
+    createdAt: Date.now(),
+  }
+}
+
+function composerOf(tree) {
+  return findNode(
+    tree,
+    (node) =>
+      node.type === 'textarea' &&
+      typeof node.props.placeholder === 'string' &&
+      node.props.placeholder.startsWith('What should change?'),
+  )
+}
+
+function buttonsNamed(tree, label) {
+  const found = []
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return
+    // A `.map` puts its rows in one array child, so arrays are walked too.
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child)
+      return
+    }
+    if (
+      node.type === 'button' &&
+      Array.isArray(node.children) &&
+      node.children.filter((child) => typeof child === 'string').join('') === label
+    ) {
+      found.push(node)
+    }
+    for (const child of node.children || []) walk(child)
+  }
+  walk(tree)
+  return found
+}
+
+/** The input a comment turns into while it is being rewritten. */
+function editBoxOf(tree) {
+  return findNode(tree, (node) => node.type === 'textarea' && node.props.autoFocus === true)
+}
+
+/** Click a button the way the panel does: rows and buttons stop propagation. */
+function click(node) {
+  return node.props.onClick({ stopPropagation() {} })
+}
+
+/** Add a comment through the composer, the way a person would. */
+function addComment(runtime, client, props, text) {
+  let tree = runtime.render(client.__test.DecisionView, props)
+  composerOf(tree).props.onChange({ target: { value: text } })
+  tree = runtime.render(client.__test.DecisionView, props)
+  click(buttonsNamed(tree, 'Add')[0])
+  return runtime.render(client.__test.DecisionView, props)
+}
+
+test('an added comment is rewritten in place, keeping its place in the list', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = addComment(runtime, client, props, 'First thing.')
+  tree = addComment(runtime, client, props, 'Second thing.')
+
+  const edits = buttonsNamed(tree, 'Edit')
+  assert.equal(edits.length, 2, 'every added comment offers an edit')
+
+  click(edits[1])
+  tree = runtime.render(client.__test.DecisionView, props)
+  const box = editBoxOf(tree)
+  assert.ok(box, 'the comment turns into an input')
+  assert.equal(box.props.value, 'Second thing.', 'it opens holding the text it had')
+  box.props.onChange({ target: { value: 'Second thing, reworded.' } })
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  click(buttonsNamed(tree, 'Save')[0])
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.equal(editBoxOf(tree), null, 'the row is text again once saved')
+  const flat = textOf(tree)
+  assert.ok(flat.includes('Second thing, reworded.'), 'the list shows the rewritten text')
+  assert.ok(!flat.includes('Second thing.'), 'the text it had is gone')
+  assert.ok(
+    flat.indexOf('First thing.') < flat.indexOf('Second thing, reworded.'),
+    'the rewritten comment keeps its place in the list',
+  )
+})
+
+test('saving an empty edit is refused instead of deleting the comment', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = addComment(runtime, client, props, 'Keep me.')
+  click(buttonsNamed(tree, 'Edit')[0])
+  tree = runtime.render(client.__test.DecisionView, props)
+
+  editBoxOf(tree).props.onChange({ target: { value: '   ' } })
+  tree = runtime.render(client.__test.DecisionView, props)
+  click(buttonsNamed(tree, 'Save')[0])
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  const alert = findNode(tree, (node) => node.props && node.props.role === 'alert')
+  assert.ok(alert, 'the refusal is said out loud')
+  assert.equal(textOf(alert), 'Write a comment first.')
+  assert.ok(editBoxOf(tree), 'the input stays open so the edit is not lost')
+
+  click(buttonsNamed(tree, 'Cancel')[0])
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.ok(textOf(tree).includes('Keep me.'), 'the comment kept the text it had')
+})
+
+test('an edit typed but not saved travels with the decision, anchor and place intact', async () => {
+  const runtime = statefulReact()
+  const bodies = []
+  const client = loadClient(runtime.React, async (path, init) => {
+    bodies.push({ path, body: JSON.parse(init.body) })
+    return { ok: true, json: async () => ({ ok: true, result: { verdict: 'accept' } }) }
+  })
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = addComment(runtime, client, props, 'Before the edit.')
+  click(buttonsNamed(tree, 'Edit')[0])
+  tree = runtime.render(client.__test.DecisionView, props)
+  editBoxOf(tree).props.onChange({ target: { value: 'After the edit.' } })
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  await click(buttonsNamed(tree, 'Accept A')[0])
+
+  assert.equal(bodies.length, 1)
+  const sent = bodies[0].body.comments
+  assert.equal(sent.length, 1, 'the edit replaces the comment, it does not add a second one')
+  assert.equal(sent[0].text, 'After the edit.')
+  assert.deepEqual(sent[0].anchor, { kind: 'variant' }, 'the anchor survives the rewrite')
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.equal(editBoxOf(tree), null, 'the edit closes once the decision lands')
+})
+
+test('an anchor is named in the panel\u2019s language, not in hardcoded English', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  assert.equal(client.__test.anchorLabel({ kind: 'variant' }), 'Whole variant', 'English until a locale arrives')
+  assert.equal(client.__test.anchorLabel({ kind: 'line', start: 3, end: 3 }), 'Line 3')
+
+  const { ctx } = makeCtx()
+  ctx.inject = (deps, callback) => {
+    callback({
+      locale: {
+        register() {},
+        bind() {
+          return (key, vars) =>
+            (client.__test.MESSAGES.zh[key] ?? key).replace(/\{(\w+)\}/g, (match, name) =>
+              vars && name in vars ? String(vars[name]) : match,
+            )
+        },
+      },
+      effect(fn) {
+        fn()
+      },
+    })
+    return { then() {} }
+  }
+  client.apply(ctx)
+
+  assert.equal(client.__test.anchorLabel({ kind: 'variant' }), '整条变体')
+  assert.equal(client.__test.anchorLabel({ kind: 'element', text: '提交' }), '元素 · 提交')
+  assert.equal(client.__test.anchorLabel({ kind: 'text', quote: '继续' }), '“继续”')
+  assert.equal(client.__test.anchorLabel({ kind: 'line', start: 3, end: 3 }), '第 3 行')
+  assert.equal(client.__test.anchorLabel({ kind: 'line', start: 12, end: 14 }), '第 12–14 行')
 })
