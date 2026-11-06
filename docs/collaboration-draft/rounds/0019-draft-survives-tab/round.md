@@ -1,5 +1,9 @@
 # Round 0019 — 切 tab 就丢的草稿
 
+> **Superseded by [0020](../0020-draft-storage/round.md).** 这一轮定的是「页面内存」，代价就是
+> 刷新全丢；一天之内就重开了一轮，把草稿挪进 sessionStorage。层还是这一轮建的那一层，
+> 只是多了持久化。留在这里因为 0020 是在这一轮的代价上长出来的。
+
 **Decision:** 切 tab 就丢的草稿：记在页面内存里，还是写进 sessionStorage？
 **Variant A:** *页面内存* —— `client.js` 模块层一个 Map，键是 round id，和 `pending` / `roundFeed` 同一层。
 **Variant B:** *sessionStorage* —— 按 round id 写进本标签页的 storage，刷新也还在。

@@ -25,7 +25,29 @@ class FakeEventSource {
   }
 }
 
-function loadClient(ReactOverride, fetchImpl) {
+/** The little of sessionStorage the panel uses, per tab. */
+function fakeStorage() {
+  const data = new Map()
+  return {
+    get length() {
+      return data.size
+    },
+    key(index) {
+      return [...data.keys()][index] ?? null
+    },
+    getItem(key) {
+      return data.has(key) ? data.get(key) : null
+    },
+    setItem(key, value) {
+      data.set(key, String(value))
+    },
+    removeItem(key) {
+      data.delete(key)
+    },
+  }
+}
+
+function loadClient(ReactOverride, fetchImpl, storage) {
   let registration
   const sandbox = {
     window: {
@@ -34,6 +56,8 @@ function loadClient(ReactOverride, fetchImpl) {
           registration = value
         },
       },
+      // A test that leaves this out is a host with no storage at all.
+      sessionStorage: storage,
     },
     EventSource: FakeEventSource,
     console,
@@ -1022,22 +1046,63 @@ test('a draft survives the panel unmounting, which is what a tab switch does', (
   )
 })
 
-test('the draft is spent once the decision lands', async () => {
+test('the draft is spent once the decision lands, tab and storage alike', async () => {
+  const storage = fakeStorage()
   const runtime = statefulReact()
-  const client = loadClient(runtime.React, async () => ({
-    ok: true,
-    json: async () => ({ ok: true, result: { verdict: 'accept' } }),
-  }))
+  const client = loadClient(
+    runtime.React,
+    async () => ({ ok: true, json: async () => ({ ok: true, result: { verdict: 'accept' } }) }),
+    storage,
+  )
   const props = { round: editableRound(), sent: null, onSent() {} }
 
   let tree = addComment(runtime, client, props, 'Sent with the decision.')
+  assert.ok(storage.getItem('clarity.draft.r1') !== null, 'the draft is written as it is typed')
   tree = runtime.render(client.__test.DecisionView, props)
   await click(buttonsNamed(tree, 'Accept A')[0])
 
+  assert.equal(storage.getItem('clarity.draft.r1'), null, 'the stored draft goes with the decision')
   runtime.unmount()
   tree = runtime.render(client.__test.DecisionView, props)
   assert.ok(
     !textOf(tree).includes('Sent with the decision.'),
     'a comment that went out is not left behind for the next visit',
   )
+})
+
+test('a draft survives a page reload, because it is kept in sessionStorage', () => {
+  const storage = fakeStorage()
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  const before = statefulReact()
+  const clientBefore = loadClient(before.React, undefined, storage)
+  const written = addComment(before, clientBefore, props, 'Written before the reload.')
+  composerOf(written).props.onChange({ target: { value: 'and a half sentence' } })
+  before.render(clientBefore.__test.DecisionView, props)
+
+  // A reload is a new page: new client, empty hook memory, the same tab.
+  const after = statefulReact()
+  const clientAfter = loadClient(after.React, undefined, storage)
+  const treeAfter = after.render(clientAfter.__test.DecisionView, props)
+  assert.ok(textOf(treeAfter).includes('Written before the reload.'), 'the comment comes back')
+  assert.equal(
+    composerOf(treeAfter).props.value,
+    'and a half sentence',
+    'so does the text that was never added',
+  )
+})
+
+test('junk in storage costs the draft, never the panel', () => {
+  const storage = fakeStorage()
+  storage.setItem('clarity.draft.r1', 'not json at all')
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React, undefined, storage)
+
+  const tree = runtime.render(client.__test.DecisionView, {
+    round: editableRound(),
+    sent: null,
+    onSent() {},
+  })
+  assert.ok(composerOf(tree), 'the panel draws anyway')
+  assert.ok(!textOf(tree).includes('not json at all'), 'and nothing of the junk is shown')
 })

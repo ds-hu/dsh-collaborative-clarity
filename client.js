@@ -867,42 +867,137 @@ window.__ModuleLoader__.load({
       )
     }
 
-    // The panel is unmounted whenever another right-sidebar tab is shown, and
-    // again when the conversation changes, so a draft that lives only in
-    // component state is gone when you come back. One draft per round sits here
-    // instead. Page memory, not storage: a reload is still a clean start.
+    // The panel is unmounted whenever another right-sidebar tab is shown, and a
+    // reload empties every hook, so a draft kept only in component state is gone
+    // on the way back. One draft per round lives here, and in this tab's
+    // sessionStorage: a reload keeps it, closing the tab is the end of it.
     const drafts = new Map()
     const DRAFT_LIMIT = 20
+    const DRAFT_PREFIX = 'clarity.draft.'
+    const DRAFT_FIELDS = [
+      'selected',
+      'comments',
+      'commentText',
+      'commentVariantId',
+      'editingIndex',
+      'editText',
+      'pendingAnchor',
+      'annotate',
+      'note',
+    ]
+
+    // A host that blocks storage must cost a reload, not the panel.
+    function draftStorage() {
+      try {
+        const store = window.sessionStorage
+        return store && typeof store.getItem === 'function' ? store : null
+      } catch {
+        return null
+      }
+    }
+
+    function draftPayload(draft) {
+      const payload = {}
+      for (const name of DRAFT_FIELDS) payload[name] = draft[name]
+      return payload
+    }
+
+    // Storage is not ours alone: anything that is not the shape we wrote is
+    // dropped rather than half-believed.
+    function readStoredDraft(roundId) {
+      const store = draftStorage()
+      if (store === null) return null
+      try {
+        const raw = store.getItem(DRAFT_PREFIX + roundId)
+        if (typeof raw !== 'string' || raw === '') return null
+        const parsed = JSON.parse(raw)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+        if (!Array.isArray(parsed.comments)) return null
+        return parsed
+      } catch {
+        return null
+      }
+    }
+
+    function saveDraft(draft) {
+      const store = draftStorage()
+      if (store === null) return
+      try {
+        store.setItem(DRAFT_PREFIX + draft.roundId, JSON.stringify(draftPayload(draft)))
+      } catch {
+        // A full or frozen storage is not worth a broken panel.
+      }
+    }
+
+    function forgetDraft(roundId) {
+      drafts.delete(roundId)
+      const store = draftStorage()
+      if (store === null) return
+      try {
+        store.removeItem(DRAFT_PREFIX + roundId)
+      } catch {
+        // Nothing to do: the entry will go with the tab.
+      }
+    }
+
+    // One tab can meet many rounds; the oldest stored draft goes first.
+    function sweepStoredDrafts() {
+      const store = draftStorage()
+      if (store === null || typeof store.key !== 'function') return
+      try {
+        const keys = []
+        for (let index = 0; index < store.length; index += 1) {
+          const key = store.key(index)
+          if (typeof key === 'string' && key.startsWith(DRAFT_PREFIX)) keys.push(key)
+        }
+        while (keys.length > DRAFT_LIMIT) {
+          const key = keys.shift()
+          if (typeof key === 'string') store.removeItem(key)
+        }
+      } catch {
+        // A storage we cannot enumerate is one we simply do not prune.
+      }
+    }
 
     function draftOf(roundId, seed) {
-      let draft = drafts.get(roundId)
-      if (draft === undefined) {
-        draft = {
-          selected: seed,
-          comments: [],
-          commentText: '',
-          commentVariantId: seed,
-          editingIndex: null,
-          editText: '',
-          pendingAnchor: null,
-          annotate: true,
-          note: '',
-        }
-        drafts.set(roundId, draft)
-        // A long session meets many rounds; the oldest draft goes first.
-        while (drafts.size > DRAFT_LIMIT) drafts.delete(drafts.keys().next().value)
+      const cached = drafts.get(roundId)
+      if (cached !== undefined) return cached
+      const draft = {
+        roundId,
+        selected: seed,
+        comments: [],
+        commentText: '',
+        commentVariantId: seed,
+        editingIndex: null,
+        editText: '',
+        pendingAnchor: null,
+        annotate: true,
+        note: '',
       }
+      const stored = readStoredDraft(roundId)
+      if (stored !== null) {
+        for (const name of DRAFT_FIELDS) {
+          if (stored[name] !== undefined) draft[name] = stored[name]
+        }
+      }
+      drafts.set(roundId, draft)
+      while (drafts.size > DRAFT_LIMIT) {
+        forgetDraft(drafts.keys().next().value)
+      }
+      sweepStoredDrafts()
       return draft
     }
 
     // A field that outlives the panel. The draft is the source of truth; the
-    // hook state only mirrors it, so a write still redraws.
+    // hook state only mirrors it, so a write still redraws, and both the tab
+    // and a reload read the same draft back.
     function useRemembered(draft, name) {
       const [value, setValue] = React.useState(draft[name])
       const write = (next) => {
         const resolved = typeof next === 'function' ? next(draft[name]) : next
         draft[name] = resolved
         setValue(resolved)
+        saveDraft(draft)
       }
       return [value, write]
     }
@@ -1099,7 +1194,7 @@ window.__ModuleLoader__.load({
             setEditText('')
           }
           // The decision is the host's now; the draft that fed it is spent.
-          drafts.delete(round.id)
+          forgetDraft(round.id)
           props.onSent(result.result)
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause))

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A — sessionStorage</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; --ok:#2da44e; --no:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .wire { max-width: 380px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:last-child { text-align: right; white-space: nowrap; }
+  .yes { color: var(--ok); font-weight: 600; }
+  .no { color: var(--no); font-weight: 600; }
+  .eh { color: var(--warn); font-weight: 600; }
+  .wire { padding: 11px 14px; }
+  pre { margin: 0; font: 11.5px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A — sessionStorage。</b>draft 写进本标签页的 storage，键还是 round id。刷新、宿主重启后刷新、
+  切 tab 都在；**关掉这个标签页就没了**，它自己会过期，不用写清理规则。
+</div>
+
+<div class="panel">
+  <h2>活多久 <span>标签页的寿命 = 草稿的寿命</span></h2>
+  <table>
+    <tr><th>动作</th><th>批注还在吗</th></tr>
+    <tr><td>切到别的右侧栏 tab，再切回来</td><td class="yes">还在</td></tr>
+    <tr><td>按 F5 / 刷新页面</td><td class="yes">还在</td></tr>
+    <tr><td>宿主重启、插件重载后刷新</td><td class="eh">还在（轮次可能已没了）</td></tr>
+    <tr><td>关掉这个标签页 / 窗口</td><td class="no">没了</td></tr>
+    <tr><td>另开一个窗口看同一个会话</td><td class="no">各存各的</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>代价清单</h2>
+  <table>
+    <tr><td>批注正文仍会落盘（浏览器把它写到磁盘，只是关页即删）</td></tr>
+    <tr><td>同一个标签页开很多轮，要跟页面内存一样设个条数上限</td></tr>
+    <tr><td>关页那个动作没救；但那通常是你已经决定、或者早就不看了的时候</td></tr>
+  </table>
+</div>
+
+<div class="wire">
+  <h2>形状</h2>
+<pre>sessionStorage['clarity.draft.&lt;roundId&gt;'] = JSON.stringify({
+  comments, commentText, selected, note,
+  pendingAnchor, editingIndex, editText, annotate,
+})
+
+// 写：每次 setX 顺手写一遍（打字时也在写）
+// 读：面板挂载时读回来，补上 draftOf() 的初始值
+// 清：决定送出后删；关页面浏览器自己清</pre>
+</div>
+
+<div class="foot">
+  <span class="dim">为什么不是 localStorage：</span>它会活得比浏览器还长，而草稿的寿命本来只该到这一轮结束。
+</div>
+
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 B — localStorage</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; --ok:#2da44e; --no:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .wire { max-width: 380px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:last-child { text-align: right; white-space: nowrap; }
+  .yes { color: var(--ok); font-weight: 600; }
+  .no { color: var(--no); font-weight: 600; }
+  .eh { color: var(--warn); font-weight: 600; }
+  .wire { padding: 11px 14px; }
+  pre { margin: 0; font: 11.5px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>B — localStorage。</b>同一个键，写进浏览器的长期 storage。刷新、关浏览器再开都在，所有窗口共用
+  同一份；**它永远不过期**，所以得自己写清理规则。
+</div>
+
+<div class="panel">
+  <h2>活多久 <span>浏览器的寿命 = 草稿的寿命</span></h2>
+  <table>
+    <tr><th>动作</th><th>批注还在吗</th></tr>
+    <tr><td>切到别的右侧栏 tab，再切回来</td><td class="yes">还在</td></tr>
+    <tr><td>按 F5 / 刷新页面</td><td class="yes">还在</td></tr>
+    <tr><td>关掉浏览器、明天再开</td><td class="yes">还在</td></tr>
+    <tr><td>另开一个窗口看同一个会话</td><td class="eh">共用一份，后写的覆盖先写的</td></tr>
+    <tr><td>那一轮早就结束了</td><td class="no">还躺着，除非有人来删</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>代价清单</h2>
+  <table>
+    <tr><td>要写清理规则：round 已经不存在的草稿留几天？按什么判？</td></tr>
+    <tr><td>两个窗口同时编辑同一轮，没有合并——最后写的那个赢，另一半的批注会消失</td></tr>
+    <tr><td>批注正文长期留在磁盘上，跨会话、跨天</td></tr>
+    <tr><td>读出来可能是别人/旧版本写的 JSON，解析要防坏数据</td></tr>
+  </table>
+</div>
+
+<div class="wire">
+  <h2>形状</h2>
+<pre>localStorage['clarity.draft.&lt;roundId&gt;'] = JSON.stringify({ ... })
+
+// 读：挂载时读，问问宿主这一轮还在不在
+// 存：每次 setX 写一遍；storage 事件会把别的窗口的写同步过来
+// 清：决定送出后删；剩下靠时间戳 + 上限慢慢淘汰</pre>
+</div>
+
+<div class="foot">
+  <span class="dim">值得要吗：</span>如果你经常关掉浏览器第二天再回来接着写同一轮的批注，那就值得；
+  否则它只是把一份草稿永远留在磁盘上。
+</div>
+
+</body>
+</html>

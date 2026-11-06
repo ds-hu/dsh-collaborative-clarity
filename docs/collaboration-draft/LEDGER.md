@@ -33,7 +33,8 @@ through the plugin. The plugin's verified scope is in
 | D22 | The advice lives in the variant, not in the round: `variants[].recommendation` marks the recommended one and `variants[].cost` states its price; `round.recommendation` / `round.foreclosures` are refused | built | [Round 0016](rounds/0016-recommendation-place/round.md); `tests/store.test.mjs`, `tests/client.test.mjs` |
 | D23 | An added comment is rewritten where it sits — its own row turns into an input — so the anchor, the variant, and its place in the list survive the rewrite | tested | [Round 0017](rounds/0017-edit-added-comments/round.md); a comment was written, edited and sent in round 0018 `clarity-mw4utbqx-53aaf3`; `tests/client.test.mjs` |
 | D24 | The README keeps `vibe code` in its first heading, in both languages; the phrase is a deliberate filter, and re-arguing it is a new round | agreed | [Round 0018](rounds/0018-readme-vibe-code/round.md); tool round `clarity-mw4utbqx-53aaf3` |
-| D25 | A draft outlives the panel — comments, unsent text, the selected variant, the note and an open edit live in a page-memory store keyed by round id — so switching sidebar tabs loses nothing, while a reload still starts clean | built | [Round 0019](rounds/0019-draft-survives-tab/round.md); `tests/client.test.mjs` |
+| D25 | A draft outlives the panel — comments, unsent text, the selected variant, the note and an open edit live one level above the panel, keyed by round id | superseded | [Round 0019](rounds/0019-draft-survives-tab/round.md); superseded by D26, which keeps the same layer but puts it in sessionStorage |
+| D26 | A draft is kept in this tab's `sessionStorage` under `clarity.draft.<roundId>`: it survives a reload and a remount, dies with the tab, is dropped once its decision is sent, and junk in that key costs the draft, never the panel | built | [Round 0020](rounds/0020-draft-storage/round.md); `tests/client.test.mjs` |
 
 ## Round ledger
 
@@ -53,7 +54,8 @@ A real round appends one row.
 | 2026-11-06 | [0016](rounds/0016-recommendation-place/round.md) | 推荐和代价放在哪儿：整轮头部一块，还是每张卡片自己带？ | revise | B（沉进变体），带三条批注 | 整轮不再有一句「这一轮值不值得」的总评；schema 破了——`round.recommendation` / `foreclosures` 传了会被拒 | [round](rounds/0016-recommendation-place/round.md); 0018 那一轮整轮跑在新形状上并被接受, 74 tests | tested |
 | 2026-11-06 | [0017](rounds/0017-edit-added-comments/round.md) | 已 Add 的批注要改，点在哪儿：行里就地变输入框，还是搬回下面那个输入框？ | accept | A（就地改） | 编辑时行高会跳一下；同一时刻只能一条在编辑，「点另一条＝先存这条」是隐式规则 | [round](rounds/0017-edit-added-comments/round.md); tool round `clarity-mw4ggbd3-48c4a9`; 真机：0018 里一条批注被改成「已编辑」后送出，锚点未变; 74 tests | tested |
 | 2026-11-06 | [0018](rounds/0018-readme-vibe-code/round.md) | README 首屏那个 `vibe code`：留着，还是换成说人话的标题？ | accept | A（留着，两版都不动） | 不认这个词的人在第一屏出局；过几年这个词会旧，届时重开一轮 | [round](rounds/0018-readme-vibe-code/round.md); tool round `clarity-mw4utbqx-53aaf3` | decided |
-| 2026-11-06 | [0019](rounds/0019-draft-survives-tab/round.md) | 切 tab 就丢的草稿：记在页面内存里，还是写进 sessionStorage？ | accept | A（页面内存，键是 round id） | 刷新页面仍然全丢；宿主已结算的轮次本地不知道，靠 20 条上限作废 | [round](rounds/0019-draft-survives-tab/round.md); tool round `clarity-mw4y4b1t-3f18b4`; 76 tests | built |
+| 2026-11-06 | [0019](rounds/0019-draft-survives-tab/round.md) | 切 tab 就丢的草稿：记在页面内存里，还是写进 sessionStorage？ | accept | A（页面内存，键是 round id） | 刷新页面仍然全丢；宿主已结算的轮次本地不知道，靠 20 条上限作废 | [round](rounds/0019-draft-survives-tab/round.md); tool round `clarity-mw4y4b1t-3f18b4`; 76 tests | superseded by [0020](rounds/0020-draft-storage/round.md) |
+| 2026-11-06 | [0020](rounds/0020-draft-storage/round.md) | 草稿落到 storage：跟着标签页走（sessionStorage），还是跟着浏览器走（localStorage）？ | accept | A（sessionStorage） | 关掉标签页即清；同一会话开两个窗口各存各的，不会合并 | [round](rounds/0020-draft-storage/round.md); tool round `clarity-mw53f22b-7fdd2c`; 78 tests | built |
 
 ## What would move a row
 
