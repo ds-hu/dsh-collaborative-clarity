@@ -57,6 +57,11 @@ build" — and the tab no longer owns a process at all. This is a breaking schem
   save is refused instead of deleting the comment, and an edit typed but not saved travels with the
   decision the same way an unsent comment does. See
   `docs/collaboration-draft/rounds/0017-edit-added-comments`.
+- **A draft survives leaving the tab.** What you typed — comments, the unsent text, the selected
+  variant, the note, even an open edit — now lives one level above the panel, so switching to
+  another sidebar tab and back no longer wipes it. It is page memory, not storage: reloading still
+  starts clean, and a draft is dropped once its decision is sent. See
+  `docs/collaboration-draft/rounds/0019-draft-survives-tab`.
 
 ## 0.3.2 — 2026-10-31
 

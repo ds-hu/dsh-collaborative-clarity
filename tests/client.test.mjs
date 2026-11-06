@@ -98,6 +98,11 @@ function statefulReact() {
       cursor = 0
       return component(props)
     },
+    // What the sidebar does when it shows another tab: every hook is dropped.
+    unmount() {
+      hooks.length = 0
+      cursor = 0
+    },
   }
 }
 
@@ -985,4 +990,54 @@ test('an anchor is named in the panel\u2019s language, not in hardcoded English'
   assert.equal(client.__test.anchorLabel({ kind: 'text', quote: '继续' }), '“继续”')
   assert.equal(client.__test.anchorLabel({ kind: 'line', start: 3, end: 3 }), '第 3 行')
   assert.equal(client.__test.anchorLabel({ kind: 'line', start: 12, end: 14 }), '第 12–14 行')
+})
+
+test('a draft survives the panel unmounting, which is what a tab switch does', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = addComment(runtime, client, props, 'A comment worth keeping.')
+  composerOf(tree).props.onChange({ target: { value: 'and a half-written one.' } })
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.ok(textOf(tree).includes('A comment worth keeping.'))
+
+  runtime.unmount()
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.ok(textOf(tree).includes('A comment worth keeping.'), 'the added comment comes back')
+  assert.equal(
+    composerOf(tree).props.value,
+    'and a half-written one.',
+    'so does the text that was never added',
+  )
+
+  runtime.unmount()
+  tree = runtime.render(client.__test.DecisionView, {
+    ...props,
+    round: { ...editableRound(), id: 'r2' },
+  })
+  assert.ok(
+    !textOf(tree).includes('A comment worth keeping.'),
+    'a draft belongs to one round, not to the tab',
+  )
+})
+
+test('the draft is spent once the decision lands', async () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React, async () => ({
+    ok: true,
+    json: async () => ({ ok: true, result: { verdict: 'accept' } }),
+  }))
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = addComment(runtime, client, props, 'Sent with the decision.')
+  tree = runtime.render(client.__test.DecisionView, props)
+  await click(buttonsNamed(tree, 'Accept A')[0])
+
+  runtime.unmount()
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.ok(
+    !textOf(tree).includes('Sent with the decision.'),
+    'a comment that went out is not left behind for the next visit',
+  )
 })

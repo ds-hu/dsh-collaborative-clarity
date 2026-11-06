@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A — 页面内存里的草稿</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; --ok:#2da44e; --no:#cf222e; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .wire {
+    max-width: 380px; margin: 0 auto 10px; background: #fff;
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:last-child { text-align: right; white-space: nowrap; }
+  .yes { color: var(--ok); font-weight: 600; }
+  .no { color: var(--no); font-weight: 600; }
+  .wire { padding: 11px 14px; }
+  pre { margin: 0; font: 11.5px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; color: #1f2328; }
+  .dim { color: var(--muted); }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A — 页面内存。</b>草稿放进 `client.js` 里的一个 Map，键是 round id——和现有的 `pending`、
+  `roundFeed` 同一层。面板卸载了，字还在；页面刷新了，字没了。
+</div>
+
+<div class="panel">
+  <h2>什么时候还在 <span>面板被卸载 = 这些字唯一的家没了</span></h2>
+  <table>
+    <tr><th>动作</th><th>批注还在吗</th></tr>
+    <tr><td>切到别的右侧栏 tab，再切回来</td><td class="yes">还在</td></tr>
+    <tr><td>切到别的会话，再切回来</td><td class="yes">还在</td></tr>
+    <tr><td>按 F5 / 刷新页面</td><td class="no">没了</td></tr>
+    <tr><td>宿主重启、插件重载</td><td class="no">没了</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>记什么</h2>
+  <table>
+    <tr><td>已 Add 的批注（正文 + 锚点 + 所属变体）</td><td class="yes">记</td></tr>
+    <tr><td>输入框里没点 Add 的字</td><td class="yes">记</td></tr>
+    <tr><td>选中的变体、备注、正在编辑的那条</td><td class="yes">记</td></tr>
+    <tr><td>落在磁盘上的东西</td><td class="no">没有</td></tr>
+  </table>
+</div>
+
+<div class="wire">
+  <h2>形状</h2>
+<pre>// client.js，模块层，和 pending / roundFeed 并排
+const drafts = new Map()
+
+draft = {
+  comments: [...], commentText: '',
+  selected: 'a', note: '', pendingAnchor: null,
+  editingIndex: 2, editText: '...',
+}
+
+// 键是 round id：一轮一个草稿，超过 20 条挤掉最早的
+// round 结束了：草稿留着不发，这个 id 不会再回来，自然作废</pre>
+</div>
+
+<div class="foot">
+  <span class="dim">代价：</span>刷新一次就白写。读 artifact 读到一半按 F5，或者宿主重载插件，
+  这一版一个字都救不回来。
+</div>
+
+</body>
+</html>

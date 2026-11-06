@@ -867,6 +867,46 @@ window.__ModuleLoader__.load({
       )
     }
 
+    // The panel is unmounted whenever another right-sidebar tab is shown, and
+    // again when the conversation changes, so a draft that lives only in
+    // component state is gone when you come back. One draft per round sits here
+    // instead. Page memory, not storage: a reload is still a clean start.
+    const drafts = new Map()
+    const DRAFT_LIMIT = 20
+
+    function draftOf(roundId, seed) {
+      let draft = drafts.get(roundId)
+      if (draft === undefined) {
+        draft = {
+          selected: seed,
+          comments: [],
+          commentText: '',
+          commentVariantId: seed,
+          editingIndex: null,
+          editText: '',
+          pendingAnchor: null,
+          annotate: true,
+          note: '',
+        }
+        drafts.set(roundId, draft)
+        // A long session meets many rounds; the oldest draft goes first.
+        while (drafts.size > DRAFT_LIMIT) drafts.delete(drafts.keys().next().value)
+      }
+      return draft
+    }
+
+    // A field that outlives the panel. The draft is the source of truth; the
+    // hook state only mirrors it, so a write still redraws.
+    function useRemembered(draft, name) {
+      const [value, setValue] = React.useState(draft[name])
+      const write = (next) => {
+        const resolved = typeof next === 'function' ? next(draft[name]) : next
+        draft[name] = resolved
+        setValue(resolved)
+      }
+      return [value, write]
+    }
+
     function DecisionView(props) {
       const round = props.round
       const sent = props.sent
@@ -874,17 +914,18 @@ window.__ModuleLoader__.load({
       // stored before that shape existed falls back to its first variant.
       const recommended = round.variants.find((variant) => variant.recommendation)
       const recommendedId = (recommended ?? round.variants[0] ?? {}).id ?? null
-      const [selected, setSelected] = React.useState(recommendedId)
-      const [comments, setComments] = React.useState([])
-      const [commentText, setCommentText] = React.useState('')
-      const [commentVariantId, setCommentVariantId] = React.useState(recommendedId)
+      const draft = draftOf(round.id, recommendedId)
+      const [selected, setSelected] = useRemembered(draft, 'selected')
+      const [comments, setComments] = useRemembered(draft, 'comments')
+      const [commentText, setCommentText] = useRemembered(draft, 'commentText')
+      const [commentVariantId, setCommentVariantId] = useRemembered(draft, 'commentVariantId')
       // One comment at a time turns back into an input: its anchor and the
       // variant it belongs to stay on screen while its text is rewritten.
-      const [editingIndex, setEditingIndex] = React.useState(null)
-      const [editText, setEditText] = React.useState('')
-      const [pendingAnchor, setPendingAnchor] = React.useState(null)
-      const [annotate, setAnnotate] = React.useState(true)
-      const [note, setNote] = React.useState('')
+      const [editingIndex, setEditingIndex] = useRemembered(draft, 'editingIndex')
+      const [editText, setEditText] = useRemembered(draft, 'editText')
+      const [pendingAnchor, setPendingAnchor] = useRemembered(draft, 'pendingAnchor')
+      const [annotate, setAnnotate] = useRemembered(draft, 'annotate')
+      const [note, setNote] = useRemembered(draft, 'note')
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
       const frameRefs = React.useRef(new Map())
@@ -1057,6 +1098,8 @@ window.__ModuleLoader__.load({
             setEditingIndex(null)
             setEditText('')
           }
+          // The decision is the host's now; the draft that fed it is spent.
+          drafts.delete(round.id)
           props.onSent(result.result)
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause))

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 B — 写进 sessionStorage</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer1:#fafbfc; --layer2:#f2f4f6; --brand:#2f6fdb; --ok:#2da44e; --no:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .wire {
+    max-width: 380px; margin: 0 auto 10px; background: #fff;
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:last-child { text-align: right; white-space: nowrap; }
+  .yes { color: var(--ok); font-weight: 600; }
+  .no { color: var(--no); font-weight: 600; }
+  .eh { color: var(--warn); font-weight: 600; }
+  .wire { padding: 11px 14px; }
+  pre { margin: 0; font: 11.5px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; color: #1f2328; }
+  .dim { color: var(--muted); }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>B — sessionStorage。</b>草稿按 round id 写进本标签页的 storage。面板卸载、页面刷新都还在；
+  代价是批注正文落在磁盘上，并且要多一套「什么时候清」的规则。
+</div>
+
+<div class="panel">
+  <h2>什么时候还在 <span>刷新也救得回来</span></h2>
+  <table>
+    <tr><th>动作</th><th>批注还在吗</th></tr>
+    <tr><td>切到别的右侧栏 tab，再切回来</td><td class="yes">还在</td></tr>
+    <tr><td>切到别的会话，再切回来</td><td class="yes">还在</td></tr>
+    <tr><td>按 F5 / 刷新页面</td><td class="yes">还在</td></tr>
+    <tr><td>宿主重启、插件重载后刷新</td><td class="eh">还在，但轮次可能已经没了</td></tr>
+    <tr><td>换一个浏览器标签页 / 窗口</td><td class="no">各存各的</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>代价清单</h2>
+  <table>
+    <tr><td>批注正文落在磁盘上（可能含你贴的代码、内部路径）</td></tr>
+    <tr><td>要定清理规则：round id 已经不存在了，这条草稿留多久？</td></tr>
+    <tr><td>JSON 解析要防坏数据：storage 里的东西不是我们写的也能进来</td></tr>
+    <tr><td>同上限：一轮一条，要不要设条数上限</td></tr>
+  </table>
+</div>
+
+<div class="wire">
+  <h2>形状</h2>
+<pre>sessionStorage['clarity.draft.&lt;roundId&gt;'] = JSON.stringify({
+  comments, commentText, selected, note,
+  pendingAnchor, editingIndex, editText,
+})
+
+// 每一次 setX 都写一遍 = 打字时也在写
+// 或者：只在 comments/note 变化时写，输入框里的字不写</pre>
+</div>
+
+<div class="foot">
+  <span class="dim">代价：</span>多一层持久化，就多一份要负责的数据——什么时候写、什么时候删、
+  读出来是坏的时候怎么办。
+</div>
+
+</body>
+</html>
