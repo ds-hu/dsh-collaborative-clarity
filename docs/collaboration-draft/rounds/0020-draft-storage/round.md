@@ -40,7 +40,8 @@ sessionStorage 跟着标签页死，localStorage 跟着浏览器活。后者听�
   - `the draft is spent once the decision lands, tab and storage alike` 加了 storage 侧的断言。
 - 三条反向验过（字节还原，`sha256` 一致）：不读 storage → reload 那条红；`forgetDraft` 不删
   storage → spent 那条红；把 `catch` 改成 `throw` → junk 那条红（`SyntaxError` 直接冒到渲染）。
-- **真机未测**：验证方法是刷新页面，看批注和那半句话还在不在。
+- **真机通过（2026-11-07）**：切到别的右侧栏 tab 再回来，批注还在（0019 的范围）；随后**刷新页面**，
+  批注和没点 Add 的那半句话都还在（0020 的范围）。两条一次验完。
 
 ## 代价
 
