@@ -142,5 +142,6 @@ the fidelity map, the outcome, and the verification. [LEDGER.md](docs/collaborat
 indexes them and carries the state of each claim. Rejected variants and superseded rounds stay —
 a decision without its alternative is folklore.
 
-Open work — screenshots, wording passes, the comment composer, the UI localization — is kept in
-[TODO.md](TODO.md), not in this file.
+Open work is not tracked in this file. A gap that a decision produced is written down in that
+decision's round record — what is built but not yet tested, what a rejected variant would have cost,
+what a document is still waiting for.

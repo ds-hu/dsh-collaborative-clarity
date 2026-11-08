@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-11-08
 
 `clarity_test` takes a **prepared** build and an optional **command to run** instead of a "cold
 build" — and the tab no longer owns a process at all. This is a breaking schema change twice over:
@@ -21,9 +21,10 @@ build" — and the tab no longer owns a process at all. This is a breaking schem
   the trigger opens the observation.
 - The docs no longer ask the agent to remove caches: a clean environment is reached by building in a
   scratch checkout, and the clean-machine claim belongs to CI.
-- **Docs.** The README is now a short *why + how* page — three ways vibe coding goes wrong, one
-  round end to end, one real-test gate — with badges and a language switch. The mechanisms moved to
-  the new `AGENTS.md`, and `README.zh-CN.md` is the same page in Chinese. See
+- **Docs.** The README is a short page in both languages: three ways vibe coding goes wrong, why the
+  round shape works, then `clarity_round` and `clarity_test` by name, with a screenshot of the tab
+  above the fold. The mechanisms a contributor needs moved to the new `AGENTS.md`, and
+  `README.zh-CN.md` is its own copy rather than a translation. See
   `docs/collaboration-draft/rounds/0011-readme`.
 - A comment typed into the composer but never added now travels with the decision instead of being
   dropped. The box clears only after the request lands, so a failed send keeps the text.

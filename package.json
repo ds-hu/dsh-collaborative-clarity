@@ -1,6 +1,6 @@
 {
   "name": "@ds-hu/dsh-collaborative-clarity",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Artifact rounds in the right sidebar: the agent shows a decision, the user annotates and chooses, and the tool waits.",
   "license": "Apache-2.0",
   "author": "ds-hu",
