@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A′ — 观察进气泡，截图只写张数</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer2:#eef1f4; --ok:#2da44e; --no:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .chat { max-width: 380px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  ul { margin: 0; padding-left: 16px; }
+  li { margin: 0 0 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:first-child { width: 42%; }
+  code { font: 11.5px ui-monospace, Consolas, monospace; }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+
+  .chat { padding: 10px 12px 6px; background: #f7f8fa; }
+  .chat .head { color: var(--muted); font-size: 10.5px; letter-spacing: .04em; margin-bottom: 8px; }
+  .tool { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px;
+          border: 1px dashed var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 8px; }
+  .tool code { color: var(--ink); }
+  .row { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 12px; }
+  .bubble { max-width: 84%; background: var(--layer2); border-radius: 12px; padding: 8px 12px; }
+  .q { color: var(--muted); font-size: 12px; }
+  .a { margin-top: 3px; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .obs { margin: 6px 0 0; padding-top: 5px; border-top: 1px solid rgba(0,0,0,.07); font-size: 12.5px; white-space: pre-wrap; }
+  .shots { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; color: var(--muted); font-size: 11px; padding-right: 2px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A′ — 观察进气泡，截图只写张数。</b>按你的意见改了：结论下面直接接你在闸门里写的那段观察；
+  截图仍然只留一个数字，图本身在工具行里。决定气泡那条也一并改成这个口径，两条一致。
+</div>
+
+<div class="chat">
+  <div class="head">对话</div>
+  <div class="tool">▸ <code>clarity_test</code> · 已完成 · 展开</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">dirty:8c90b5af</div>
+      <div class="a"><span class="ok">Passed</span></div>
+      <div class="obs">刷新后那一轮多了一条右对齐气泡，过程组折叠后仍在，控制台没有报错。</div>
+      <div class="shots">2 张截图 · 在工具行里看</div>
+    </div>
+    <div class="actions"><span>15:47</span><span>Copy</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>为什么图先不进 <span>一句话可以抄，一张图要通道</span></h2>
+  <ul>
+    <li>观察是文字，照着事件的载荷就能画；截图现在是项目目录里的 PNG，工具结果里只有
+      <code>{ path, bytes }</code>，对话行拿不到能加载的地址。</li>
+    <li>给它一条地址有两条路：在 <code>/clarity/api</code> 上加一条会读文件的路由（那条路由在鉴权栅栏外，
+      谁连上端口谁就能取图），或者把截图改存成会话附件、让结果带附件引用——后者要动宿主半边。</li>
+    <li>两件事都能做，但它们是「换掉截图的存储方式」，和「把观察补进气泡」不是同一步。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>机制 <span>与决定那条共用一个定义</span></h2>
+  <table>
+    <tr><td>定义</td><td><code>decisionNode</code> 多认 <code>clarity_test</code> 的 <code>tool/call</code>；结果收 <code>status: 'tested'</code> 且裁决是 <code>pass / fail / blocked</code></td></tr>
+    <tr><td>载荷</td><td>加判别字段 <code>kind: 'decision' | 'test'</code>、<code>observed</code>、<code>screenshots: number</code></td></tr>
+    <tr><td>渲染</td><td>同一个 keyed 渲染器多一段（观察）+ 一行（张数）</td></tr>
+    <tr><td>宿主</td><td class="ok">零改动</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>文案 <span>最终，两表同键</span></h2>
+  <table>
+    <tr><th>键</th><th>en / zh</th></tr>
+    <tr><td><code>bubble.pass</code></td><td>Passed / 已通过</td></tr>
+    <tr><td><code>bubble.fail</code></td><td>Failed / 未通过</td></tr>
+    <tr><td><code>bubble.blocked</code></td><td>Blocked / 受阻</td></tr>
+    <tr><td><code>bubble.shots</code></td><td>{count} screenshots · open the tool row / {count} 张截图 · 在工具行里看</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  <b>代价：</b>要看图得多点一次工具行；截图与观察分在两个地方。
+</div>
+
+</body>
+</html>

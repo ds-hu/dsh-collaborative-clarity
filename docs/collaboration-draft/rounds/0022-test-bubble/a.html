@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A — 一条只写结论的气泡</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer2:#eef1f4; --ok:#2da44e; --no:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .chat { max-width: 380px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  ul { margin: 0; padding-left: 16px; }
+  li { margin: 0 0 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:first-child { width: 46%; }
+  code { font: 11.5px ui-monospace, Consolas, monospace; }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+
+  .chat { padding: 10px 12px 6px; background: #f7f8fa; }
+  .chat .head { color: var(--muted); font-size: 10.5px; letter-spacing: .04em; margin-bottom: 8px; }
+  .tool { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px;
+          border: 1px dashed var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 8px; }
+  .tool code { color: var(--ink); }
+  .row { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 12px; }
+  .bubble { max-width: 82%; background: var(--layer2); border-radius: 12px; padding: 8px 12px; }
+  .q { color: var(--muted); font-size: 12px; }
+  .a { margin-top: 3px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; color: var(--muted); font-size: 11px; padding-right: 2px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A — 要，但只写结论。</b>真机测试结束后多一条右对齐气泡：上面是候选版本，下面一个词
+  （<span class="ok">Passed</span> / Failed / Blocked）。观察与截图留在工具行和测试记录里。
+</div>
+
+<div class="chat">
+  <div class="head">对话</div>
+
+  <div class="tool">▸ <code>clarity_round</code> · 已完成 · 展开</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">Clarity test 的结论要不要也留一条气泡？</div>
+      <div class="a">Accepted · variant A — 只写结论</div>
+    </div>
+  </div>
+
+  <div class="tool">▸ <code>clarity_test</code> · 已完成 · 展开</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">dirty:8c90b5af</div>
+      <div class="a"><span class="ok">Passed</span></div>
+    </div>
+    <div class="actions"><span>15:47</span><span>Copy</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>为什么只写结论 <span>结论是一个词，观察是一段话</span></h2>
+  <ul>
+    <li>扫对话时想知道的是「测过没有、过没过」。候选 + 一个词就答完了。</li>
+    <li>观察是你刚在测试闸门里写的那一两句话，紧接着再在对话里读一遍，是把同一段字读第二次。</li>
+    <li>证据的家在工具行（它同时带着 prepared 与命令）和 <code>rounds/&lt;NNNN&gt;/test.md</code>。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>机制 <span>与决定那条共用一个定义</span></h2>
+  <ul>
+    <li><code>decisionNode</code> 多认一种 start：<code>clarity_test</code> 的 <code>tool/call</code>。</li>
+    <li><code>update</code> 多收一种结果：<code>status: 'tested'</code> 且 verdict 是 <code>pass / fail / blocked</code>。</li>
+    <li>payload 加一个判别字段（<code>kind: 'decision' | 'test'</code>），仍然只注册一个 keyed 渲染器；判定沿用同一条：认不出的裁决就不画。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>文案 <span>最终，两表同键</span></h2>
+  <table>
+    <tr><th>键</th><th>en / zh</th></tr>
+    <tr><td><code>bubble.pass</code></td><td>Passed / 已通过</td></tr>
+    <tr><td><code>bubble.fail</code></td><td>Failed / 未通过</td></tr>
+    <tr><td><code>bubble.blocked</code></td><td>Blocked / 受阻</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>失败时 <span>与现在同一条规矩</span></h2>
+  <table>
+    <tr><td>闸门被取消</td><td>没有气泡</td></tr>
+    <tr><td>结果不是 <code>tested</code>，或裁决认不出</td><td>没有气泡，工具行照旧</td></tr>
+    <tr><td>观察很长</td><td class="ok">不影响：它不进气</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  <b>代价：</b>想读「当时看到了什么」要多点开一次工具行；一次工作现在可能留下两条气泡，
+  扫的时候是两行，不是一行。
+</div>
+
+</body>
+</html>

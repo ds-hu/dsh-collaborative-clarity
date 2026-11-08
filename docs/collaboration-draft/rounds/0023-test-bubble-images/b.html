@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 B′ — 观察与缩略图一起进气泡</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer2:#eef1f4; --ok:#2da44e; --no:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .chat { max-width: 380px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  ul { margin: 0; padding-left: 16px; }
+  li { margin: 0 0 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:first-child { width: 42%; }
+  code { font: 11.5px ui-monospace, Consolas, monospace; }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+
+  .chat { padding: 10px 12px 6px; background: #f7f8fa; }
+  .chat .head { color: var(--muted); font-size: 10.5px; letter-spacing: .04em; margin-bottom: 8px; }
+  .tool { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px;
+          border: 1px dashed var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 8px; }
+  .tool code { color: var(--ink); }
+  .row { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 12px; }
+  .bubble { max-width: 84%; background: var(--layer2); border-radius: 12px; padding: 8px 12px; }
+  .q { color: var(--muted); font-size: 12px; }
+  .a { margin-top: 3px; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .obs { margin: 6px 0 0; padding-top: 5px; border-top: 1px solid rgba(0,0,0,.07); font-size: 12.5px; white-space: pre-wrap; }
+  .shots { display: flex; gap: 6px; margin-top: 6px; }
+  .shot { width: 86px; height: 56px; border-radius: 6px; border: 1px solid rgba(0,0,0,.16);
+          background: repeating-linear-gradient(45deg, #e3e6ea 0 6px, #dce0e5 6px 12px);
+          color: var(--muted); font-size: 10px; display: flex; align-items: center; justify-content: center; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; color: var(--muted); font-size: 11px; padding-right: 2px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>B′ — 观察和缩略图都进气泡。</b>结论、你写的那段观察、两枚缩略图在同一处；点缩略图看大图。
+  代价写在最后：这条要动宿主半边。
+</div>
+
+<div class="chat">
+  <div class="head">对话</div>
+  <div class="tool">▸ <code>clarity_test</code> · 已完成 · 展开</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">dirty:8c90b5af</div>
+      <div class="a"><span class="ok">Passed</span></div>
+      <div class="obs">刷新后那一轮多了一条右对齐气泡，过程组折叠后仍在，控制台没有报错。</div>
+      <div class="shots"><span class="shot">截图 1</span><span class="shot">截图 2</span></div>
+    </div>
+    <div class="actions"><span>15:47</span><span>Copy</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>为什么图也值得进 <span>截图是这次测试最硬的证据</span></h2>
+  <ul>
+    <li>观察是「我看到了什么」，截图是「我凭什么这么说」。分开两处，等于让读的人自己拼。</li>
+    <li>ask_user 的气泡把用户写的东西原样再显示一遍；测试气泡照着同一个立场做，图和字一起。</li>
+    <li>工具行迟早被过程组折叠；折叠之后，留在对话里的应当是完整的那一条。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>机制 <span>要动宿主半边</span></h2>
+  <table>
+    <tr><td>宿主 <code>POST /test</code></td><td>截图不再只写 <code>.clarity/screenshots/…</code>，另经 <code>ctx.attachments.saveImage</code> 存成会话附件</td></tr>
+    <tr><td>工具结果</td><td><code>screenshots</code> 从 <code>{ path, bytes }</code> 变成附件引用（旧的形状并存一版，老轮次照样能读）</td></tr>
+    <tr><td>气泡</td><td>用 <code>ctx.uiConversation.imageUrl(sessionId, ref)</code>（或节点自带的 <code>loadImage</code>）取地址，点开看大图</td></tr>
+    <tr><td>面板</td><td>它本来就用内存里的 data URL 预览，不受影响</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>代价 <span>这是 B′ 的账</span></h2>
+  <ul>
+    <li>宿主改一次、结果 schema 变一次；<code>clarity_test</code> 的返回形状跟着动。</li>
+    <li>同一张图会被存两份（项目目录里的 PNG + 会话附件），除非把它彻底搬走——搬走之后工具行里的图要另接一条路。</li>
+    <li>气泡变高：一段观察加两枚 86×56 的缩略图。窄屏（360px）下要和气泡最大宽度配合，得真机看一眼。</li>
+    <li>附件是给「人附上的图」设计的：归一化、有配额、随会话存储。拿它存工具产物是否越界，这一轮就得认下来。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>文案 <span>最终，两表同键</span></h2>
+  <table>
+    <tr><th>键</th><th>en / zh</th></tr>
+    <tr><td><code>bubble.pass</code></td><td>Passed / 已通过</td></tr>
+    <tr><td><code>bubble.fail</code></td><td>Failed / 未通过</td></tr>
+    <tr><td><code>bubble.blocked</code></td><td>Blocked / 受阻</td></tr>
+    <tr><td><code>bubble.shot</code></td><td>Screenshot {n} / 截图 {n}</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  缩略图是示意图：这个文件不加载任何外部资源，所以两个方块由 CSS 画成。
+</div>
+
+</body>
+</html>

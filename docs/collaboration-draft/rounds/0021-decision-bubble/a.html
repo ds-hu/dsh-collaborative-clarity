@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A — 气泡只记决定</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer2:#eef1f4; --brand:#2f6fdb; --ok:#2da44e; --no:#cf222e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .chat, .wire { max-width: 360px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  ul { margin: 0; padding-left: 16px; }
+  li { margin: 0 0 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:first-child { width: 46%; }
+  .yes { color: var(--ok); font-weight: 600; }
+  .no { color: var(--no); font-weight: 600; }
+  .eh { color: var(--warn); font-weight: 600; }
+  .wire { padding: 11px 14px; }
+  pre { margin: 0; font: 11.5px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
+  .foot { max-width: 360px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+  .foot b { color: var(--ink); font-weight: 600; }
+
+  /* 对话示意：只画这次要加的那一行，和它上下的邻居 */
+  .chat { padding: 10px 12px 6px; background: #f7f8fa; }
+  .chat .head { color: var(--muted); font-size: 10.5px; letter-spacing: .04em; margin-bottom: 8px; }
+  .tool { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px;
+          border: 1px dashed var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 10px; }
+  .tool code { font: 11px ui-monospace, Consolas, monospace; color: var(--ink); }
+  .row { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .bubble { max-width: 82%; background: var(--layer2); border-radius: 12px; padding: 8px 12px; }
+  .q { color: var(--muted); font-size: 12px; }
+  .a { margin-top: 3px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; color: var(--muted); font-size: 11px; padding-right: 2px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A — 只记决定。</b>气泡两行：上面是那一轮的决定句（次要色），下面是「决定了什么」（主色）。
+  批注和说明不进气泡，它们仍在工具行和面板的记录里。
+</div>
+
+<div class="chat">
+  <div class="head">对话</div>
+  <div class="tool">▸ <code>clarity_round</code> · 已完成 · 展开</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">Clarity 的决定气泡：只记「决定了什么」，还是连「为什么」一起记？</div>
+      <div class="a">已接受 · 变体 A — 只记决定</div>
+    </div>
+    <div class="actions"><span>14:52</span><span>复制</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>为什么只要两行 <span>气泡是索引，不是记录</span></h2>
+  <ul>
+    <li>回头扫对话时，唯一想立刻知道的是「这一轮最后定了什么」。答案是一行。</li>
+    <li>批注可能三五行，带上锚点更长；塞进气泡会把整段对话顶开，读起来像正文。</li>
+    <li>它已经存在三处：面板、工具行、<code>rounds/</code> 记录。气泡再抄一份，就多一处会旧。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>机制 <span>浏览器半边，不动宿主</span></h2>
+  <ul>
+    <li>定义：匹配本工具自己的 <code>tool/call</code> 与 <code>tool/result</code>，从结果 JSON 里取出裁决。</li>
+    <li>节点：<code>kind: 'clarity-decision'</code>，<code>groupTree: 'turn'</code>，与 ask_user 气泡同一位置与口径。</li>
+    <li>渲染：一个 keyed slot 占位，气泡用 <code>UserMessageBubble</code>，缺这个原语时退到自带样式。</li>
+  </ul>
+</div>
+
+<div class="wire">
+  <h2>形状</h2>
+<pre>match(event):
+  tool/call   name === 'clarity_round'  -> start(callId)
+  tool/result surfaceOp === 'append'    -> update(callId)
+
+start  -> { decision, labels }
+update -> 解析 content[0].text 的 JSON
+          status !== 'decided' ? 无 : {
+            verdict, variantLabel, time, seq }
+
+buildViewNode:
+  verdict 为空            -> null      // 没有决定就没有气泡
+  否则 -> { kind:'clarity-decision',
+            anchorSeq: seq,
+            groupTree: 'turn',
+            visibility: 'visible',
+            data: { decision, verdict,
+                    variantLabel, time } }</pre>
+</div>
+
+<div class="panel">
+  <h2>失败时 <span>气泡永不挡住工具行</span></h2>
+  <table>
+    <tr><th>情形</th><th>结果</th></tr>
+    <tr><td>结果 JSON 读不懂</td><td>不出气泡，不抛错</td></tr>
+    <tr><td>这一轮被取消</td><td class="no">不出气泡</td></tr>
+    <tr><td><code>blocking: false</code> 的轮次</td><td class="no">不出气泡（决定不在日志里）</td></tr>
+    <tr><td>PTC 里调用（<code>run_code</code>）</td><td class="no">不出气泡（事件是 ptc-dispatch）</td></tr>
+    <tr><td>渲染器没注册上</td><td class="eh">整行不渲染；工具行仍在，信息不丢</td></tr>
+    <tr><td>历史往前翻出更早的轮次</td><td class="yes">照常重现，位置按 anchorSeq 重算</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>硬规则</h2>
+  <ul>
+    <li>只从会话事件推导：不读插件 store，不发网络请求，不点出任何工具调用。</li>
+    <li>不加 <code>exclusive</code>：工具行必须同时在，inspect 和重开都靠它。</li>
+    <li>定义是纯函数；同一段历史重放，必须得到同一个节点。</li>
+    <li>文案只进 <code>MESSAGES</code> 双表（en/zh 键集相同），渲染函数里没有字面量。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>改动清单</h2>
+  <table>
+    <tr><th>文件</th><th>内容</th></tr>
+    <tr><td><code>client.js</code></td><td>定义 + 气泡组件 + <code>apply()</code> 里两行注册 + 7 条文案</td></tr>
+    <tr><td><code>tests/client.test.mjs</code></td><td>折叠契约：喂 call/无关 result/我们的 result，断言节点；取消时为 null</td></tr>
+    <tr><td><code>AGENTS.md</code></td><td>浏览器半边补一句：chat 里有一行是我们的</td></tr>
+    <tr><td><code>CHANGELOG.md</code></td><td>一条</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  <b>不做：</b>非阻塞轮次的晚期决定、PTC 事件、真实测试的 verdict（它留在工具行与 test 记录里）。
+  这些都要各自一轮，不塞进这次。
+</div>
+
+</body>
+</html>

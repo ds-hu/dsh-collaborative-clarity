@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A″ — 截图路径做成可点的链接</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer2:#eef1f4; --brand:#2f6fdb; --ok:#2da44e; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .chat { max-width: 380px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  ul { margin: 0; padding-left: 16px; }
+  li { margin: 0 0 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:first-child { width: 40%; }
+  code { font: 11.5px ui-monospace, Consolas, monospace; }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+  .foot b { color: var(--ink); }
+
+  .chat { padding: 10px 12px 6px; background: #f7f8fa; }
+  .chat .head { color: var(--muted); font-size: 10.5px; letter-spacing: .04em; margin-bottom: 8px; }
+  .tool { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px;
+          border: 1px dashed var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 8px; }
+  .tool code { color: var(--ink); }
+  .row { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 12px; }
+  .bubble { max-width: 88%; background: var(--layer2); border-radius: 12px; padding: 8px 12px; }
+  .q { color: var(--muted); font-size: 12px; }
+  .a { margin-top: 3px; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .obs { margin: 6px 0 0; padding-top: 5px; border-top: 1px solid rgba(0,0,0,.07); font-size: 12.5px; white-space: pre-wrap; }
+  .shots { margin: 6px 0 0; padding-top: 5px; border-top: 1px solid rgba(0,0,0,.07); }
+  .shots .label { color: var(--muted); font-size: 11px; display: block; margin-bottom: 2px; }
+  .path { display: block; font: 11px/18px ui-monospace, Consolas, monospace; color: var(--brand);
+          text-decoration: underline; text-underline-offset: 2px; cursor: pointer; overflow-wrap: anywhere; }
+  .path:hover { text-decoration-thickness: 2px; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; color: var(--muted); font-size: 11px; padding-right: 2px; }
+  .sidebar { margin-top: 8px; border-left: 2px solid var(--line); padding: 6px 0 6px 10px; color: var(--muted); font-size: 11.5px; }
+  .sidebar b { color: var(--ink); font-weight: 600; }
+  .frame { height: 64px; border-radius: 6px; border: 1px solid rgba(0,0,0,.12);
+           background: repeating-linear-gradient(45deg, #eef0f2 0 6px, #e6e9ed 6px 12px);
+           display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 10px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A″ — 路径做成可点的链接。</b>气泡里是截图路径（等宽小字），点一下在右侧边栏打开那张图，
+  边栏本身就是文档预览，图片支持缩放平移。<b>零宿主改动</b>——路径本来就在测试结果里。
+</div>
+
+<div class="chat">
+  <div class="head">对话</div>
+  <div class="tool">▸ <code>clarity_test</code> · 已完成 · 展开</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">dirty:8c90b5af</div>
+      <div class="a"><span class="ok">Passed</span></div>
+      <div class="obs">刷新后那一轮多了一条右对齐气泡，过程组折叠后仍在，控制台没有报错。</div>
+      <div class="shots">
+        <span class="label">截图</span>
+        <span class="path" title="在右侧栏打开">.clarity/screenshots/clarity-test-mw64t9es-706efa/shot-1.png</span>
+        <span class="path" title="在右侧栏打开">.clarity/screenshots/clarity-test-mw64t9es-706efa/shot-2.png</span>
+      </div>
+    </div>
+    <div class="actions"><span>15:47</span><span>Copy</span></div>
+  </div>
+  <div class="sidebar">
+    ↑ 点第一条路径，右侧边栏打开：标题 <b>shot-1.png</b>，内容是这张图，<b>适应宽度 / 25–200% 缩放 / 拖拽平移</b>，可以拖着原图进输入框。
+    <div class="frame">右侧边栏 · 图片预览（示意）</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>先把上一版说错的话改正 <span>工具行里看不到图</span></h2>
+  <ul>
+    <li>上一版写了「2 张截图 · 在工具行里看」，这是错的：工具行把结果当 JSON 文本渲染，
+      <code>{ path, bytes }</code> 只是两行字，没有预览。</li>
+    <li>工具行能显示图只有一条路：结果里带<b>附件引用</b>（<code>read_image</code> 就是这样，
+      ui-tool 有个 <code>tool.call.images</code> 画廊接住它）。我们现在的结果是文件路径，进不了那个画廊。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>为什么这条路最省 <span>两边的机制都已经在了</span></h2>
+  <ul>
+    <li>宿主已经返回<b>相对会话目录</b>的路径（<code>.clarity/screenshots/&lt;round&gt;/shot-1.png</code>），
+      正好是边栏文档预览接受的地址形状。</li>
+    <li>chat 给每个行渲染器都递了 <code>openFile(path)</code>，还替我们接好了失败提示——不用自己开 tab、不用知道别人的 tab 类型。</li>
+    <li>边栏会按扩展名分派渲染器：PNG/JPG/WebP 走静态图片，缩放平移都有；不用我们画图。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>机制</h2>
+  <table>
+    <tr><td>定义</td><td>同前：多认 <code>clarity_test</code>，载荷加 <code>observed</code>、<code>shots: string[]</code>（原样保留结果里的路径）</td></tr>
+    <tr><td>渲染</td><td>观察段下面一段「截图」+ 每条路径一个 <code>&lt;button&gt;</code>（等宽、下划线），<code>onClick = props.openFile(path)</code></td></tr>
+    <tr><td>宿主</td><td class="ok">零改动</td></tr>
+    <tr><td>待真机确认</td><td>相对路径能否直接交给 <code>openFile</code>；不行就由宿主在结果里再带一个绝对路径（一行改动）</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>文案 <span>最终，两表同键</span></h2>
+  <table>
+    <tr><th>键</th><th>en / zh</th></tr>
+    <tr><td><code>bubble.pass</code></td><td>Passed / 已通过</td></tr>
+    <tr><td><code>bubble.fail</code></td><td>Failed / 未通过</td></tr>
+    <tr><td><code>bubble.blocked</code></td><td>Blocked / 受阻</td></tr>
+    <tr><td><code>bubble.shots</code></td><td>Screenshots / 截图</td></tr>
+    <tr><td><code>bubble.openShot</code></td><td>Open {name} in the sidebar / 在右侧栏打开 {name}</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  <b>代价：</b>气泡里是两行路径，不是图——想看内容要点一下；路径长，窄屏会换行（<code>overflow-wrap</code> 已经开了）。
+  另外边栏一开就是一个新 tab，连点两条路径就是两个 tab。
+</div>
+
+</body>
+</html>

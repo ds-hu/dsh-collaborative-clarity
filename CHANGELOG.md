@@ -62,6 +62,26 @@ build" — and the tab no longer owns a process at all. This is a breaking schem
   tab's `sessionStorage`, so switching sidebar tabs or reloading the page no longer wipes it. It is
   dropped once its decision is sent, and it dies with the tab: a draft belongs to the round it was
   written for. See `docs/collaboration-draft/rounds/0020-draft-storage`.
+- **A decision now leaves a row in the transcript.** After a round is decided, the conversation shows
+  a right-aligned bubble: the decision sentence, `Accepted` / `Asked for changes` / `Turned it down`
+  with the variant it chose, every comment with its anchor, and the note — plus a copy action. It is
+  projected from the recorded tool call and its result, the same seam `ask_user_question` uses for its
+  answered batches, so it survives a reload and a second browser, and it stays visible when the
+  process group collapses. A cancelled round, a `blocking: false` round and a failed call draw
+  nothing, and the tool row stays where it was. See
+  `docs/collaboration-draft/rounds/0021-decision-bubble`.
+- **A real test leaves a row too.** `clarity_test` now has the same transcript row: the candidate
+  you tested, `Passed` / `Failed` / `Blocked`, the observation you wrote in the gate, and one line
+  of screenshot file names — each name a link that opens that image in the right Sidebar
+  (the tool row shows the paths as JSON text, not as pictures). A cancelled gate, an errored call
+  and a verdict this row cannot word draw nothing. See
+  `docs/collaboration-draft/rounds/0025-shots-one-line`.
+- **A test gate passes without a written observation.** `pass` and `cancel` were impossible to submit
+  from the panel: it always sent `observed: ''`, and the route validated that field *before* its own
+  exemption, so both answered `400 observed must be a non-empty string` — and `fail` was told the same
+  wrong thing. The route now reads an empty or whitespace-only string as "no observation", and the
+  panel leaves the field out entirely when the box is blank. `fail` and `blocked` still refuse a blank
+  one, with their own message. See `docs/collaboration-draft/rounds/0026-observation-optional`.
 
 ## 0.3.2 — 2026-10-31
 

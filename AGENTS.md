@@ -9,7 +9,7 @@ the rules that must not drift, and the loop for changing them.
 | Path | What it is |
 | --- | --- |
 | [index.js](index.js) | Host half: the two tools, the round store, `/clarity/api`, the wait, the guidance section |
-| [client.js](client.js) | Browser half: the `Clarity` tab, the artifact iframe and its bridge, the session-row mark |
+| [client.js](client.js) | Browser half: the `Clarity` tab, the artifact iframe and its bridge, the session-row mark, the decision row in the transcript |
 | [artifacts.js](artifacts.js) | Renders a variant file by extension: document, prose, or numbered source |
 | [cordis.patch.yml](cordis.patch.yml) | The one Loader row this package contributes |
 | [locale/](locale/) | Plugins-panel title and description |
@@ -55,6 +55,14 @@ the obstacle.
 6. **A claim may not exceed its evidence.** `proposed`, `agreed`, `built`, `prepared`, `tested`,
    `verified`. Only a human-run real test promotes a change to `tested`; the vocabulary is
    normative in [CONTEXT.md](docs/collaboration-draft/CONTEXT.md).
+7. **The transcript row is a projection, not a store.** `decisionNode` derives it from the recorded
+   `tool/call` and `tool/result`; it never reads the plugin store and never answers a request. Each
+   kind words only its own verbs — `accept` / `revise` / `reject` for a `clarity_round`,
+   `pass` / `fail` / `blocked` for a `clarity_test` — and anything else (cancelled, pending, errored,
+   unreadable, or the other kind's verb) draws no row and leaves the tool row where it was. A
+   screenshot is a file name with its path in the title, opened through the chat's `openFile`; the
+   row never builds a URL or a filesystem read of its own. `tests/client.test.mjs` folds events
+   through the definition and asserts both halves; removing either verb list reddens it.
 
 ## The host half
 
@@ -92,6 +100,17 @@ the obstacle.
   drag-select text, or click a line in a `<pre>`. A range needs **Annotate** again and a
   Shift-click on the second line. After a click the target keeps a 2px outline and annotation
   turns off, so the artifact is released for normal clicking.
+- **The decision row.** `decisionNode` is a `ConversationNodeDefinition` registered through
+  `ctx.uiConversation.events.register` — the seam `ask_user_question` uses for its answered
+  batches — and `DecisionBubble` occupies the keyed `conversation.chat.node` slot under
+  `key: 'clarity-decision'`. `groupTree: 'turn'` keeps the row outside whole-Turn folding. The
+  bubble is the chat's own `UserMessageBubble` when the host has it and our box when it does not,
+  so a missing primitive costs the styling, never the row. Both mounts are optional: without
+  `uiConversation` or the slot, the tab is unaffected. A decided round and a settled real test
+  both draw a row (the test one carries its observation and one line of screenshot file names);
+  `blocking: false` decisions and PTC (`tool/ptc-dispatch`) calls draw none. See
+  [round 0021](docs/collaboration-draft/rounds/0021-decision-bubble/round.md) and
+  [round 0025](docs/collaboration-draft/rounds/0025-shots-one-line/round.md).
 
 ## Tests and the loop
 

@@ -247,7 +247,7 @@ test('the recommendation and its cost sit inside the card, above the fidelity ro
 })
 
 function makeCtx() {
-  const calls = { openTab: [], registered: [], bodies: [], titles: [] }
+  const calls = { openTab: [], registered: [], bodies: [], titles: [], nodes: [] }
   let mounted = 'session-1'
   const mountedListeners = new Set()
   const ctx = {
@@ -269,6 +269,7 @@ function makeCtx() {
       register(options, component) {
         if (options.name === 'sidebar.right.pane.tab') calls.bodies.push({ options, component })
         if (options.name === 'sidebar.right.pane.tab.title') calls.titles.push({ options, component })
+        if (options.name === 'conversation.chat.node') calls.nodes.push({ options, component })
         return () => {}
       },
     },
@@ -763,7 +764,101 @@ test('cancelling a test gate sends cancel and needs no observation', async () =>
 
   assert.equal(bodies.length, 1)
   assert.equal(bodies[0].verdict, 'cancel', 'the button cancels instead of inventing a verdict')
-  assert.equal(bodies[0].observed, '', 'an empty observation is allowed for a cancel')
+  assert.equal('observed' in bodies[0], false, 'an empty observation is left out, not sent as an empty string')
+})
+
+test('a pass with an empty observation is sent as no observation at all', async () => {
+  const runtime = statefulReact()
+  const bodies = []
+  const client = loadClient(runtime.React, async (path, init) => {
+    bodies.push(JSON.parse(init.body))
+    return { ok: true, json: async () => ({ ok: true, result: { status: 'tested', verdict: 'pass' } }) }
+  })
+  const round = {
+    id: 't1',
+    kind: 'test',
+    sessionId: 'session-1',
+    candidate: '4f2a1c9',
+    prepared: { command: 'pnpm build', exitCode: 0, builtAt: 1 },
+    runThis: null,
+    scenario: {
+      preconditions: ['signed in'],
+      steps: ['open'],
+      expected: ['one toast'],
+      failureSignature: 'two toasts',
+      rollback: 'none',
+    },
+    status: 'open',
+    createdAt: 1,
+  }
+  const props = { round, sent: null, onSent() {} }
+  const button = (tree, label) =>
+    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+
+  let tree = runtime.render(client.__test.TestView, props)
+  button(tree, 'I’m ready to test').props.onClick()
+  tree = runtime.render(client.__test.TestView, props)
+  await button(tree, 'Pass').props.onClick()
+
+  assert.equal(bodies.length, 1, 'the pass went out')
+  assert.equal(bodies[0].verdict, 'pass')
+  assert.equal('observed' in bodies[0], false, 'the empty box is not sent as an empty string')
+})
+
+test('a whitespace-only observation is sent as nothing at all', async () => {
+  const runtime = statefulReact()
+  const bodies = []
+  const client = loadClient(runtime.React, async (path, init) => {
+    bodies.push(JSON.parse(init.body))
+    return { ok: true, json: async () => ({ ok: true, result: { status: 'tested', verdict: 'pass' } }) }
+  })
+  const round = {
+    id: 't1',
+    kind: 'test',
+    sessionId: 'session-1',
+    candidate: '4f2a1c9',
+    prepared: { command: 'pnpm build', exitCode: 0, builtAt: 1 },
+    runThis: null,
+    scenario: {
+      preconditions: ['signed in'],
+      steps: ['open'],
+      expected: ['one toast'],
+      failureSignature: 'two toasts',
+      rollback: 'none',
+    },
+    status: 'open',
+    createdAt: 1,
+  }
+  const props = { round, sent: null, onSent() {} }
+  const button = (tree, label) =>
+    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+
+  let tree = runtime.render(client.__test.TestView, props)
+  button(tree, 'I’m ready to test').props.onClick()
+  tree = runtime.render(client.__test.TestView, props)
+  // A stray space and a newline: the box looks empty and means the same thing.
+  findNode(tree, (node) => node.type === 'textarea').props.onChange({ target: { value: '  \n ' } })
+  tree = runtime.render(client.__test.TestView, props)
+  await button(tree, 'Pass').props.onClick()
+
+  assert.equal(bodies.length, 1, 'the pass went out')
+  assert.equal('observed' in bodies[0], false, 'blank is not sent as an empty string either')
+})
+
+test('the copied note reads in the row’s language, colon and all', () => {
+  const client = loadClient()
+  const text = client.__test.bubbleText({
+    decision: 'Which row?',
+    verdict: 'accept',
+    variantLabel: 'B',
+    comments: [{ text: 'One size smaller.', anchor: { kind: 'variant' } }],
+    note: 'Ship it.',
+  })
+  assert.equal(
+    text,
+    'Which row?\nAccepted · variant B\nWhole variant — One size smaller.\nNote: Ship it.',
+    'the English copy keeps an ASCII colon; the label comes from the table, not from a literal',
+  )
 })
 
 test('the English and Chinese tables carry the same keys', () => {
@@ -773,6 +868,21 @@ test('the English and Chinese tables carry the same keys', () => {
     assert.equal(typeof value, 'string', `zh ${key} is a string`)
     assert.notEqual(value, '', `zh ${key} is not empty`)
   }
+})
+
+test('no copy key is written twice in one table', () => {
+  // A repeated key silently wins, so the earlier line is dead copy that the next
+  // editor will edit by mistake. Both tables carried four of them once.
+  const [en, zh] = code.split(/^ {6}zh: \{$/m)
+  const doubled = (source) => {
+    const counts = new Map()
+    for (const match of source.matchAll(/^ {8}'([\w.]+)':/gm)) {
+      counts.set(match[1], (counts.get(match[1]) ?? 0) + 1)
+    }
+    return [...counts].filter(([, count]) => count > 1).map(([key]) => key)
+  }
+  assert.deepEqual(doubled(en), [], 'the English table declares no key twice')
+  assert.deepEqual(doubled(zh), [], 'the Chinese table declares no key twice')
 })
 
 test('the panel speaks the GUI language, and English without the service', () => {
@@ -807,10 +917,14 @@ test('the panel speaks the GUI language, and English without the service', () =>
 
   const registered = []
   const { ctx } = makeCtx()
+  const asked = []
   ctx.inject = (deps, callback) => {
     // The array comes from the vm realm, so compare its contents, not its prototype.
     assert.equal(deps.length, 1)
-    assert.equal(deps[0], 'locale')
+    asked.push(deps[0])
+    // The callback runs only for a service this composition actually has, which
+    // is how the host behaves: this arena offers the locale and nothing else.
+    if (deps[0] !== 'locale') return { then() {} }
     callback({
       locale: {
         register(namespace, messages) {
@@ -828,6 +942,7 @@ test('the panel speaks the GUI language, and English without the service', () =>
   }
   client.apply(ctx)
 
+  assert.ok(asked.includes('locale'), `the panel asks for the locale service: ${asked.join(', ')}`)
   assert.equal(registered[0].namespace, 'collaborativeClarity')
   assert.equal(registered[0].messages.zh['action.accept'], '接受')
   assert.ok(buttonText(runtime.render(client.__test.DecisionView, props)).includes('接受 A'))
@@ -1106,3 +1221,330 @@ test('junk in storage costs the draft, never the panel', () => {
   assert.ok(composerOf(tree), 'the panel draws anyway')
   assert.ok(!textOf(tree).includes('not json at all'), 'and nothing of the junk is shown')
 })
+
+// --- the transcript row -----------------------------------------------------
+
+function toolCallEvent(name, callId, args) {
+  return {
+    type: 'tool/call',
+    seq: 10,
+    time: 1762000000000,
+    data: { name, callId, arguments: JSON.stringify(args) },
+  }
+}
+
+function toolResultEvent(callId, payload, options) {
+  const opts = options || {}
+  return {
+    type: 'tool/result',
+    seq: opts.seq || 12,
+    time: 1762000060000,
+    surfaceOp: opts.surfaceOp || 'append',
+    data: {
+      message: {
+        ...(opts.isError ? { isError: true } : {}),
+        content: [{ type: 'text', text: typeof payload === 'string' ? payload : JSON.stringify(payload) }],
+        source: { callId },
+      },
+    },
+  }
+}
+
+/**
+ * Drive a Definition the way the assembler does: initialize from the earliest
+ * loaded start, then apply every later match in ascending order.
+ */
+function foldDecision(definition, events) {
+  let context = null
+  for (const event of events) {
+    const match = definition.match(event)
+    if (match === null) continue
+    if (match.role === 'start') {
+      if (context !== null) continue
+      const start = { ...match, event, location: { kind: 'step' } }
+      const key = 'clarity-round/' + match.id
+      context = {
+        key,
+        id: match.id,
+        matches: [start],
+        start,
+        current: new Map(),
+        state: definition.start({ key, id: match.id, matches: [start], start, current: new Map() }, start),
+      }
+      continue
+    }
+    if (context === null) continue
+    context = { ...context, state: definition.update(context, { ...match, event, location: { kind: 'step' } }) }
+  }
+  if (context === null) return null
+  return { context, node: definition.buildViewNode(context) }
+}
+
+const DECIDED_ARGS = {
+  decision: 'Which row?',
+  variants: [
+    { id: 'a', label: 'A — two lines' },
+    { id: 'b', label: 'B — with reasons' },
+  ],
+}
+
+function decidedPayload(overrides) {
+  return {
+    status: 'decided',
+    roundId: 'clarity-mw61y3rn-e8183f',
+    verdict: 'accept',
+    selected: 'b',
+    comments: [
+      { text: 'Round the button to the card radius.', anchor: { kind: 'element', selector: '#save', text: 'Save' } },
+      { text: 'One size smaller.', anchor: { kind: 'variant' } },
+    ],
+    note: 'Ship it.',
+    ...(overrides || {}),
+  }
+}
+
+test('our round folds into one transcript row, and the labels come from the call', () => {
+  const client = loadClient()
+  const definition = client.__test.decisionNode
+  const folded = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', decidedPayload()),
+  ])
+
+  const node = folded.node
+  assert.equal(node.kind, 'clarity-decision')
+  assert.equal(node.target, 'chat')
+  assert.equal(node.anchorSeq, 12)
+  // The same seat an answered ask_user_question batch takes.
+  assert.equal(node.groupTree, 'turn')
+  assert.equal(node.visibility, 'visible')
+  assert.equal(node.data.decision, 'Which row?')
+  assert.equal(node.data.verdict, 'accept')
+  assert.equal(node.data.variantLabel, 'B — with reasons', 'the label from the arguments, not the id')
+  assert.equal(node.data.comments.length, 2)
+  assert.equal(node.data.comments[0].anchor.kind, 'element')
+  assert.equal(node.data.comments[1].text, 'One size smaller.')
+  assert.equal(node.data.note, 'Ship it.')
+  assert.equal(node.data.time, 1762000060000)
+})
+
+test('a round the user did not decide draws no row', () => {
+  const client = loadClient()
+  const definition = client.__test.decisionNode
+
+  const cancelled = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', { status: 'cancelled', roundId: 'clarity-x', reason: 'the user cancelled the round' }),
+  ])
+  assert.equal(cancelled.node, null, 'a cancelled round is not a decision')
+
+  const pending = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', { status: 'pending', roundId: 'clarity-x', jobId: 'job-1', recommendation: 'a' }),
+  ])
+  assert.equal(pending.node, null, 'a non-blocking round decides later, outside this log')
+
+  const tested = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', { status: 'tested', roundId: 'clarity-x', verdict: 'pass', observed: 'It drew.' }),
+  ])
+  assert.equal(tested.node, null, 'a test verdict on a decision round is a kind mismatch, not a row')
+
+  // Contract drift: the enum grows a value, or a payload is forged. A verdict
+  // this row cannot word is no row, never half of one.
+  const drifted = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', decidedPayload({ verdict: 'partial' })),
+  ])
+  assert.equal(drifted.node, null)
+
+  const errored = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', decidedPayload(), { isError: true }),
+  ])
+  assert.equal(errored.node, null, 'a failed call decided nothing')
+
+  const unreadable = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', 'not json at all'),
+  ])
+  assert.equal(unreadable.node, null, 'a payload we cannot read costs the row, never an error')
+
+  // A result whose call was never loaded stays pending, as the assembler says.
+  assert.equal(foldDecision(definition, [toolResultEvent('call-1', decidedPayload())]), null)
+})
+
+test('another tool’s result is not claimed, and the first decision stands', () => {
+  const client = loadClient()
+  const definition = client.__test.decisionNode
+
+  assert.equal(definition.match(toolResultEvent('call-9', { status: 'completed', result: 'ok' })), null)
+  assert.equal(definition.match(toolCallEvent('read_image', 'call-9', {})), null)
+  assert.equal(
+    definition.match(
+      toolResultEvent('call-9', decidedPayload(), { surfaceOp: { op: 'replace', startSeq: 3, endSeq: 4 } }),
+    ),
+    null,
+    'a replacement copy is model-only, never the human transcript',
+  )
+  const call = definition.match(toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS))
+  assert.deepEqual({ ...call }, { id: 'call-1', role: 'start' })
+
+  const once = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', decidedPayload()),
+  ])
+  const twice = foldDecision(definition, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', decidedPayload()),
+    toolResultEvent('call-1', decidedPayload({ verdict: 'reject', selected: undefined }), { seq: 14 }),
+  ])
+  assert.equal(twice.node.data.verdict, 'accept', 'a second result cannot rewrite a recorded decision')
+  assert.notEqual(once.node, twice.node, 'the fold returns a node, not the one it forgot')
+})
+
+test('the row reads as the decision, the reasons, and a copy action', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const folded = foldDecision(client.__test.decisionNode, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', decidedPayload()),
+  ])
+
+  const tree = runtime.render(client.__test.DecisionBubble, { node: folded.node })
+  const text = textOf(tree)
+  assert.ok(text.includes('Which row?'), `the decision sentence leads: ${text}`)
+  assert.ok(text.includes('Accepted'), 'the verdict reads as a word')
+  assert.ok(text.includes('variant B — with reasons'), 'the answer names the variant it chose')
+  assert.ok(text.includes('Round the button to the card radius.'), 'every comment travels with the row')
+  assert.ok(text.includes('Element · Save'), 'the anchor is named in the anchor vocabulary')
+  assert.ok(text.includes('Whole variant'), 'a whole-variant comment says so')
+  assert.ok(text.includes('Ship it.'), 'the note travels too')
+  assert.ok(text.includes('Copy'), 'the copy action is there')
+
+  const rejected = foldDecision(client.__test.decisionNode, [
+    toolCallEvent('clarity_round', 'call-1', DECIDED_ARGS),
+    toolResultEvent('call-1', decidedPayload({ verdict: 'reject', selected: undefined, comments: [] })),
+  ])
+  const rejectedText = textOf(runtime.render(client.__test.DecisionBubble, { node: rejected.node }))
+  assert.ok(rejectedText.includes('Turned it down'), 'a rejection is recorded as one')
+  assert.ok(!rejectedText.includes('variant'), `and names no variant: ${rejectedText}`)
+})
+
+test('a real-test verdict folds into one row with its observation and its shots', () => {
+  const client = loadClient()
+  const folded = foldDecision(client.__test.decisionNode, [
+    toolCallEvent('clarity_test', 'call-7', {
+      candidate: 'dirty:8c90b5af',
+      prepared: { command: 'pnpm run verify', exitCode: 0, builtAt: 'now' },
+      scenario: {},
+    }),
+    toolResultEvent('call-7', {
+      status: 'tested',
+      roundId: 'clarity-test-mw64t9es-706efa',
+      verdict: 'pass',
+      observed: 'The bubble appeared and stayed.',
+      screenshots: [
+        { path: '.clarity/screenshots/mw64/shot-1.png', bytes: 10 },
+        { path: '.clarity/screenshots/mw64/shot-2.png', bytes: 10 },
+      ],
+    }),
+  ])
+
+  const node = folded.node
+  assert.equal(node.data.kind, 'test')
+  assert.equal(node.data.candidate, 'dirty:8c90b5af')
+  assert.equal(node.data.verdict, 'pass')
+  assert.equal(node.data.observed, 'The bubble appeared and stayed.')
+  assert.deepEqual(
+    [...node.data.shots],
+    ['.clarity/screenshots/mw64/shot-1.png', '.clarity/screenshots/mw64/shot-2.png'],
+  )
+  assert.equal(node.groupTree, 'turn')
+
+  const blocked = foldDecision(client.__test.decisionNode, [
+    toolCallEvent('clarity_test', 'call-7', { candidate: 'abcd123' }),
+    toolResultEvent('call-7', { status: 'tested', roundId: 'x', verdict: 'blocked', observed: 'No build.' }),
+  ])
+  assert.equal(blocked.node.data.verdict, 'blocked', 'a blocked gate is a verdict too')
+  assert.deepEqual([...blocked.node.data.shots], [], 'no screenshots is an empty list, not a crash')
+
+  const cancelled = foldDecision(client.__test.decisionNode, [
+    toolCallEvent('clarity_test', 'call-7', { candidate: 'abcd123' }),
+    toolResultEvent('call-7', { status: 'cancelled', roundId: 'x', reason: 'the user cancelled the test' }),
+  ])
+  assert.equal(cancelled.node, null, 'a cancelled gate decided nothing')
+})
+
+test('the test row names each screenshot, and each name opens it in the sidebar', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const folded = foldDecision(client.__test.decisionNode, [
+    toolCallEvent('clarity_test', 'call-7', { candidate: 'dirty:8c90b5af' }),
+    toolResultEvent('call-7', {
+      status: 'tested',
+      roundId: 'clarity-test-mw64t9es-706efa',
+      verdict: 'pass',
+      observed: 'The bubble appeared and stayed.',
+      screenshots: [
+        { path: '.clarity/screenshots/mw64/shot-1.png', bytes: 10 },
+        { path: '.clarity/screenshots/mw64/shot-2.png', bytes: 10 },
+      ],
+    }),
+  ])
+
+  const opened = []
+  const tree = runtime.render(client.__test.DecisionBubble, {
+    node: folded.node,
+    openFile: (path) => opened.push(path),
+  })
+  const text = textOf(tree)
+  assert.ok(text.includes('dirty:8c90b5af'), `the candidate leads: ${text}`)
+  assert.ok(text.includes('Passed'), 'the verdict reads as a word')
+  assert.ok(text.includes('The bubble appeared and stayed.'), 'the observation travels with the row')
+  assert.ok(text.includes('Screenshots'), 'the screenshot line is labelled')
+  assert.ok(text.includes('shot-1.png') && text.includes('shot-2.png'), 'the line is file names, not paths')
+
+  const link = findNode(
+    tree,
+    (node) => node.type === 'button' && node.props.title === '.clarity/screenshots/mw64/shot-1.png',
+  )
+  assert.ok(link, 'the file name carries its full path in the title')
+  assert.equal(link.props['aria-label'], 'Open shot-1.png in the sidebar')
+  link.props.onClick()
+  assert.deepEqual(opened, ['.clarity/screenshots/mw64/shot-1.png'])
+})
+
+test('the chat row is contributed where the chat exists, and nowhere else', () => {
+  const client = loadClient()
+  const contributed = []
+  const { ctx, calls } = makeCtx()
+  ctx.inject = (deps, callback) => {
+    assert.equal(deps.length, 1)
+    // This arena has the chat and no locale service, so only one callback runs.
+    if (deps[0] !== 'uiConversation') return { then() {} }
+    callback({
+      uiConversation: {
+        events: {
+          register(definition) {
+            contributed.push(definition)
+            return () => {}
+          },
+        },
+      },
+      effect(fn) {
+        fn()
+      },
+    })
+    return { then() {} }
+  }
+  client.apply(ctx)
+
+  assert.equal(contributed.length, 1)
+  assert.equal(contributed[0].target, 'chat')
+  assert.equal(contributed[0].kind, 'clarity-round')
+  assert.equal(calls.nodes.length, 1, 'the renderer is registered for the kind the definition emits')
+  assert.equal(calls.nodes[0].options.key, 'clarity-decision')
+  assert.equal(calls.registered.length, 1, 'the tab is registered with or without the chat')
+})
+

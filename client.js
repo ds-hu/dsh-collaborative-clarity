@@ -30,10 +30,6 @@ window.__ModuleLoader__.load({
         'fidelity.mocked': 'mock',
         'fidelity.omitted': 'omit',
         'anchor.variant': 'Whole variant',
-        'anchor.element': 'Element',
-        'anchor.line': 'Line {n}',
-        'anchor.lines': 'Lines {from}–{to}',
-        'anchor.other': 'Anchor',
         'comment.empty': 'Write a comment first.',
         'comment.chooseVariant': 'Choose a variant first.',
         'comment.needsText': 'A revision or rejection needs a comment or a note.',
@@ -105,6 +101,20 @@ window.__ModuleLoader__.load({
         'state.returned': 'The tool call has returned.',
         'state.verdict': 'Verdict: {verdict}',
         'state.selected': ' · selected: {selected}',
+        'bubble.label': 'Decision',
+        'bubble.pass': 'Passed',
+        'bubble.fail': 'Failed',
+        'bubble.blocked': 'Blocked',
+        'bubble.shots': 'Screenshots',
+        'bubble.openShot': 'Open {name} in the sidebar',
+        'bubble.accept': 'Accepted',
+        'bubble.revise': 'Asked for changes',
+        'bubble.reject': 'Turned it down',
+        'bubble.variant': 'variant {label}',
+        'bubble.note': 'Note',
+        'bubble.noteLine': 'Note: {note}',
+        'bubble.copy': 'Copy',
+        'bubble.copied': 'Copied',
         'tab.guide': 'Artifact rounds: a decision shown, annotated, and chosen while the agent waits.',
       },
       zh: {
@@ -117,10 +127,6 @@ window.__ModuleLoader__.load({
         'fidelity.mocked': '模拟',
         'fidelity.omitted': '省略',
         'anchor.variant': '整条变体',
-        'anchor.element': '元素',
-        'anchor.line': '第 {n} 行',
-        'anchor.lines': '第 {from}–{to} 行',
-        'anchor.other': '锚点',
         'comment.empty': '先写一条批注。',
         'comment.chooseVariant': '先选一条变体。',
         'comment.needsText': '要求修改或者拒绝，总得留下一条批注或说明。',
@@ -192,6 +198,20 @@ window.__ModuleLoader__.load({
         'state.returned': '工具调用已经返回。',
         'state.verdict': '结论：{verdict}',
         'state.selected': ' · 选中：{selected}',
+        'bubble.label': '决定',
+        'bubble.pass': '已通过',
+        'bubble.fail': '未通过',
+        'bubble.blocked': '受阻',
+        'bubble.shots': '截图',
+        'bubble.openShot': '在右侧栏打开 {name}',
+        'bubble.accept': '已接受',
+        'bubble.revise': '要求修改',
+        'bubble.reject': '都不要',
+        'bubble.variant': '变体 {label}',
+        'bubble.note': '说明',
+        'bubble.noteLine': '说明：{note}',
+        'bubble.copy': '复制',
+        'bubble.copied': '已复制',
         'tab.guide': 'Artifact round：把一个决定摆出来，你标注、你选，agent 在旁边等。',
       },
     }
@@ -1609,7 +1629,11 @@ window.__ModuleLoader__.load({
           const body = {
             roundId: round.id,
             verdict,
-            observed,
+            // An empty box means "no observation", so it is left out rather than
+            // sent as '': the route treats a present-but-empty field as a bad
+            // argument, and a pass or a cancel is allowed to carry none. Blank
+            // counts, not just '' — the `fail` guard above already trims.
+            ...(observed.trim() === '' ? {} : { observed }),
             screenshots: shots.map((shot) => ({ name: shot.name, dataUrl: shot.dataUrl })),
           }
           const result = await api('/test', { method: 'POST', body: JSON.stringify(body) })
@@ -2115,6 +2139,430 @@ window.__ModuleLoader__.load({
       )
     }
 
+    // -------------------------------------------------------------------------
+    // The decision row in the transcript
+    //
+    // A round's outcome is already in the session log: the tool call and its
+    // result are recorded events. So this row is projected from those events and
+    // never read back from the plugin store — a reload, a second browser, and
+    // next month's history page all draw the same bubble. `ask_user_question`
+    // records its answered batches the same way; this is that seam, for our tool.
+    // -------------------------------------------------------------------------
+
+    const CHAT_SLOT = 'conversation.chat.node'
+    const NODE_KIND = 'clarity-decision'
+    const ROUND_TOOL = 'clarity_round'
+    const TEST_TOOL = 'clarity_test'
+
+    /**
+     * The bubble every real user message is drawn with, when this harness has it.
+     *
+     * It is a baseline client module of the host, not one of ours, so the row
+     * lands indistinguishable from the chat around it. A harness without it gets
+     * our own box: a missing primitive must cost the styling, not the row.
+     */
+    const SharedBubble = (() => {
+      try {
+        const primitives = require('@deepseek-ai/dsh-client-ui-primitives')
+        const candidate = primitives === null || primitives === undefined ? null : primitives.UserMessageBubble
+        return candidate === undefined ? null : candidate
+      } catch {
+        return null
+      }
+    })()
+
+    /** Parse a tool payload that arrives either as JSON text or as a ready value. */
+    function readJson(value) {
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value)
+          return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null
+        } catch {
+          return null
+        }
+      }
+      return value !== null && typeof value === 'object' && !Array.isArray(value) ? value : null
+    }
+
+    /** The one text block a tool result carries, or '' when it carries anything else. */
+    function resultText(message) {
+      const content = message && Array.isArray(message.content) ? message.content : []
+      if (content.length !== 1 || !content[0] || content[0].type !== 'text') return ''
+      return typeof content[0].text === 'string' ? content[0].text : ''
+    }
+
+    /** The label a variant id had in this round's arguments. */
+    function labelOf(labels, id) {
+      if (typeof id !== 'string' || id === '') return ''
+      return labels[id] === undefined ? id : labels[id]
+    }
+
+    /** The recorded verdict as a word, or '' for a verdict this row does not draw. */
+    function verdictWord(verdict) {
+      if (verdict === 'accept') return t('bubble.accept')
+      if (verdict === 'revise') return t('bubble.revise')
+      if (verdict === 'reject') return t('bubble.reject')
+      if (verdict === 'pass') return t('bubble.pass')
+      if (verdict === 'fail') return t('bubble.fail')
+      if (verdict === 'blocked') return t('bubble.blocked')
+      return ''
+    }
+
+    /** One line for those decisions that picked a variant. */
+    function verdictLine(data) {
+      const word = verdictWord(data && data.verdict)
+      if (word === '') return ''
+      if (!data.variantLabel) return word
+      return word + ' · ' + t('bubble.variant', { label: data.variantLabel })
+    }
+
+    /** The file name of a path the Host wrote, for the one-line screenshot row. */
+    function fileNameOf(path) {
+      const parts = String(path).split('/')
+      const last = parts[parts.length - 1]
+      return last === '' ? String(path) : last
+    }
+
+    /** What the copy action writes: the same lines, without the chrome. */
+    function bubbleText(data) {
+      const lines = []
+      if (data.candidate || data.decision) lines.push(data.candidate || data.decision)
+      const line = verdictLine(data)
+      if (line !== '') lines.push(line)
+      if (data.observed) lines.push(data.observed)
+      for (const comment of Array.isArray(data.comments) ? data.comments : []) {
+        lines.push(anchorLabel(comment.anchor) + ' — ' + comment.text)
+      }
+      if (data.note) lines.push(t('bubble.noteLine', { note: data.note }))
+      const shots = Array.isArray(data.shots) ? data.shots : []
+      for (const path of shots) lines.push(t('bubble.shots') + ' ' + path)
+      return lines.join('\n')
+    }
+
+    /** The verbs each kind of row can word; anything else draws nothing. */
+    const DECISION_VERDICTS = ['accept', 'revise', 'reject']
+    const TEST_VERDICTS = ['pass', 'fail', 'blocked']
+
+    /** The screenshot paths the Host wrote, in gate order, relative to the session. */
+    function shotPaths(value) {
+      const paths = []
+      for (const shot of Array.isArray(value) ? value : []) {
+        if (!shot || typeof shot.path !== 'string' || shot.path === '') continue
+        paths.push(shot.path)
+      }
+      return paths
+    }
+
+    /** The comments the panel sent, each with an anchor this row can word. */
+    function commentsOf(value) {
+      const comments = []
+      for (const comment of Array.isArray(value) ? value : []) {
+        if (!comment || typeof comment.text !== 'string' || comment.text === '') continue
+        comments.push({
+          text: comment.text,
+          // A stored anchor is what the panel sent; anything else is read as the
+          // whole-variant anchor, which is the widest true statement.
+          anchor: isAnchor(comment.anchor) ? comment.anchor : { kind: 'variant' },
+        })
+      }
+      return comments
+    }
+
+    /**
+     * Fold our own tool call into the row that records what the user chose.
+     *
+     * `start` keeps the decision sentence and the variant labels from the call
+     * arguments; `update` reads the verdict out of the tool result. Everything
+     * else — a cancelled round, a round still pending, an error, a result that
+     * is not ours — leaves the node unset, and an unset node is a row that is
+     * simply not there. The node is built once, in `update`, so replaying the
+     * same history hands the view back the same object instead of a new one.
+     */
+    const decisionNode = {
+      kind: 'clarity-round',
+      target: 'chat',
+      match(event) {
+        if (event === null || typeof event !== 'object') return null
+        if (event.type === 'tool/call') {
+          const data = event.data
+          if (!data || (data.name !== ROUND_TOOL && data.name !== TEST_TOOL)) return null
+          return { id: String(data.callId), role: 'start' }
+        }
+        if (event.type === 'tool/result' && event.surfaceOp === 'append') {
+          // A native result does not name its tool. The call id is the identity,
+          // and the round id inside the payload says the result is one of ours:
+          // every other tool's result is left to the generic Tool row.
+          const message = event.data ? event.data.message : null
+          const callId = message && message.source ? message.source.callId : undefined
+          if (typeof callId !== 'string') return null
+          const value = readJson(resultText(message))
+          if (!value || typeof value.roundId !== 'string') return null
+          return { id: callId, role: 'update' }
+        }
+        return null
+      },
+      start(_context, match) {
+        const event = match.event
+        const args = event && event.type === 'tool/call' ? readJson(event.data.arguments) : null
+        const test = event && event.type === 'tool/call' && event.data.name === TEST_TOOL
+        const labels = {}
+        const variants = args && Array.isArray(args.variants) ? args.variants : []
+        for (const variant of variants) {
+          if (!variant || typeof variant.id !== 'string' || variant.id === '') continue
+          labels[variant.id] =
+            typeof variant.label === 'string' && variant.label !== '' ? variant.label : variant.id
+        }
+        // The muted first line: the question that was asked, or what was tested.
+        const label = test
+          ? args && typeof args.candidate === 'string' ? args.candidate : ''
+          : args && typeof args.decision === 'string' ? args.decision : ''
+        return { kind: test ? 'test' : 'decision', label, labels, node: null }
+      },
+      update(context, match) {
+        const state = context.state
+        // Settled once, and the first settlement stands: a later event for the
+        // same call must not rewrite a row the user may already be reading.
+        if (!state || state.node !== null) return state
+        const event = match.event
+        const message = event && event.type === 'tool/result' ? event.data.message : null
+        if (!message || message.isError === true) return state
+        const value = readJson(resultText(message))
+        // One check per kind, and it is the whole rule: a verb this row can
+        // word. Everything the Host says otherwise — pending, cancelled,
+        // errored, a verb from the other kind — leaves the node unset, and an
+        // unset node is a row that is simply not there.
+        const drawable = state.kind === 'test' ? TEST_VERDICTS : DECISION_VERDICTS
+        if (!value || !drawable.includes(value.verdict)) return state
+        const data = {
+          kind: state.kind,
+          verdict: value.verdict,
+          time: typeof event.time === 'number' ? event.time : 0,
+        }
+        if (state.kind === 'test') {
+          data.candidate = state.label
+          data.observed = typeof value.observed === 'string' ? value.observed : ''
+          data.shots = shotPaths(value.screenshots)
+        } else {
+          data.decision = state.label
+          data.variantLabel = value.verdict === 'reject' ? '' : labelOf(state.labels, value.selected)
+          data.comments = commentsOf(value.comments)
+          data.note = typeof value.note === 'string' ? value.note : ''
+        }
+        return {
+          ...state,
+          node: {
+            key: context.key,
+            id: context.id,
+            kind: NODE_KIND,
+            target: 'chat',
+            anchorSeq: event.seq,
+            location: context.start ? context.start.location : { kind: 'unresolved' },
+            // `turn` is where an answered question batch sits: outside whole-Turn
+            // folding, so the record survives the process group collapsing.
+            groupTree: 'turn',
+            visibility: 'visible',
+            data,
+          },
+        }
+      },
+      buildViewNode(context) {
+        return context.state && context.state.node ? context.state.node : null
+      },
+    }
+
+    /**
+     * The row itself: the decision sentence, then what was decided, then the
+     * reasons the user gave for it.
+     *
+     * Reading is the only thing this row does. It answers no request and starts
+     * nothing; the copy action only touches the clipboard.
+     */
+    function DecisionBubble(props) {
+      const data = (props && props.node && props.node.data) || {}
+      const openFile = props && typeof props.openFile === 'function' ? props.openFile : null
+      const [copied, setCopied] = React.useState(false)
+      const copy = () => {
+        if (typeof navigator === 'undefined' || !navigator.clipboard) return
+        Promise.resolve(navigator.clipboard.writeText(bubbleText(data)))
+          .then(() => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          })
+          .catch(() => {
+            // A refused clipboard is not worth a banner over a transcript row.
+          })
+      }
+      const body = []
+      const lead = data.candidate || data.decision
+      if (lead) body.push(h('div', { key: 'question', style: bubbleQuestion }, lead))
+      body.push(h('div', { key: 'verdict', style: bubbleVerdict }, verdictLine(data)))
+      if (data.observed) body.push(h('div', { key: 'observed', style: bubbleObserved }, data.observed))
+      const comments = Array.isArray(data.comments) ? data.comments : []
+      if (comments.length > 0) {
+        body.push(
+          h(
+            'ul',
+            { key: 'comments', style: bubbleComments },
+            comments.map((comment, index) =>
+              h(
+                'li',
+                { key: String(index), style: bubbleComment },
+                h('span', { style: bubbleAnchor }, anchorLabel(comment.anchor)),
+                h('span', { style: bubbleBody }, comment.text),
+              ),
+            ),
+          ),
+        )
+      }
+      if (data.note) {
+        body.push(
+          h(
+            'div',
+            { key: 'note', style: bubbleNote },
+            h('span', { style: bubbleAnchor }, t('bubble.note')),
+            h('span', { style: bubbleBody }, data.note),
+          ),
+        )
+      }
+      const shots = Array.isArray(data.shots) ? data.shots : []
+      if (shots.length > 0) {
+        // One line of file names, each one a link into the right Sidebar: the
+        // path is the whole point of the link, so it rides in the title rather
+        // than taking three lines of bubble. The preview side already knows how
+        // to draw an image from a session-relative path.
+        body.push(
+          h(
+            'div',
+            { key: 'shots', style: bubbleShots },
+            h('span', { style: bubbleShotsLabel }, t('bubble.shots')),
+            shots.map((path, index) =>
+              h(
+                'button',
+                {
+                  key: String(index),
+                  type: 'button',
+                  style: bubbleShotLink,
+                  title: path,
+                  'aria-label': t('bubble.openShot', { name: fileNameOf(path) }),
+                  onClick: () => {
+                    if (openFile !== null) openFile(path)
+                  },
+                },
+                fileNameOf(path),
+              ),
+            ),
+          ),
+        )
+      }
+      return h(
+        'div',
+        {
+          style: bubbleRow,
+          role: 'group',
+          'aria-label': data.kind === 'test' ? t('header.realTest') : t('bubble.label'),
+          'data-clarity-decision': '',
+        },
+        h(
+          'div',
+          { style: bubbleWidth },
+          SharedBubble === null ? h('div', { style: bubbleBox }, body) : h(SharedBubble, { style: bubbleBox }, body),
+        ),
+        h(
+          'div',
+          { style: bubbleActions },
+          h('span', null, clock(data.time)),
+          h('button', { type: 'button', style: bubbleAction, onClick: copy }, copied ? t('bubble.copied') : t('bubble.copy')),
+        ),
+      )
+    }
+
+    const bubbleRow = {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-end',
+      gap: '4px',
+      width: '100%',
+      fontFamily: FONT,
+    }
+    const bubbleWidth = { maxWidth: 'min(84%, 560px)', minWidth: 0 }
+    const bubbleBox = {
+      background: 'var(--dsw-alias-bg-layer-2)',
+      border: '1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.06))',
+      borderRadius: 'var(--dsw-radius-lg, 12px)',
+      padding: '8px 12px',
+      fontSize: '13px',
+      lineHeight: '20px',
+      textAlign: 'left',
+    }
+    const bubbleQuestion = { color: MUTED, fontSize: '12px', lineHeight: '18px' }
+    const bubbleVerdict = { marginTop: '3px' }
+    const bubbleComments = {
+      listStyle: 'none',
+      margin: '6px 0 0',
+      padding: '4px 0 0',
+      borderTop: '1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.07))',
+    }
+    const bubbleComment = { display: 'flex', flexDirection: 'column', paddingTop: '4px', fontSize: '12.5px' }
+    const bubbleAnchor = { color: MUTED, fontSize: '11px', lineHeight: '16px' }
+    const bubbleBody = { overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }
+    const bubbleObserved = {
+      margin: '6px 0 0',
+      paddingTop: '4px',
+      borderTop: '1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.07))',
+      fontSize: '12.5px',
+      overflowWrap: 'anywhere',
+      whiteSpace: 'pre-wrap',
+    }
+    const bubbleShots = {
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'baseline',
+      gap: '0 6px',
+      marginTop: '6px',
+      paddingTop: '4px',
+      borderTop: '1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.07))',
+      fontSize: '11px',
+      lineHeight: '16px',
+    }
+    const bubbleShotsLabel = { color: MUTED }
+    const bubbleShotLink = {
+      border: 'none',
+      background: 'transparent',
+      padding: 0,
+      margin: 0,
+      font: 'inherit',
+      fontFamily: MONO,
+      color: 'var(--dsw-alias-brand-primary, var(--dsw-alias-label-primary))',
+      textDecoration: 'underline',
+      textUnderlineOffset: '2px',
+      cursor: 'pointer',
+    }
+    const bubbleNote = {
+      display: 'flex',
+      flexDirection: 'column',
+      marginTop: '6px',
+      paddingTop: '4px',
+      borderTop: '1px solid var(--dsw-alias-border-l1, rgba(0,0,0,.07))',
+      fontSize: '12.5px',
+    }
+    const bubbleActions = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      paddingRight: '2px',
+      color: MUTED,
+      fontSize: '11px',
+      lineHeight: '16px',
+    }
+    const bubbleAction = {
+      border: 'none',
+      background: 'transparent',
+      color: 'inherit',
+      font: 'inherit',
+      cursor: 'pointer',
+      padding: '0 2px',
+    }
+
     const pluginApi = {
       inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'uiSession'],
       apply(ctx) {
@@ -2203,6 +2651,27 @@ window.__ModuleLoader__.load({
           'clarity session dot',
         )
 
+        // The transcript row. `uiConversation` is optional, like the locale
+        // service: a composition without the chat keeps the tab and loses only
+        // the bubble. The definition reads the events; the renderer below is
+        // reached only where the slot exists.
+        if (typeof ctx.inject === 'function') {
+          ctx.inject(['uiConversation'], (arena) => {
+            const uiConversation = arena.uiConversation
+            if (!uiConversation || !uiConversation.events || typeof uiConversation.events.register !== 'function') {
+              return undefined
+            }
+            return arena.effect(() => uiConversation.events.register(decisionNode), 'clarity chat row')
+          })
+        }
+        ctx.effect(
+          () =>
+            ctx.slots.inject(CHAT_SLOT, () =>
+              ctx.slots.register({ name: CHAT_SLOT, key: NODE_KIND }, DecisionBubble),
+            ),
+          'clarity chat bubble',
+        )
+
         // A round that opened while another conversation was on screen never
         // got its tab opened. Surface it when its conversation comes back.
         let autoOpened = ''
@@ -2278,7 +2747,7 @@ window.__ModuleLoader__.load({
       },
     }
     Object.defineProperty(pluginApi, '__test', {
-      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, MESSAGES, DecisionView, TestView, RoundPanel, newestOpenRound },
+      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, MESSAGES, DecisionView, TestView, RoundPanel, newestOpenRound, decisionNode, DecisionBubble, bubbleText },
       enumerable: false,
     })
     return pluginApi

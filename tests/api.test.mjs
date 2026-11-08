@@ -344,3 +344,90 @@ test('the test surface has no process endpoints', async () => {
     assert.equal(json(response).error.code, 'not-found')
   }
 })
+
+test('pass and cancel need no observation, and the panel always sends the field', async () => {
+  const store = new RoundStore()
+  const handler = mount(store)
+
+  /** Exactly what the panel posts: every field present, `observed` possibly empty. */
+  const panelBody = (roundId, verdict) => JSON.stringify({ roundId, verdict, observed: '', screenshots: [] })
+  const openGate = (id) => {
+    store.open({
+      id,
+      kind: 'test',
+      sessionId: 's1',
+      candidate: 'dirty:0000000',
+      prepared: { command: 'pnpm run verify', exitCode: 0, builtAt: 'now' },
+      runThis: null,
+      scenario: { preconditions: [], steps: [], expected: [], failureSignature: '', rollback: '' },
+      status: 'open',
+      createdAt: Date.now(),
+    })
+    // Nobody waits in this test; the route settles the round itself.
+    store.wait(id).catch(() => {})
+  }
+
+  for (const verdict of ['pass', 'cancel']) {
+    openGate(`t-${verdict}`)
+    const response = fakeResponse()
+    await handler(fakeRequest('POST', '/clarity/api/test', panelBody(`t-${verdict}`, verdict)), response)
+    assert.equal(response.status, 200, `${verdict} with an empty observation: ${JSON.stringify(json(response))}`)
+    assert.equal(json(response).result.observed, undefined, 'an empty observation is recorded as none')
+  }
+
+  for (const verdict of ['fail', 'blocked']) {
+    openGate(`t-${verdict}`)
+    const response = fakeResponse()
+    await handler(fakeRequest('POST', '/clarity/api/test', panelBody(`t-${verdict}`, verdict)), response)
+    assert.equal(response.status, 400, `${verdict} without an observation is refused`)
+    assert.equal(json(response).error.message, 'fail and blocked need an observation')
+  }
+
+  // Whitespace is blank too: a stray space or newline left in a three-row
+  // textarea means the same "I wrote nothing" as an untouched box.
+  for (const verdict of ['pass', 'cancel']) {
+    openGate(`w-${verdict}`)
+    const response = fakeResponse()
+    await handler(
+      fakeRequest(
+        'POST',
+        '/clarity/api/test',
+        JSON.stringify({ roundId: `w-${verdict}`, verdict, observed: ' \n ', screenshots: [] }),
+      ),
+      response,
+    )
+    assert.equal(response.status, 200, `${verdict} with a blank observation: ${JSON.stringify(json(response))}`)
+  }
+
+  openGate('w-fail')
+  const blankFail = fakeResponse()
+  await handler(
+    fakeRequest(
+      'POST',
+      '/clarity/api/test',
+      JSON.stringify({ roundId: 'w-fail', verdict: 'fail', observed: ' ', screenshots: [] }),
+    ),
+    blankFail,
+  )
+  assert.equal(blankFail.status, 400)
+  assert.equal(
+    json(blankFail).error.message,
+    'fail and blocked need an observation',
+    'a blank failure is refused as a failure, not as a bad argument',
+  )
+
+  // A non-string is still a bad argument, not "none": arguments are refused,
+  // never silently dropped.
+  openGate('w-number')
+  const numberObserved = fakeResponse()
+  await handler(
+    fakeRequest(
+      'POST',
+      '/clarity/api/test',
+      JSON.stringify({ roundId: 'w-number', verdict: 'pass', observed: 42, screenshots: [] }),
+    ),
+    numberObserved,
+  )
+  assert.equal(numberObserved.status, 400)
+  assert.equal(json(numberObserved).error.message, 'observed must be a non-empty string')
+})

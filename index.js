@@ -950,7 +950,18 @@ export function registerApi(ctx, store) {
           const body = await readBody(req)
           const roundId = requireString(body.roundId, 'roundId', 200)
           const verdict = requireVerdict(body.verdict, ['pass', 'fail', 'blocked', 'cancel'])
-          const observed = body.observed === undefined ? '' : requireString(body.observed, 'observed', 4_000)
+          // An empty observation is "none", not a bad argument: the panel sends
+          // the field whenever the box is not blank, and pass / cancel are
+          // allowed to carry none. Validating before that decision made both of
+          // them impossible to submit ("observed must be a non-empty string")
+          // while the next line said they were fine. Whitespace counts as blank —
+          // a stray space or newline left in a three-row textarea is the same
+          // "I wrote nothing" as an untouched box.
+          const rawObserved = body.observed === undefined ? '' : body.observed
+          const observed =
+            rawObserved === '' || (typeof rawObserved === 'string' && rawObserved.trim() === '')
+              ? ''
+              : requireString(rawObserved, 'observed', 4_000)
           if (verdict !== 'pass' && verdict !== 'cancel' && observed === '') {
             throw new HttpError(400, 'bad-request', 'fail and blocked need an observation')
           }

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>变体 A‴ — 截图压成一行，点开才是路径</title>
+<style>
+  :root { --ink:#1f2328; --muted:#5f6b7a; --line:rgba(0,0,0,.13); --layer2:#eef1f4; --brand:#2f6fdb; --ok:#2da44e; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px; background: #eef0f2; color: var(--ink);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .note, .panel, .chat { max-width: 380px; margin: 0 auto 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  .note { padding: 9px 12px; color: var(--muted); font-size: 12px; }
+  .note b { color: var(--ink); }
+  .panel { padding: 12px 14px; }
+  h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; }
+  h2 span { font-weight: 400; color: var(--muted); font-size: 11px; }
+  ul { margin: 0; padding-left: 16px; }
+  li { margin: 0 0 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 650; color: var(--muted); font-size: 10.5px; letter-spacing: .04em; }
+  td:first-child { width: 40%; }
+  code { font: 11.5px ui-monospace, Consolas, monospace; }
+  .foot { max-width: 380px; margin: 0 auto; color: var(--muted); font-size: 11.5px; }
+  .foot b { color: var(--ink); }
+
+  .chat { padding: 10px 12px 6px; background: #f7f8fa; }
+  .chat .head { color: var(--muted); font-size: 10.5px; letter-spacing: .04em; margin-bottom: 8px; }
+  .chat .state { color: var(--muted); font-size: 10.5px; margin: 2px 0 6px; }
+  .tool { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px;
+          border: 1px dashed var(--line); border-radius: 6px; padding: 4px 8px; margin-bottom: 8px; }
+  .tool code { color: var(--ink); }
+  .row { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-bottom: 14px; }
+  .bubble { max-width: 88%; background: var(--layer2); border-radius: 12px; padding: 8px 12px; }
+  .q { color: var(--muted); font-size: 12px; }
+  .a { margin-top: 3px; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .obs { margin: 6px 0 0; padding-top: 5px; border-top: 1px solid rgba(0,0,0,.07); font-size: 12.5px; white-space: pre-wrap; }
+  .shots { margin: 6px 0 0; padding-top: 5px; border-top: 1px solid rgba(0,0,0,.07); }
+  .toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 11px; cursor: pointer; background: none; border: 0; padding: 0; font-family: inherit; }
+  .toggle:hover { color: var(--ink); }
+  .caret { color: var(--muted); font-size: 10px; }
+  .paths { margin-top: 2px; }
+  .path { display: block; font: 11px/18px ui-monospace, Consolas, monospace; color: var(--brand);
+          text-decoration: underline; text-underline-offset: 2px; cursor: pointer; overflow-wrap: anywhere; }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; color: var(--muted); font-size: 11px; padding-right: 2px; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>A‴ — 压成一行，点开才是路径。</b>默认只占一行：<code>▸ 截图 2 张</code>，和工具调用未展开时一个样子。
+  点一下在气泡里就地展开两条路径，每条都还是「点开在右侧栏看图」的链接。
+</div>
+
+<div class="chat">
+  <div class="head">对话</div>
+  <div class="tool">▸ <code>clarity_test</code> · 已完成 · 展开</div>
+
+  <div class="state">默认（折叠）</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">dirty:8c90b5af</div>
+      <div class="a"><span class="ok">Passed</span></div>
+      <div class="obs">刷新后那一轮多了一条右对齐气泡，过程组折叠后仍在，控制台没有报错。</div>
+      <div class="shots"><button class="toggle" type="button"><span class="caret">▸</span> 截图 2 张</button></div>
+    </div>
+    <div class="actions"><span>15:47</span><span>Copy</span></div>
+  </div>
+
+  <div class="state">点开之后（就地展开，不出气泡）</div>
+  <div class="row">
+    <div class="bubble">
+      <div class="q">dirty:8c90b5af</div>
+      <div class="a"><span class="ok">Passed</span></div>
+      <div class="obs">刷新后那一轮多了一条右对齐气泡，过程组折叠后仍在，控制台没有报错。</div>
+      <div class="shots">
+        <button class="toggle" type="button"><span class="caret">▾</span> 截图 2 张</button>
+        <div class="paths">
+          <span class="path" title="在右侧栏打开">.clarity/screenshots/clarity-test-mw64t9es-706efa/shot-1.png</span>
+          <span class="path" title="在右侧栏打开">.clarity/screenshots/clarity-test-mw64t9es-706efa/shot-2.png</span>
+        </div>
+      </div>
+    </div>
+    <div class="actions"><span>15:47</span><span>Copy</span></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>为什么这样压 <span>跟工具调用学它的默认态</span></h2>
+  <ul>
+    <li>工具调用没展开时只有一行摘要，路径这种「需要时才看」的东西默认不该占两行。</li>
+    <li>但路径又不能省：它是唯一能把图送到右侧栏的东西。所以折叠而不是删掉。</li>
+    <li>展开在气泡内完成，不新开边栏 tab；路径本身才是打开边栏的那一下。</li>
+  </ul>
+</div>
+
+<div class="panel">
+  <h2>机制 <span>一行 + 一个展开态</span></h2>
+  <table>
+    <tr><td>默认</td><td>一行按钮：<code>▸ 截图 {n} 张</code>（en：<code>Screenshots ({n})</code>）</td></tr>
+    <tr><td>展开</td><td>同一行换成 <code>▾</code>，下面列出 n 条路径，每条 <code>onClick = openFile(path)</code></td></tr>
+    <tr><td>状态</td><td>渲染器里一个 <code>useState</code>，不进会话事件，也不进草稿</td></tr>
+    <tr><td>宿主</td><td class="ok">零改动</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>文案 <span>最终，两表同键</span></h2>
+  <table>
+    <tr><th>键</th><th>en / zh</th></tr>
+    <tr><td><code>bubble.shots</code></td><td>Screenshots ({count}) / 截图 {count} 张</td></tr>
+    <tr><td><code>bubble.shotsShow</code></td><td>Show the screenshot paths / 展开截图路径</td></tr>
+    <tr><td><code>bubble.shotsHide</code></td><td>Hide the screenshot paths / 收起截图路径</td></tr>
+    <tr><td><code>bubble.openShot</code></td><td>Open {name} in the sidebar / 在右侧栏打开 {name}</td></tr>
+  </table>
+</div>
+
+<div class="foot">
+  <b>代价：</b>多点一次才看得到路径；展开态不记忆，行重新挂载就回到折叠（聊天行本来也不记展开态，工具行同样）。
+  1 张时仍是这一行，写「截图 1 张」；0 张时整段不出现。
+</div>
+
+</body>
+</html>
