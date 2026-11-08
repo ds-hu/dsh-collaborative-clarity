@@ -72,3 +72,18 @@ A real round appends one row.
 - `built` → `prepared` requires the prepared-build record from [04](04-verification.md).
 - `prepared` → `tested` requires a test record from the user.
 - Any row may move to `abandoned` or `superseded` with a reason; it never disappears.
+
+## Not verified yet
+
+Claims this repository currently presents more confidently than the evidence behind them, and gaps
+that only a conversation knows about. Each line names the probe that would settle it, so the next
+reader can close it instead of inheriting it.
+
+| Claim | Why the evidence is thin | Probe that settles it |
+|---|---|---|
+| The panel is unmounted when another sidebar tab is shown (round 0020's premise) | Inferred from a reported symptom plus where the state sits — never observed | Count panel mounts and unmounts somewhere visible, then switch tabs once |
+| 0016's card layout: advice above the fidelity rows, the dot on the text's midline | Round 0018 ran on the new shape and was accepted, but nobody read the cards for layout | Open a round, read the cards, then accept — and report anything off |
+| 0012 — an unsent comment travels with the decision | Used live in round 0016, never promoted; the row still says `built` | Say it counts, or run a gate |
+| 0013 — the panel follows the GUI's language | Every Chinese screenshot shows it working, but no gate covered it; `built` | Same |
+| `docs/README_image.png` is inside the published tarball | Inferred from the registry's `fileCount` and `unpackedSize`, not from a listing | `npm pack --dry-run --json`, outside the sandbox |
+| The README screenshot predates the Chinese panel | English chrome (`DECISION`, `Annotating`, `Comments`) is visible in it; the build behind it is unknown | Re-shoot it after the next real test |
