@@ -31,7 +31,8 @@
     "locale/*.json",
     "icon.svg",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "docs/README_image.png"
   ],
   "scripts": {
     "test": "node scripts/run-tests.mjs",

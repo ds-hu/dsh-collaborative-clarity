@@ -9,98 +9,51 @@
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-5b4bd6" alt="DeepSeek Harness plugin">
 </p>
 
-*一个右侧栏标签页。agent 不再用一段话描述要做什么，而是把它摆到你面前；然后在工具调用里
-等你，等你说完。*
+**在一个右边栏标签页中与 AI 协作，不读一百行的计划文本，而是让它把 demo 和逻辑呈现给你看**
+
+![效果图](docs/README_image.png)
 
 ## Vibe coding 会踩的坑
 
-让 agent 写代码很快，但有三件事一定会出问题，而且每次都出在同一个地方。不是提示词没写好，
-是缺了一样东西。
+让 agent 写代码很快，但容易出现问题：
 
-- **界面要等到做完才看得见。** 屏幕怎么表现，agent 自己就定了；等它建完你才看到，分歧只能
-  变成返工。*round 让屏幕在动手之前就出现。*
-- **架构慢慢变成别人的。** 代码整个交出去，你手上就没有那张图了：哪个选择有风险、代价多大、
-  当初为什么这么定，都得等用户替你发现。*round 会把要紧的那十行、一个推荐，连同这个推荐放弃
-  了什么，一起摆出来。*
-- **单测绿了，东西没验过。** 单测只能断言写测试的人想到的部分；开发时那种反复上手试，留不成
-  测试用例。*round 最后落在一个人必须亲自跑的关卡上。*
+- **开发者无法事先控制 UI**。屏幕怎么表现，agent 自己就定了，不尽人意，只能来回返工。**`clarity_round` 让你在实现前就对 UI 效果心里有数，并能针对性调整**。
+- **开发者逐渐不熟悉架构**。把代码完全交给 agent，你就不知道哪个选择有风险、代价多大，甚至当初为什么这么定，都得等用户替你发现。**`clarity_round` 会把关键的原因和代价，甚至关键伪代码，都给你过目，让开发者充分了解自己的项目**。
+- **通过了单测，上线后问题频出**。AI 擅长写单元测试，但无法像人类一样在开发时手动反复测试。**`clarity_test` 保证代码提交前经过了你的实测审阅，并允许你用截图和文字及时反馈**。
 
-这个插件补的就是那“一样东西”。agent 把决定写成一个最小可看的文件——一个屏幕、一个类型、一个
-函数——在右侧栏打开，说出推荐哪个、这么选会失去什么，然后等你。
+## 为什么这个插件有用
 
-协作的单位因此从“一句话”变成 **round**：一个决定、一组 artifact、一次等待、一份记录。下面讲
-的，都是这句话的推论。
+**HTML 的通用性**。HTML 最好渲染，也装得下各种东西：终端、diff、表格、界面，都能画。非关键的部分在复刻时可以省略，关键在于你对自己产品的 UI 有预先的认知。
 
-## 为什么它管用
+**人机长处互补。** agent 每多一轮就要重读越来越长的上下文，还会跑偏；但它一次能写出一个 20KB 的 HTML 文件。而人恰好相反：没人能一口气从零写出一整页 HTML，更没人愿意在已经有实现的情况下重写一份。`clarity_round` 把 agent 的一次生成用在它擅长的地方，把你的注意力用在它替不了的判断上。
 
-**artifact 不必是你的产品。** HTML 最好渲染，也最装得下东西：终端、diff、表格、界面，都能
-画。不是网页的项目一样可以拿网页演给你看，按真实尺寸演，不用先造一个 demo。它是证据，用完就
-扔，不用攒。
+**人必须把关产品**。东西最终是给用户用的，那就得有人赶在用户之前，在真实构建上，用自己的眼睛看。
 
-**两边的长处正好互补。** agent 不擅长长的工具循环：每多一轮就要重读越来越长的上下文（缓存
-命中只是打折，不是不要钱），还会跑偏；但它一次能生成一整屏。人恰好相反：没人能一口气从零写出
-一整页 HTML，更没人愿意在已经有实现的情况下重写一份。round 把 agent 的一次生成用在它擅长的
-地方，把你的注意力用在它替不了的判断上。
+## `clarity_round`：可视化的决策
 
-**最后一公里只能靠人。** 东西最终是给用户用的，那就得有人赶在用户之前，自己上手用过——在
-真实构建上，用自己的眼睛看。所以真测试是一道关，不是一个勾选框。
+1. **agent 提交方案**。最多两个变体，每个都不只有描述，还有真实渲染出的结果。
+2. **你来标注出不同意的地方**。点一个元素、划一句话、点一行代码都行，AI 会知道你的意见对应的是哪一块区域，从而能进行针对性修改。
+3. **你在实现前拍板**。或接受，或修改，或拒绝，直到明确实现方向。
+4. **agent 根据结论实施**。在 `clarity_round` 后，你就对 AI 给出的东西有了基本认知，不会在看到成品时惊掉下巴。
 
-## 一个 round，怎么走完
+## `clarity_test`：上线前的实测
 
-1. **agent 把决定放上屏。** 最多两个变体，每个都是真文件，不是对文件的描述。
-2. **你指着不同意的地方。** 点一个元素、划一句话、点一行代码都行。评论会记住你指的位置，所以
-   “这个标签不对”会带着那个标签一起回来。
-3. **你拍板。** 接受、要求改、拒绝，或者先放着。你的评论和选中的变体会以结构化数据交回给
-   agent，不用它再猜。
-4. **agent 把结论写下来。** 结论、你接受的取舍、还没关掉的评论，都落在 artifact 旁边的仓库里。
-
-## 最后一步必须真测
-
-构建跑完之后，`clarity_test` 会开一道关。agent 把它已经跑过的构建记下来，给你一条把应用跑
-起来的命令，再写一个三到七步的场景。你跑一遍，自己看，再把结果记下来——pass、fail 或
-blocked，文字说不清的附截图。在这之前，这个改动只算 *built*，不算 *tested*。
+`clarity_test` 会要求你构建并实测一遍，给你提供测试的成功标准，由你把结果记下来。如果没有通过，可以用文字和截图反馈。确保每个上线功能，都经过了开发者的实测。
 
 ## 安装
 
 ```powershell
-dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity
+dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity   # webui
+dsh plugin --profile desktop add @ds-hu/dsh-collaborative-clarity   # desktop
 ```
 
-需要带 web profile 的 DeepSeek Harness。在本地检出里装，就换成
-`link:D:/path/to/dsh-collaborative-clarity`；从 GitHub 装，就换成
-`github:ds-hu/dsh-collaborative-clarity`。没有构建步骤，运行时只有一个依赖
-（`markdown-it`）。非阻塞 round 还需要 profile 里有 `@deepseek-ai/dsh-tool-jobs`。
+根据你是 Web UI 还是桌面端选取对应命令。若想从 GitHub 装，就换成 `github:ds-hu/dsh-collaborative-clarity`。没有构建步骤，运行时只有一个依赖（`markdown-it`）。非阻塞 round 还需要 profile 里有 `@deepseek-ai/dsh-tool-jobs`。
 
-版本还是 0.x。能用的部分都写下来了，不用猜：
-[06-implementation.md](docs/collaboration-draft/06-implementation.md) 列了验证过的界面和还
-缺的口子。
+## 更多参考
 
-<details>
-<summary>从旧的 <code>plugin/</code> 布局（≤ 0.1.0）升级？</summary>
-
-装好的 link 指向一个已经不存在的目录，先删再加：
-
-```powershell
-dsh plugin --profile web remove @ds-hu/dsh-collaborative-clarity
-dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity
-```
-
-</details>
-
-## 一个 round 会留下什么
-
-- **Round 记录**：结论、推荐，以及你接受的取舍。
-- **评论**：你指的是哪里，后来有没有解决。
-- **测试记录**：谁跑的，看到了什么。
-
-artifact 用完就扔。这个标签页不是文档仓库。
-
-## 继续读
-
-- [AGENTS.md](AGENTS.md)：架构、不能破的规矩、测试怎么跑。
-- [docs/collaboration-draft/](docs/collaboration-draft/README.md)：为什么做这个东西，六份文档
-  加一个 ADR。
-- [CHANGELOG.md](CHANGELOG.md)：每个版本改了什么。
+- [AGENTS.md](AGENTS.md): 架构、规矩、测试。
+- [docs/collaboration-draft/](docs/collaboration-draft/README.md): 本项目开发过程中开发者的想法。
+- [CHANGELOG.md](CHANGELOG.md): 版本更新日志。
 
 ---
 

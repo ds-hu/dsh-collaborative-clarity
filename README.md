@@ -9,109 +9,75 @@
   <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-5b4bd6" alt="DeepSeek Harness plugin">
 </p>
 
-*A right-sidebar tab where the agent shows you a decision instead of describing one — and
-waits, inside the tool call, until you have answered it.*
+**Work with the agent inside a right-sidebar tab: instead of a hundred lines of plan, you get the
+demo and the reasoning in front of you.**
+
+![The Clarity tab: two variants side by side, each card carrying its own recommendation and cost](docs/README_image.png)
 
 ## What goes wrong when you vibe code
 
-Handing the build to an agent is fast, and three things go wrong in the same way each time.
-None of them is a badly worded prompt; each is a missing object.
+Handing the build to an agent is fast, and three things go wrong every time.
 
-- **You meet the interface late.** The agent decides how a screen behaves, builds it, and you
-  see it when it is finished — so the disagreement arrives as rework. *A round puts the screen
-  in front of you before it is built.*
-- **The architecture becomes someone else's.** Hand the code over wholesale and you lose the
-  map: which choice is risky, what it costs, and why it was made stay invisible until a user
-  finds them for you. *A round carries the ten lines that matter, a recommendation, and what
-  that recommendation forecloses.*
-- **Green tests stand in for a real test.** A unit test asserts what its author imagined. The
-  repeated, hands-on checking a developer does while building does not survive as a test case.
-  *A round ends at a gate a human has to run.*
-
-This plugin supplies the object. The agent writes the smallest file that makes one decision
-concrete — a screen, a type, a function — opens it in the right sidebar, names the variant it
-recommends, and says what that choice forecloses. Then it waits.
-
-The unit of collaboration becomes a **round**: one decision, one artifact set, one wait, one
-record. Everything else here follows from that sentence.
+- **You cannot control the UI before it exists.** The agent decides on its own how a screen behaves;
+  when it is not what you pictured, the only way back is rework. **`clarity_round` puts the UI in
+  front of you before it is built, so you can point at what to change.**
+- **The architecture quietly becomes someone else's.** Hand the code over and the map goes with it:
+  which choice is risky, what it costs, why it was made — you learn all of that when a user does.
+  **`clarity_round` puts the reasoning, the cost, and the few lines of pseudocode that matter in
+  front of you, so the project stays yours.**
+- **The unit tests pass and it still breaks in production.** An agent writes unit tests well; what
+  it cannot do is the thing a developer does while building — run it, by hand, again and again.
+  **`clarity_test` makes sure a change went through your own test before it ships, and takes your
+  screenshots and notes when it did not.**
 
 ## Why it works
 
-**The artifact does not have to be your product.** HTML is the cheapest thing to render and the
-widest: a terminal, a diff, a table, a screen. A project that is not a web app can still be shown
-as one — at real size, without building a demo app in order to demo it. The file is evidence, not
-inventory.
+**HTML goes anywhere.** It is the cheapest thing to render and the widest: a terminal, a diff, a
+table, a screen. Parts that do not matter can be left out of the replica; what matters is having a
+picture of your own product before it is built.
 
-**The two halves are good at opposite things.** An agent is weak at long tool loops: every turn
-re-reads a growing context — a cache hit is a discount, not a refund — and drifts a little. It is
-very good at producing a whole screen in one pass. A person is the reverse: nobody writes a
-finished HTML page from nothing in one sitting, and nobody wants to rewrite one that already
-exists. The round spends the agent's first pass on the thing it is good at, and spends your
-attention on the judgement it cannot supply.
+**The two halves are good at opposite things.** Every extra turn makes an agent re-read a longer
+context and drift a little; what it does very well is produce a 20 KB HTML file in one pass. A
+person is the reverse: nobody writes a finished page from nothing in one sitting, and nobody wants
+to rewrite one that already exists. `clarity_round` spends the agent's pass on what it is good at,
+and your attention on the judgement it cannot supply.
 
-**And the last mile is a person.** Whatever ships ends up in front of a user, so somebody has to
-have used it first — on the real build, with their own eyes, before the user does. That is why the
-real test is a gate and not a checkbox.
+**A person has to sign off.** Whatever ships ends up in front of a user, so somebody has to have
+used it first — on the real build, with their own eyes, before the user does.
 
-## A round, end to end
+## `clarity_round`: a decision you can see
 
-1. **The agent puts the decision on screen.** Two variants at most, each a real file rather
-   than a description of one.
-2. **You point at what you disagree with.** Click an element, drag-select a phrase, or click a
-   line. The comment keeps its location, so "this label is wrong" arrives with the label
-   attached.
-3. **You decide.** Accept, revise, reject, or decide later. Your annotations and the chosen
-   variant come back to the agent as structured data, not prose it has to interpret.
-4. **The agent writes the decision down.** The verdict, the foreclosures you accepted, and
-   every comment still open land in the repository beside the artifact.
+1. **The agent puts the proposal on screen.** Two variants at most, each of them rendered rather
+   than described.
+2. **You mark what you disagree with.** Click an element, drag-select a phrase, or click a line. The
+   agent knows which part of the screen a note belongs to, so the fix lands where you meant it.
+3. **You decide before anything is implemented.** Accept, revise, or reject, until the direction is
+   unambiguous.
+4. **The agent implements the verdict.** After a round you already know what you are getting, so the
+   finished thing cannot blindside you.
 
-## The last step is a real test
+## `clarity_test`: a real test before it ships
 
-`clarity_test` opens the gate after the build. The agent records the build it has already run,
-hands you one command to bring the app up, and writes down a scenario of three to seven steps.
-You run it, you look, and you record what happened — pass, fail, or blocked — with screenshots
-when the words alone are ambiguous. Until then the change is *built*, not *tested*.
+`clarity_test` asks you to build the change and try it, tells you what passing looks like, and
+records what you found. When it does not pass, you answer with words and screenshots. Nothing ships
+without having been run by the person who asked for it.
 
 ## Install
 
 ```powershell
-dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity
+dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity      # web UI
+dsh plugin --profile desktop add @ds-hu/dsh-collaborative-clarity  # desktop
 ```
 
-Requires DeepSeek Harness with the web profile. From a checkout, add
-`link:D:/path/to/dsh-collaborative-clarity` instead; from GitHub,
-`github:ds-hu/dsh-collaborative-clarity`. There is no build step and one runtime dependency
+Pick the profile that matches your host. From GitHub, use
+`github:ds-hu/dsh-collaborative-clarity` instead. There is no build step and one runtime dependency
 (`markdown-it`). Non-blocking rounds also need `@deepseek-ai/dsh-tool-jobs` in the profile.
-
-The version is 0.x, and what works is written down rather than implied:
-[docs/collaboration-draft/06-implementation.md](docs/collaboration-draft/06-implementation.md)
-lists the verified surfaces and the remaining gaps.
-
-<details>
-<summary>Coming from the <code>plugin/</code> layout (≤ 0.1.0)?</summary>
-
-The installed link points at a directory that no longer exists, so remove and re-add:
-
-```powershell
-dsh plugin --profile web remove @ds-hu/dsh-collaborative-clarity
-dsh plugin --profile web add @ds-hu/dsh-collaborative-clarity
-```
-
-</details>
-
-## What a round leaves behind
-
-- **Round record** — the decision, the recommendation, and the foreclosures you accepted.
-- **Annotations** — what you pointed at, and whether it was resolved.
-- **Test record** — who ran the scenario, and what they saw.
-
-The artifact itself is disposable evidence. The tab is not a document store.
 
 ## Read more
 
-- [AGENTS.md](AGENTS.md) — the architecture, the invariants, and how to run the tests.
-- [docs/collaboration-draft/](docs/collaboration-draft/README.md) — why this exists, in six
-  documents and an ADR.
+- [AGENTS.md](AGENTS.md) — the architecture, the rules, the tests.
+- [docs/collaboration-draft/](docs/collaboration-draft/README.md) — what the author was thinking
+  while building it.
 - [CHANGELOG.md](CHANGELOG.md) — what each version changed.
 
 ---
