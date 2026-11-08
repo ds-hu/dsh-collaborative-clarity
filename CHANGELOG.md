@@ -84,6 +84,8 @@ build" — and the tab no longer owns a process at all. This is a breaking schem
   panel leaves the field out entirely when the box is blank. `fail` and `blocked` still refuse a blank
   one, with their own message. See `docs/collaboration-draft/rounds/0026-observation-optional`.
 
+Published to npm as `@ds-hu/dsh-collaborative-clarity@0.4.0`.
+
 ## 0.3.2 — 2026-10-31
 
 Markdown artifacts are parsed by `markdown-it` instead of a local subset, so a table now reaches
