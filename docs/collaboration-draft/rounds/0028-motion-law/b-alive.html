@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B · 起：到达也动</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    /* DSH aliases, light */
+    --bg:#fff; --layer1:#fff; --layer2:#fff;
+    --ink:#0f1115; --ink2:#61666b; --ink3:#81858c;
+    --line2:rgba(0,0,0,.102); --line3:rgba(0,0,0,.122);
+    --hover:rgba(38,49,72,.059);
+    --business:#4176e6; --error:#ec1313; --success:#22c55e;
+    /* the motion law, as tokens */
+    --d1:90ms; --d2:150ms; --d3:240ms;
+    --ease:cubic-bezier(.2,0,0,1);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151517; --layer1:#232324; --layer2:#2c2c2e;
+      --ink:#f9fafb; --ink2:#cfd3d6; --ink3:#adb2b8;
+      --line2:rgba(255,255,255,.122); --line3:rgba(255,255,255,.161);
+      --hover:rgba(255,255,255,.078);
+      --business:#7aaaff; --error:#f25a5a;
+    }
+  }
+
+  *{ box-sizing:border-box }
+  html,body{ margin:0 }
+  body{
+    background:var(--bg); color:var(--ink);
+    font:12px/18px var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{ max-width:392px; margin:0 auto; padding:10px 12px 0 }
+
+  /* the specimen note: not part of the panel */
+  .lede{
+    margin:0 0 10px; padding:6px 8px; border:.5px dashed var(--line3); border-radius:8px;
+    color:var(--ink3); font-size:10px; line-height:15px;
+  }
+  .lede b{ color:var(--ink2); font-weight:650; letter-spacing:.04em }
+  .replay{
+    margin-top:5px; font:inherit; font-size:10px; line-height:16px; padding:1px 8px;
+    border:.5px solid var(--line3); border-radius:99px; background:transparent;
+    color:var(--ink2); cursor:pointer;
+  }
+
+  /* ── the panel, as built today ───────────────────────────────────────── */
+  .panel{ display:flex; flex-direction:column; gap:10px }
+
+  .hdr{ display:flex; flex-direction:column; gap:6px }
+  .eyebrow{ color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.08em }
+  .title{ margin:0; font-size:16px; line-height:22px; font-weight:650 }
+  .ctx{ margin:0; color:var(--ink2) }
+
+  .abar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:6px 8px; background:var(--layer1);
+    border:.5px solid var(--line2); border-radius:12px;
+  }
+  .pill{
+    font:inherit; font-size:12px; line-height:18px; padding:2px 8px; border-radius:12px;
+    border:.5px solid var(--line2); background:var(--layer2); color:var(--ink); cursor:pointer;
+    transition:background-color var(--d2) var(--ease), border-color var(--d2) var(--ease), color var(--d2) var(--ease);
+  }
+  .pill[aria-pressed="true"]{ background:var(--ink); border-color:var(--ink); color:var(--bg); font-weight:600 }
+  .hint{ flex:1 1 130px; min-width:0; color:var(--ink2) }
+
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:8px }
+  .vcard{
+    display:flex; flex-direction:column; min-width:0; padding:0; overflow:hidden;
+    cursor:pointer; outline:none; background:var(--layer1);
+    border:.5px solid var(--line2); border-radius:12px;
+    transition:border-color var(--d2) var(--ease), box-shadow var(--d3) var(--ease), transform var(--d3) var(--ease);
+  }
+  .vcard.hover{ border-color:var(--line3) }
+  .vcard[aria-pressed="true"]{
+    border-color:var(--ink);
+    box-shadow:inset 0 0 0 1px var(--ink), 0 2px 10px -4px rgba(0,0,0,.3);
+    transform:translateY(-1px);
+  }
+  .vcard[aria-pressed="true"] .vhead{ background:var(--layer2) }
+  .vcard:focus-visible{ outline:1px solid var(--business); outline-offset:1px }
+
+  .vhead{
+    display:flex; align-items:center; gap:6px; padding:7px 8px; min-width:0;
+    border-bottom:.5px solid var(--line2);
+    transition:background-color var(--d2) var(--ease);
+  }
+  .radio{ flex:none; color:var(--ink); font-size:13px; line-height:13px }
+  .vcard[aria-pressed="true"] .radio{ animation:pop-dot var(--d3) var(--ease) both }
+  .vlabel{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .source{
+    padding:0 8px 5px; color:var(--ink3); font-family:var(--mono); font-size:10px; line-height:14px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .frame{ position:relative; height:150px; background:#fff; overflow:hidden }
+
+  /* the artifact drawn inside the viewport: always light, as the panel does */
+  .art{ height:100%; display:grid; place-items:center; padding:10px; color:#0f1115; font:12px/18px var(--sans) }
+  .art-card{ width:100%; padding:11px 12px; border:.5px solid rgba(0,0,0,.12); border-radius:12px; background:#fff }
+  .art-title{ font-size:13px; line-height:20px; font-weight:600 }
+  .art-sub{ margin-top:2px; color:#61666b; font-size:11px; line-height:16px }
+  .art-row{ display:flex; gap:6px; margin-top:8px }
+  .art-btn{ padding:3px 9px; border-radius:8px; border:.5px solid rgba(0,0,0,.12); font-size:11px; line-height:16px }
+  .art-btn.p{ background:#0f1115; border-color:#0f1115; color:#fff }
+
+  .advice{
+    display:flex; flex-direction:column; gap:2px; padding:6px 8px;
+    border-top:.5px solid var(--line2); font-size:10px; line-height:15px;
+  }
+  .arow{ display:flex; align-items:flex-start; gap:5px }
+  .alab{ flex:none; width:2.6em; font-weight:650; letter-spacing:.06em; color:var(--ink3) }
+  .alab.why{ color:var(--ink) }
+  .aval{ flex:1 1 0; min-width:0; color:var(--ink2) }
+
+  .fid{ display:flex; flex-direction:column; gap:2px; padding:6px 8px; color:var(--ink3); font-size:10px; line-height:15px }
+  .frow{ display:flex; align-items:flex-start; gap:5px }
+  .fdot{ flex:none; width:5px; height:5px; margin-top:5px; border-radius:50% }
+  .flab{ flex:none; width:2.6em; white-space:nowrap }
+
+  .section{ display:flex; flex-direction:column; gap:6px }
+  .stitle{ color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  .count{
+    display:inline-block; min-width:15px; padding:0 5px; margin-left:2px; border-radius:99px;
+    background:var(--layer2); border:.5px solid var(--line2); color:var(--ink2);
+    font-size:10px; line-height:14px; text-align:center; font-weight:650;
+  }
+
+  .crows{ display:flex; flex-direction:column; gap:4px }
+  .crow{
+    display:flex; gap:6px; align-items:flex-start; padding:5px 7px;
+    border:.5px solid var(--line2); border-radius:8px; background:var(--layer1); cursor:pointer;
+    transition:border-color var(--d2) var(--ease), background-color var(--d2) var(--ease);
+  }
+  .crow.new{ animation:rise-in var(--d3) var(--ease) both }
+  .crow.hover{ border-color:var(--line3); background:var(--layer2) }
+  .cmain{ display:flex; flex-direction:column; gap:1px; flex:1; min-width:0 }
+  .cmeta{ display:flex; align-items:baseline; gap:6px; flex-wrap:wrap }
+  .cvar{ flex:none; color:var(--ink); font-weight:600; font-size:10px; line-height:16px }
+  .canchor{ color:var(--ink3); font-size:10px; line-height:16px }
+  .ctext{ overflow-wrap:anywhere; white-space:pre-wrap }
+
+  .composer{ display:flex; gap:4px; align-items:flex-end; flex-wrap:wrap }
+  .chips{ display:flex; gap:4px; flex:none; padding-bottom:5px }
+  .chip{
+    font:inherit; font-size:11px; line-height:16px; padding:1px 8px; border-radius:99px;
+    border:.5px solid var(--line2); background:var(--layer2); color:var(--ink2); cursor:pointer;
+    transition:background-color var(--d2) var(--ease), border-color var(--d2) var(--ease), color var(--d2) var(--ease);
+  }
+  .chip[aria-pressed="true"]{ border-color:var(--ink); color:var(--ink); font-weight:600 }
+  textarea{
+    font:inherit; flex:1 1 150px; min-width:0; min-height:44px; resize:vertical;
+    padding:5px 7px; border:.5px solid var(--line2); border-radius:8px;
+    background:var(--bg); color:var(--ink); outline:none;
+    transition:border-color var(--d2) var(--ease), box-shadow var(--d2) var(--ease);
+  }
+  textarea::placeholder{ color:var(--ink3) }
+  textarea:focus{ border-color:var(--line3); box-shadow:0 0 0 1px var(--business) }
+
+  .btn{
+    font:inherit; font-size:12px; line-height:18px; padding:5px 10px; border-radius:12px;
+    border:.5px solid var(--line2); background:var(--layer2); color:var(--ink); cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px;
+    transition:background-color var(--d1) var(--ease), border-color var(--d1) var(--ease),
+               color var(--d1) var(--ease), opacity var(--d2) var(--ease), transform var(--d1) var(--ease);
+  }
+  .btn:hover:not(:disabled){ background:var(--hover) }
+  .btn.press{ transform:scale(.996) }
+  .btn:focus-visible{ outline:1px solid var(--business); outline-offset:1px }
+  .btn.primary{
+    position:relative; overflow:hidden;
+    background:var(--ink); border-color:var(--ink); color:var(--bg); font-weight:600;
+  }
+  .btn.primary:hover:not(:disabled){ background:var(--ink) }
+  .btn.danger{ color:var(--error) }
+  .btn:disabled{ opacity:.45; cursor:default }
+
+  .spin{
+    width:9px; height:9px; flex:none; border-radius:50%;
+    border:1.5px solid currentColor; border-right-color:transparent;
+    animation:spin .8s linear infinite; display:none;
+  }
+  .btn.primary.busy .spin{ display:inline-block }
+  .btn.primary.busy::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(100deg, transparent 24%, color-mix(in srgb, var(--bg) 26%, transparent) 50%, transparent 76%);
+    transform:translateX(-100%);
+    animation:sheen 1.2s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg) } }
+  @keyframes sheen{ to{ transform:translateX(100%) } }
+
+  /* the action bar: pinned, because the accept button must always be reachable */
+  .actions{
+    position:sticky; bottom:0; z-index:2;
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+    margin-top:2px; padding:8px 0 10px;
+    background:var(--bg); border-top:.5px solid var(--line2);
+  }
+  .sent{
+    display:flex; align-items:center; gap:6px; width:100%;
+    padding:8px 0 10px; border-top:.5px solid var(--line2);
+    color:var(--success); font-weight:600;
+  }
+  .sent small{ color:var(--ink2); font-weight:400 }
+  [hidden]{ display:none !important }
+
+  /* ── the arrival choreography: what this variant adds ────────────────── */
+  @keyframes rise-in{ from{ opacity:0; translate:0 6px } to{ opacity:1; translate:0 0 } }
+  @keyframes pop-dot{ from{ transform:scale(.55); opacity:.35 } to{ transform:scale(1); opacity:1 } }
+
+  .panel.play .hdr{ animation:rise-in var(--d3) var(--ease) both; animation-delay:0ms }
+  .panel.play .abar{ animation:rise-in var(--d3) var(--ease) both; animation-delay:40ms }
+  .panel.play .vcard[data-id="a"]{ animation:rise-in var(--d3) var(--ease) both; animation-delay:80ms }
+  .panel.play .vcard[data-id="b"]{ animation:rise-in var(--d3) var(--ease) both; animation-delay:120ms }
+  .panel.play .section:nth-of-type(1){ animation:rise-in var(--d3) var(--ease) both; animation-delay:160ms }
+  .panel.play .section:nth-of-type(2){ animation:rise-in var(--d3) var(--ease) both; animation-delay:200ms }
+  .panel.play .actions{ animation:rise-in var(--d3) var(--ease) both; animation-delay:240ms }
+
+  @media (prefers-reduced-motion: reduce){
+    .panel.play .hdr,.panel.play .abar,.panel.play .vcard,
+    .panel.play .section,.panel.play .actions,
+    .vcard[aria-pressed="true"] .radio,.crow.new{ animation:none !important }
+    .btn.primary.busy::after{ display:none }
+    .btn.press,.vcard[aria-pressed="true"]{ transform:none }
+  }
+
+  /* ── the spec sheet: what this variant promises ──────────────────────── */
+  .spec{ margin:14px 0 22px; padding-top:10px; border-top:.5px solid var(--line2) }
+  .spec h2{ margin:0 0 6px; font-size:10px; line-height:15px; font-weight:650; letter-spacing:.08em; color:var(--ink3) }
+  .spec table{ width:100%; border-collapse:collapse; font-size:10px; line-height:15px }
+  .spec th,.spec td{ text-align:left; padding:4px 6px; border-bottom:.5px solid var(--line2); vertical-align:top }
+  .spec th{ color:var(--ink3); font-weight:650 }
+  .spec td:first-child{ color:var(--ink) }
+  .spec td:nth-child(3),.spec td:nth-child(4){ font-family:var(--mono); color:var(--ink2); white-space:nowrap }
+  .spec tbody tr:last-child td{ border-bottom:0 }
+  .spec .none{ color:var(--ink3) }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="lede">
+    <b>SPECIMEN</b> · 每轮从头演：整块升起 → 悬停 → 选中 B → 插一条批注 → 按「接受」。
+    要手动点，先关掉「标注中」。视口画成 150px（真实 300px）。
+    <br><button class="replay" id="replay" type="button">重播到达</button>
+  </p>
+
+  <div class="panel" id="panel">
+    <header class="hdr">
+      <div class="eyebrow">决定</div>
+      <h1 class="title">空状态的主按钮，放「新建」还是「导入」？</h1>
+      <p class="ctx">首屏什么都没有的时候，这个按钮决定新用户的第一步。</p>
+    </header>
+
+    <div class="abar">
+      <button class="pill" id="annotate" type="button" aria-pressed="true">标注中</button>
+      <span class="hint">点一个元素、划一段文字，或者点代码里的某一行。</span>
+    </div>
+
+    <div class="cards" id="cards">
+      <article class="vcard" data-id="a" role="button" tabindex="0" aria-pressed="true">
+        <div class="vhead"><span class="radio">●</span><span class="vlabel">A · 新建打头</span></div>
+        <div class="source">docs/adr/0007-empty-state/a.html</div>
+        <div class="frame">
+          <div class="art"><div class="art-card">
+            <div class="art-title">还没有项目</div>
+            <div class="art-sub">先建一个，或者导入一份现成的。</div>
+            <div class="art-row"><span class="art-btn p">新建项目</span><span class="art-btn">导入</span></div>
+          </div></div>
+        </div>
+        <div class="advice">
+          <div class="arow"><span class="alab why">推荐</span><span class="aval">第一次来的人手里没有东西可导入，主按钮就该是新建。</span></div>
+          <div class="arow"><span class="alab">代价</span><span class="aval">想导入的人要多看一眼第二个按钮。</span></div>
+        </div>
+        <div class="fid">
+          <div class="frow"><span class="fdot" style="background:#22c55e"></span><span class="flab">真实</span><span>布局、文案</span></div>
+          <div class="frow"><span class="fdot" style="background:#d4a72c"></span><span class="flab">模拟</span><span>项目数据</span></div>
+          <div class="frow"><span class="fdot" style="background:#81858c"></span><span class="flab">省略</span><span>出错分支</span></div>
+        </div>
+      </article>
+
+      <article class="vcard" data-id="b" role="button" tabindex="0" aria-pressed="false">
+        <div class="vhead"><span class="radio">○</span><span class="vlabel">B · 导入打头</span></div>
+        <div class="source">docs/adr/0007-empty-state/b.html</div>
+        <div class="frame">
+          <div class="art"><div class="art-card">
+            <div class="art-title">还没有项目</div>
+            <div class="art-sub">先建一个，或者导入一份现成的。</div>
+            <div class="art-row"><span class="art-btn">新建项目</span><span class="art-btn p">导入</span></div>
+          </div></div>
+        </div>
+        <div class="advice">
+          <div class="arow"><span class="alab why">推荐</span><span class="aval">带东西来的人才是大多数，先让他看到自己有的那份。</span></div>
+          <div class="arow"><span class="alab">代价</span><span class="aval">空手来的人，第一步先撞一次墙。</span></div>
+        </div>
+        <div class="fid">
+          <div class="frow"><span class="fdot" style="background:#22c55e"></span><span class="flab">真实</span><span>布局、文案</span></div>
+          <div class="frow"><span class="fdot" style="background:#d4a72c"></span><span class="flab">模拟</span><span>项目数据</span></div>
+          <div class="frow"><span class="fdot" style="background:#81858c"></span><span class="flab">省略</span><span>出错分支</span></div>
+        </div>
+      </article>
+    </div>
+
+    <section class="section">
+      <div class="stitle">批注 <span class="count" id="count">2</span></div>
+      <div class="crows" id="crows">
+        <div class="crow">
+          <div class="cmain">
+            <div class="cmeta"><span class="cvar">A</span><span class="canchor">元素 · 新建项目</span></div>
+            <span class="ctext">主按钮的文案带上「项目」两个字，和下面的导航对不上。</span>
+          </div>
+        </div>
+        <div class="crow">
+          <div class="cmain">
+            <div class="cmeta"><span class="cvar">B</span><span class="canchor">“导入”</span></div>
+            <span class="ctext">这里换成「打开已有」，和菜单里那条一致。</span>
+          </div>
+        </div>
+      </div>
+      <div class="composer">
+        <div class="chips">
+          <button class="chip" type="button" aria-pressed="true" data-variant="a">A</button>
+          <button class="chip" type="button" aria-pressed="false" data-variant="b">B</button>
+        </div>
+        <textarea rows="2" placeholder="要改什么？（Ctrl+Enter 添加）"></textarea>
+        <button class="btn" type="button">添加</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="stitle">给 agent 的话（可选）</div>
+      <textarea rows="2" placeholder="一句话，让 agent 带进实现里。"></textarea>
+    </section>
+
+    <div class="actions" id="actions">
+      <button class="btn primary" id="accept" type="button"><span class="spin"></span><span class="label">接受 A</span></button>
+      <button class="btn" type="button" id="revise">继续修改 A</button>
+      <button class="btn danger" type="button">都不要 A&amp;B</button>
+      <button class="btn" type="button">取消这一轮</button>
+    </div>
+
+    <div class="sent" id="sent" hidden>决定已经发给 agent。 <small>可以关掉这个标签页了。</small></div>
+  </div>
+
+  <section class="spec">
+    <h2>B · 起 —— 动效清单（A 的每一行都在，另加下表）</h2>
+    <table>
+      <thead><tr><th>什么时候</th><th>动什么</th><th>时长</th><th>位移</th></tr></thead>
+      <tbody>
+        <tr><td>新的一轮到达</td><td>头、标注条、两张卡、批注区、操作条依次升起</td><td>240ms<br>+40ms 一档</td><td>6px</td></tr>
+        <tr><td>选中变体</td><td>描边 + 上浮 + 一层软阴影</td><td>240ms</td><td>1px</td></tr>
+        <tr><td>选中变体</td><td>那个圆点从 55% 弹到 100%</td><td>240ms</td><td class="none">没有</td></tr>
+        <tr><td>按下按钮</td><td>缩到 99.6%</td><td>90ms</td><td>0.4%</td></tr>
+        <tr><td>加一条批注</td><td>这一行从下面 4px 升上来</td><td>240ms</td><td>4px</td></tr>
+        <tr><td>按「接受」</td><td>按钮上一道扫光，1.2 秒一轮</td><td>1.2s</td><td>扫过</td></tr>
+        <tr><td>系统要求减弱动效</td><td>上面这些全关，转圈留下</td><td class="none">—</td><td class="none">—</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  var panel = document.getElementById('panel')
+  var cards = [].slice.call(document.querySelectorAll('.vcard'))
+  var accept = document.getElementById('accept')
+  var label = accept.querySelector('.label')
+  var revise = document.getElementById('revise')
+  var actions = document.getElementById('actions')
+  var sent = document.getElementById('sent')
+  var chips = [].slice.call(document.querySelectorAll('.chip'))
+  var count = document.getElementById('count')
+  var crows = document.getElementById('crows')
+  var replay = document.getElementById('replay')
+  var timers = []
+
+  function wait(ms) {
+    return new Promise(function (resolve) {
+      timers.push(setTimeout(resolve, ms))
+    })
+  }
+
+  function clearAll() {
+    timers.forEach(clearTimeout)
+    timers = []
+  }
+
+  function arrive() {
+    panel.classList.remove('play')
+    void panel.offsetWidth
+    panel.classList.add('play')
+  }
+
+  function select(id) {
+    cards.forEach(function (card) {
+      var on = card.dataset.id === id
+      card.setAttribute('aria-pressed', on ? 'true' : 'false')
+      card.querySelector('.radio').textContent = on ? '●' : '○'
+    })
+    label.textContent = '接受 ' + id.toUpperCase()
+    revise.textContent = '继续修改 ' + id.toUpperCase()
+  }
+
+  function insertComment() {
+    var row = document.createElement('div')
+    row.className = 'crow new'
+    row.innerHTML =
+      '<div class="cmain"><div class="cmeta"><span class="cvar">B</span>' +
+      '<span class="canchor">第 12 行</span></div>' +
+      '<span class="ctext">这一屏在 360px 下按钮换行了，收一下内边距。</span></div>'
+    crows.appendChild(row)
+    count.textContent = String(crows.querySelectorAll('.crow').length)
+    setTimeout(function () { row.classList.remove('new') }, 400)
+  }
+
+  function reset() {
+    clearAll()
+    panel.classList.remove('play')
+    cards.forEach(function (card) { card.classList.remove('hover') })
+    accept.classList.remove('busy', 'press')
+    accept.disabled = false
+    actions.hidden = false
+    sent.hidden = true
+    while (crows.querySelectorAll('.crow').length > 2) crows.lastElementChild.remove()
+    count.textContent = String(crows.querySelectorAll('.crow').length)
+    chips[0].setAttribute('aria-pressed', 'true')
+    chips[1].setAttribute('aria-pressed', 'false')
+    select('a')
+  }
+
+  async function cycle() {
+    reset()
+    arrive()
+    await wait(820)
+    cards[1].classList.add('hover')
+    await wait(700)
+    cards[1].classList.remove('hover')
+    select('b')
+    await wait(760)
+    insertComment()
+    await wait(900)
+    accept.classList.add('press')
+    await wait(110)
+    accept.classList.remove('press')
+    accept.classList.add('busy')
+    accept.disabled = true
+    label.textContent = '发送中…'
+    await wait(1200)
+    actions.hidden = true
+    sent.hidden = false
+    await wait(1800)
+    if (document.visibilityState === 'visible') cycle()
+    else setTimeout(cycle, 600)
+  }
+
+  cards.forEach(function (card) {
+    card.addEventListener('click', function () {
+      if (!accept.disabled && !actions.hidden) select(card.dataset.id)
+    })
+    card.addEventListener('mouseenter', function () { card.classList.add('hover') })
+    card.addEventListener('mouseleave', function () { card.classList.remove('hover') })
+  })
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      chips.forEach(function (other) {
+        other.setAttribute('aria-pressed', other === chip ? 'true' : 'false')
+      })
+    })
+  })
+  replay.addEventListener('click', arrive)
+
+  cycle()
+})()
+</script>
+</body>
+</html>

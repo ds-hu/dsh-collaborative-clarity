@@ -47,7 +47,7 @@ function fakeStorage() {
   }
 }
 
-function loadClient(ReactOverride, fetchImpl, storage) {
+function loadClient(ReactOverride, fetchImpl, storage, documentImpl) {
   let registration
   const sandbox = {
     window: {
@@ -63,6 +63,9 @@ function loadClient(ReactOverride, fetchImpl, storage) {
     console,
     fetch: fetchImpl || (async () => ({ ok: true, json: async () => ({}) })),
   }
+  // A test that leaves this out is a host with no `document`: the panel must run
+  // there too, so nothing may touch it unguarded.
+  if (documentImpl) sandbox.document = documentImpl
   vm.runInNewContext(code, sandbox, { filename: 'client.js' })
   assert.ok(registration, 'the bundle registers itself')
   assert.equal(registration.id, '@ds-hu/dsh-collaborative-clarity')
@@ -1546,5 +1549,274 @@ test('the chat row is contributed where the chat exists, and nowhere else', () =
   assert.equal(calls.nodes.length, 1, 'the renderer is registered for the kind the definition emits')
   assert.equal(calls.nodes[0].options.key, 'clarity-decision')
   assert.equal(calls.registered.length, 1, 'the tab is registered with or without the chat')
+})
+
+/** A document that records what the plugin puts in its head. */
+function fakeDocument() {
+  const head = {
+    children: [],
+    appendChild(node) {
+      this.children.push(node)
+    },
+  }
+  return {
+    head,
+    doc: {
+      head,
+      getElementById(id) {
+        return head.children.find((node) => node.id === id) ?? null
+      },
+      createElement(tag) {
+        return {
+          tagName: String(tag).toUpperCase(),
+          id: '',
+          textContent: '',
+          remove() {
+            const at = head.children.indexOf(this)
+            if (at !== -1) head.children.splice(at, 1)
+          },
+        }
+      },
+    },
+  }
+}
+
+test('the motion stylesheet goes in once, and only where there is a document', () => {
+  const { doc, head } = fakeDocument()
+
+  // Without a document — a test host, an older embedding — apply must still work.
+  const bare = loadClient()
+  bare.apply(makeCtx().ctx)
+  assert.equal(head.children.length, 0, 'nothing outside a browser gets a stylesheet')
+
+  const client = loadClient(undefined, undefined, undefined, doc)
+  const { ctx } = makeCtx()
+  client.apply(ctx)
+  client.apply(ctx)
+
+  assert.equal(head.children.length, 1, 'a second activation adds no second sheet')
+  assert.equal(head.children[0].tagName, 'STYLE')
+  const rules = head.children[0].textContent
+  assert.match(rules, /prefers-reduced-motion/, 'the system preference is obeyed')
+  assert.match(rules, /clarity-arrival/, 'the entrance is declared')
+  assert.match(rules, /--clarity-ease/, 'the timings are tokens, not numbers scattered through the rules')
+  assert.match(rules, /\[role=button\]:focus-visible\{outline:1px solid/, 'the card gets a ring of its own')
+})
+
+test('every class and keyframe in the sheet is namespaced', () => {
+  // The sheet reaches the whole page for as long as the plugin is applied, so a bare
+  // `.row` or a bare `rise` would be a collision waiting to happen.
+  const { doc, head } = fakeDocument()
+  loadClient(undefined, undefined, undefined, doc).apply(makeCtx().ctx)
+  const rules = head.children[0].textContent
+
+  const classes = [...new Set(rules.match(/\.[a-zA-Z][\w-]*/g) || [])]
+  assert.ok(classes.includes('.clarity-scope'), 'the sheet has selectors to check')
+  assert.ok(classes.length >= 6, 'and it has more than the scope itself')
+  for (const token of classes) {
+    assert.ok(token.startsWith('.clarity-'), `a class in the sheet is not namespaced: ${token}`)
+  }
+  const cut = [...new Set(rules.match(/@keyframes\s+([\w-]+)/g) || [])]
+  assert.ok(cut.length > 0, 'the sheet declares its keyframes')
+  for (const token of cut) {
+    const name = token.split(/\s+/)[1]
+    assert.ok(name.startsWith('clarity-'), `a keyframe is not namespaced: ${name}`)
+  }
+})
+
+test('a hot reload cannot take the stylesheet away from the instance using it', () => {
+  const { doc, head } = fakeDocument()
+  const activate = (client) => {
+    const disposers = []
+    const { ctx } = makeCtx()
+    ctx.effect = (fn) => {
+      const dispose = fn()
+      disposers.push(typeof dispose === 'function' ? dispose : () => {})
+      return dispose
+    }
+    client.apply(ctx)
+    return disposers
+  }
+
+  // A reload evaluates a fresh bundle, so a counter that lived in that bundle's scope
+  // would not be shared with the instance the page is still running on.
+  const older = activate(loadClient(undefined, undefined, undefined, doc))
+  const newer = activate(loadClient(undefined, undefined, undefined, doc))
+
+  assert.equal(head.children.length, 1, 'the reload reuses the sheet already on the page')
+  older[0]() // the old instance goes away, after the new one is already up
+  assert.equal(head.children.length, 1, 'without taking the live instance’s sheet with it')
+  newer[0]()
+  assert.equal(head.children.length, 0, 'the last one out removes it')
+})
+
+test('the decision bar is pinned, and the card’s states belong to the stylesheet', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const props = { round: editableRound(), sent: null, onSent() {} }
+  const tree = runtime.render(client.__test.DecisionView, props)
+
+  const bar = findNode(tree, (node) => node.props && node.props.style && node.props.style.position === 'sticky')
+  assert.ok(bar, 'the decision bar sticks to the bottom of the pane')
+  assert.equal(bar.props.style.bottom, 0, 'it holds the bottom edge')
+
+  const card = findNode(tree, (node) => node.props && node.props.role === 'button')
+  assert.equal(card.props.className, 'clarity-card', 'the selected card is drawn by the stylesheet')
+  assert.equal(card.props.style.transform, undefined, 'no inline transform for the stylesheet to fight')
+  assert.equal(card.props.style.outline, undefined, 'and no inline outline to suppress the focus ring')
+  assert.equal(card.props.style.boxShadow, undefined, 'no inline ring either')
+})
+
+test('the variant a comment belongs to is a chip, and the chip decides it', async () => {
+  const runtime = statefulReact()
+  const bodies = []
+  const client = loadClient(runtime.React, async (path, init) => {
+    bodies.push({ path, body: JSON.parse(init.body) })
+    return { ok: true, json: async () => ({ ok: true, result: { verdict: 'revise' } }) }
+  })
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = runtime.render(client.__test.DecisionView, props)
+  const chips = buttonsNamed(tree, 'B')
+  assert.equal(chips.length, 1, 'the other variant is one button, not a dropdown')
+  assert.equal(chips[0].props['aria-pressed'], false)
+  click(chips[0])
+
+  tree = runtime.render(client.__test.DecisionView, props)
+  assert.equal(buttonsNamed(tree, 'B')[0].props['aria-pressed'], true, 'the chip is the choice')
+
+  tree = addComment(runtime, client, props, 'Name it.')
+  // The card still says A: the chip decides which variant the comment belongs to,
+  // which is a separate choice from which one the round selects.
+  await click(buttonsNamed(tree, 'Revise A')[0])
+
+  assert.equal(bodies.length, 1)
+  assert.equal(bodies[0].body.comments[0].variantId, 'b', 'the comment went to the variant the chip named')
+})
+
+test('an empty comment list is the composer, not a paragraph about it', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const props = { round: editableRound(), sent: null, onSent() {} }
+  const tree = runtime.render(client.__test.DecisionView, props)
+
+  assert.equal(textOf(tree).includes('No comments yet'), false, 'the empty list adds no prose')
+  assert.ok(composerOf(tree), 'the composer itself is the invitation')
+})
+
+test('only the row this session added rises into place', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React)
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  addComment(runtime, client, props, 'First thing.')
+  const tree = addComment(runtime, client, props, 'Second thing.')
+  const rows = []
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child)
+      return
+    }
+    if (node.props && node.props.className === 'clarity-row') rows.push(node)
+    for (const child of node.children || []) walk(child)
+  }
+  walk(tree)
+
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].props['data-new'], undefined, 'the row that was already there sits still')
+  assert.equal(rows[1].props['data-new'], 'true', 'the row just added arrives')
+})
+
+test('a working button is not drawn as an unavailable one', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React, () => new Promise(() => {}))
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = runtime.render(client.__test.DecisionView, props)
+  const rest = buttonsNamed(tree, 'Accept A')[0]
+  assert.ok(
+    findNode(rest, (node) => node.props && node.props.className === 'clarity-spin'),
+    'the spinner’s box exists at rest, so the width cannot change when it starts',
+  )
+
+  rest.props.onClick()
+  tree = runtime.render(client.__test.DecisionView, props)
+
+  const busy = findNode(tree, (node) => node.type === 'button' && node.props['data-busy'] === 'true')
+  assert.ok(busy, 'the pressed button says it is working')
+  assert.equal(busy.props.disabled, true, 'and is locked while it works')
+  // The disabled style it would otherwise carry is inline, so the exemption has to be
+  // inline too: a stylesheet rule cannot reach an inline declaration.
+  assert.equal(busy.props.style.opacity, undefined, 'no 0.45 opacity that would read as unavailable')
+  assert.equal(busy.props.style.cursor, 'progress', 'the cursor says which one is in flight')
+  assert.equal(textOf(busy), 'Accept A', 'the label still says what is being sent, not a shorter one')
+})
+
+test('the decision bar reports the verb you pressed, not the accept button', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React, () => new Promise(() => {}))
+  const props = { round: editableRound(), sent: null, onSent() {} }
+
+  let tree = addComment(runtime, client, props, 'Name it.')
+  buttonsNamed(tree, 'Revise A')[0].props.onClick()
+  tree = runtime.render(client.__test.DecisionView, props)
+
+  const working = (label) => buttonsNamed(tree, label)[0].props['data-busy'] === 'true'
+  assert.equal(working('Revise A'), true, 'the verb you pressed is the one that says it is working')
+  assert.equal(working('Accept A'), false, 'and the accept button does not claim a send nobody asked for')
+  assert.equal(textOf(buttonsNamed(tree, 'Accept A')[0]), 'Accept A')
+})
+
+test('a sheet left by an earlier bundle is refreshed in place', () => {
+  const { doc, head } = fakeDocument()
+  // The state a hot reload produces: the previous bundle's node is already on the page.
+  const stale = doc.createElement('style')
+  stale.id = 'clarity-motion'
+  stale.textContent = '/* an earlier bundle */'
+  head.appendChild(stale)
+
+  loadClient(undefined, undefined, undefined, doc).apply(makeCtx().ctx)
+
+  assert.equal(head.children.length, 1, 'the node is reused, not duplicated')
+  assert.equal(head.children[0].textContent.includes('an earlier bundle'), false, 'its rules are this bundle’s')
+  assert.match(head.children[0].textContent, /clarity-arrival/)
+})
+
+test('the test bar says which verb is working, and only that one', () => {
+  const runtime = statefulReact()
+  const client = loadClient(runtime.React, () => new Promise(() => {}))
+  const round = {
+    id: 't1',
+    kind: 'test',
+    sessionId: 'session-1',
+    candidate: '4f2a1c9',
+    prepared: { command: 'pnpm build', exitCode: 0, builtAt: 1 },
+    runThis: null,
+    scenario: {
+      preconditions: ['signed in'],
+      steps: ['open'],
+      expected: ['one toast'],
+      failureSignature: 'two toasts',
+      rollback: 'none',
+    },
+    status: 'open',
+    createdAt: 1,
+  }
+  const props = { round, sent: null, onSent() {} }
+  const byLabel = (tree, label) =>
+    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+
+  let tree = runtime.render(client.__test.TestView, props)
+  byLabel(tree, 'I’m ready to test').props.onClick()
+  tree = runtime.render(client.__test.TestView, props)
+  byLabel(tree, 'Pass').props.onClick()
+  tree = runtime.render(client.__test.TestView, props)
+
+  const working = (label) => byLabel(tree, label).props['data-busy'] === 'true'
+  assert.equal(working('Pass'), true, 'the pressed verb says it is working')
+  assert.equal(working('Fail'), false, 'the others do not claim to be')
+  assert.equal(working('Cancel this test'), false)
+  assert.equal(byLabel(tree, 'Pass').props.style.opacity, undefined, 'and it is not greyscaled either')
 })
 

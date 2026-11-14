@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased
+
+The panel moves. Round 0028 settled the law: a new round rises into place once, and every other
+animation is a reply to something you did — a hover, a press, a comment you just added.
+
+- The whole motion law lives in one stylesheet injected once (`client.js`, `#clarity-motion`): 90 /
+  150 / 240ms on a single curve, with `prefers-reduced-motion: reduce` collapsing all three to 1ms and
+  turning the entrance off. It is a stylesheet and not inline styles because `:hover`,
+  `:focus-visible`, `::after` and `@keyframes` cannot be expressed in a style object — and because the
+  selected card's ring, lift and header tint should not be able to drift from the card that draws them.
+- The decision bar pins to the bottom of the pane (`position: sticky`), so accepting no longer depends
+  on how much advice a variant carries. A scroll root with no bar keeps its own bottom padding.
+- The variant a comment belongs to is an A/B chip instead of a dropdown, the comments heading counts
+  its rows, and an empty list draws no paragraph about being empty: the annotation bar and the composer
+  already say how a comment starts. `comments.empty` is gone from both dictionaries.
+- The accept button keeps its label and its width while it works: the spinner's box sits there at rest
+  and only its ink appears, so the bar cannot rewrap under the pointer. A sheen and full opacity say
+  "working" where the disabled style would say "unavailable". The bar reports the verb you pressed and
+  only that one — pressing Revise no longer makes Accept spin — and the test gate's three verbs behave
+  the same way.
+- Two defects the first pass shipped are fixed, both found by review. The busy button's exemption
+  from the disabled greying was a stylesheet rule that an inline declaration outranked, so it is said
+  inline now; and the variant card's focus ring could not paint at all, because the card carried its
+  own `outline: none` — a keyboard user had no focus indicator on the panel's primary control. Every
+  class and keyframe in the injected sheet is now namespaced `clarity-*` and scoped under
+  `.clarity-scope`, and the sheet is refcounted so a hot reload cannot take it away from the instance
+  that is still using it.
+- A second review found four more, all fixed: a text field's focus border could never darken (the inline
+  `border` shorthand outranked the rule), a reused `#clarity-motion` node kept the previous bundle's
+  rules after a hot reload, and the "keeps its width" claim above was false until the label stopped
+  being replaced.
+- See `docs/collaboration-draft/rounds/0028-motion-law`.
+
 ## 0.4.0 — 2026-11-08
 
 `clarity_test` takes a **prepared** build and an optional **command to run** instead of a "cold

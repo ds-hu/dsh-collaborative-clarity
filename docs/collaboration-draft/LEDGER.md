@@ -38,6 +38,7 @@ through the plugin. The plugin's verified scope is in
 | D27 | A decided round also leaves one right-aligned row in the transcript — decision sentence, verdict, every comment with its anchor, the note — projected from its own `tool/call` and `tool/result`, never from the plugin store; only accept/revise/reject draw it | tested | [Round 0021](rounds/0021-decision-bubble/round.md); real test `clarity-test-mw64t9es-706efa` (pass); 83 tests |
 | D28 | A settled real test draws the same kind of row: candidate, `Passed`/`Failed`/`Blocked`, the observation, and one line of screenshot file names — each name carrying its path in the title and opening that image in the right Sidebar | tested | [Rounds 0022–0025](rounds/0025-shots-one-line/round.md); real test `clarity-test-mw694ijz-304c8d` (pass; the name opened the image in the Sidebar); 85 tests |
 | D29 | A `pass` and a `cancel` need no observation: the route reads an empty **or blank** string as none, and the panel omits the field unless the box holds something — `fail` and `blocked` still refuse a blank one | tested | [Round 0026](rounds/0026-observation-optional/round.md), completed by [0027](rounds/0027-review-fixes/round.md); real tests `clarity-test-mw6hqby4-2df8c9` (fail, the bug) → `clarity-test-mw6ijiwp-06a9ae` (pass, empty box) → `clarity-test-mw6mkx9l-2debcf` (pass, a space in the box); 90 tests |
+| D30 | 面板的动效边界：只有用户触发的状态才动，还是新的一轮到达时也动？B 被选中——到达升起（每 40ms 一档、240ms 落定）+ 一份 90/150/240ms 的时长阶梯与一条曲线，另加吸底操作条、A/B 徽章、空批注区不画散文 | tested | [Round 0028](rounds/0028-motion-law/round.md); tool round `clarity-mwccv0ad-170d4d`; real test `clarity-test-mwcy7vn3-1e77f7` (pass); 101 tests |
 
 ## Round ledger
 
@@ -63,6 +64,7 @@ A real round appends one row.
 | 2026-11-07 | [0022–0025](rounds/0025-shots-one-line/round.md) | 测试的结论要不要也留一条气泡 → 截图怎么落地 → 那一行里写什么 | revise ×3, accept + pass | B‴（一行文件名，点了在右侧栏开图） | 气泡里没有完整路径；三张起换行；文件名不说明是哪一轮 | [chain](rounds/0025-shots-one-line/round.md); tool rounds `clarity-mw66mi1v-650bab` → `clarity-mw67hsvn-28498a`; real test `clarity-test-mw694ijz-304c8d`; 85 tests | tested |
 | 2026-11-07 | [0026](rounds/0026-observation-optional/round.md) | 通过时到底要不要写观察 | 指令 + 真机 fail → 修 → 真机 pass | 两侧都改：宿主把空串当「没有」，面板干脆不发 | 空观察的气泡没有观察段；文案仍像必填；`blocked` 仍无按钮 | [round](rounds/0026-observation-optional/round.md); real tests `clarity-test-mw6hqby4-2df8c9`（fail，抓到 bug）→ `clarity-test-mw6ijiwp-06a9ae`（pass，空观察）; 87 tests | tested |
 | 2026-11-08 | [0027](rounds/0027-review-fixes/round.md) | 复查提的三个缺陷（空白串仍拦、CHANGELOG 自相矛盾、英文剪贴板混进全角冒号） | 修 + 真机 pass | 空白按 trim 判定；CHANGELOG 限定到决定行；`bubble.noteLine` | 空白串算「没写」；重复文案键一并删掉并加断言 | [round](rounds/0027-review-fixes/round.md); real test `clarity-test-mw6mkx9l-2debcf`（pass，空白观察）; 90 tests; 四条 mutation 验过 | tested |
+| 2026-11-12 | [0028](rounds/0028-motion-law/round.md) | 面板的动效收到什么程度：只在你动手时动，还是新的一轮到达时也动？ | accept | B（到达也动），拒绝了推荐 A | 「读的时候面板是静止的」；换来的是每轮 240ms 的升起，以及第一帧在动效里完成的那两块 iframe | [round](rounds/0028-motion-law/round.md); tool round `clarity-mwccv0ad-170d4d`; acceptance round `clarity-mwcy6xp7-4e7d8d`; real test `clarity-test-mwcy7vn3-1e77f7` (pass); 复查两轮（五条 + 四条）全部成立并修掉，七条反向验过; 101 tests | tested |
 
 ## What would move a row
 

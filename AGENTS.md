@@ -100,6 +100,26 @@ the obstacle.
   drag-select text, or click a line in a `<pre>`. A range needs **Annotate** again and a
   Shift-click on the second line. After a click the target keeps a 2px outline and annotation
   turns off, so the artifact is released for normal clicking.
+- **Motion.** One stylesheet, injected once under `#clarity-motion` and refcounted so a hot reload's
+  overlapping instances never take it away from the live one; `apply` installs it, and a host without a
+  `document` is skipped. Every selector is prefixed and every rule but `.clarity-scope` itself is scoped
+  under it, keyframes included — the sheet reaches the whole page. `.clarity-scope` on the scroll root
+  carries three duration tokens (90 / 150 / 240ms) and one curve; the classes carry what an inline style
+  object cannot — `:hover`, `:focus-visible`, `::after`, `@keyframes`. The entrance is
+  `.clarity-arrival > *`, and the root's `key` is the round id, so it plays once per round and never on a
+  re-render. **An inline declaration beats any selector**, so anything a state must beat is said inline
+  or with `!important`, and a state that *is* inline (the disabled greying) is exempted inline too: the
+  selected card's ring lives in the sheet (its border rule is `!important`), the card carries no inline
+  `outline` (it would kill the focus ring and the browser's), and a working button is styled inline
+  because it is also `disabled`. Only the verb you pressed says it is working (`pending === verdict`,
+  never one shared boolean — that made Accept spin for a Revise), and the primary's spinner box exists
+  at rest so a send cannot change the bar's width. The sheet's *content* is rewritten on every `apply`,
+  so a hot-reloaded bundle never serves the previous bundle's rules. `data-tone="primary"` marks a
+  filled primary button so the hover knows which one it is, and the wash is an inset shadow so it
+  lands whatever the fill is.
+  `prefers-reduced-motion: reduce` collapses the tokens to 1ms and turns every animation off except the
+  spinner. The law itself is round 0028's: **a new round arrives with motion; everything else moves
+  because you did something.**
 - **The decision row.** `decisionNode` is a `ConversationNodeDefinition` registered through
   `ctx.uiConversation.events.register` — the seam `ask_user_question` uses for its answered
   batches — and `DecisionBubble` occupies the keyed `conversation.chat.node` slot under

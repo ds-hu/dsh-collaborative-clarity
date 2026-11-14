@@ -16,6 +16,124 @@ window.__ModuleLoader__.load({
     const FONT = 'var(--dsw-font-family, ui-sans-serif, system-ui, "Segoe UI", sans-serif)'
     const MONO = 'var(--ds-font-family-code, ui-monospace, Consolas, monospace)'
 
+    // Everything the panel needs from CSS is interaction and time: hover, focus,
+    // press, the entrance, and the one curve they share. None of it fits an inline
+    // style object, so it lives in one stylesheet injected once. Round 0028 settled
+    // the law: a new round rises into place, every other animation is a reply to
+    // something the user did.
+    //
+    // The sheet reaches the whole page for as long as the plugin is applied, so every
+    // selector is prefixed and every rule but the scope itself is scoped: a `.row` or
+    // a `rise` of someone else's must never be touched by it.
+    const STYLE_ID = 'clarity-motion'
+    const STYLE_RULES = `
+.clarity-scope{--clarity-d1:90ms;--clarity-d2:150ms;--clarity-d3:240ms;--clarity-ease:cubic-bezier(.2,0,0,1)}
+@media (prefers-reduced-motion:reduce){.clarity-scope{--clarity-d1:1ms;--clarity-d2:1ms;--clarity-d3:1ms}}
+
+/* One timing law for every control in the panel. */
+.clarity-scope button,.clarity-scope input,.clarity-scope textarea,.clarity-scope select{
+  transition:background-color var(--clarity-d1) var(--clarity-ease),border-color var(--clarity-d1) var(--clarity-ease),color var(--clarity-d1) var(--clarity-ease),box-shadow var(--clarity-d2) var(--clarity-ease),opacity var(--clarity-d2) var(--clarity-ease),transform var(--clarity-d1) var(--clarity-ease)}
+.clarity-scope button:active:not(:disabled){transform:scale(.996)}
+.clarity-scope button:focus-visible,.clarity-scope [role=button]:focus-visible{outline:1px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}
+.clarity-scope input:focus,.clarity-scope textarea:focus{outline:none;border-color:var(--dsw-alias-border-l4)!important;box-shadow:0 0 0 1px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
+@media (hover:hover){
+  /* An inset wash, not a background: it lands on any button whatever its own fill
+     is, and never has to beat an inline style to be seen. */
+  .clarity-scope button:hover:not(:disabled){box-shadow:inset 0 0 0 999px var(--dsw-alias-interactive-bg-hover)}
+  .clarity-scope button[data-tone='primary']:hover:not(:disabled){box-shadow:none;opacity:.92}
+}
+
+/* The variant card: the selected one lifts, and the radio settles into it. */
+.clarity-scope .clarity-card{transition:border-color var(--clarity-d2) var(--clarity-ease),box-shadow var(--clarity-d3) var(--clarity-ease),transform var(--clarity-d3) var(--clarity-ease)}
+.clarity-scope .clarity-card[aria-pressed='true']{border-color:var(--dsw-alias-label-primary)!important;box-shadow:inset 0 0 0 1px var(--dsw-alias-label-primary),0 2px 10px -4px rgb(0 0 0 / 30%);transform:translateY(-1px)}
+@media (hover:hover){.clarity-scope .clarity-card:hover:not([aria-pressed='true']){border-color:var(--dsw-alias-border-l4)}}
+.clarity-scope .clarity-vhead{transition:background-color var(--clarity-d2) var(--clarity-ease)}
+.clarity-scope .clarity-card[aria-pressed='true'] .clarity-vhead{background:var(--dsw-alias-bg-layer-2)}
+.clarity-scope .clarity-card[aria-pressed='true'] .clarity-radio{animation:clarity-pop var(--clarity-d3) var(--clarity-ease) both}
+@keyframes clarity-pop{from{transform:scale(.55);opacity:.35}to{transform:scale(1);opacity:1}}
+
+/* The entrance: once per round, in reading order. The root carries the key and the
+   class together, so a re-render does not replay it and a new round does. */
+@keyframes clarity-rise{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}
+.clarity-scope.clarity-arrival > *{animation:clarity-rise var(--clarity-d3) var(--clarity-ease) both}
+.clarity-scope.clarity-arrival > *:nth-child(2){animation-delay:40ms}
+.clarity-scope.clarity-arrival > *:nth-child(3){animation-delay:80ms}
+.clarity-scope.clarity-arrival > *:nth-child(4){animation-delay:120ms}
+.clarity-scope.clarity-arrival > *:nth-child(n+5){animation-delay:160ms}
+
+/* Sending: the button says it is working once, not twice. Its own inline style says
+   so too — full opacity and a progress cursor — because an inline style is the only
+   thing that can beat the disabled style the same button carries. */
+.clarity-scope button[data-busy='true']{position:relative;overflow:hidden}
+.clarity-scope button[data-busy='true']::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 24%,color-mix(in srgb,var(--dsw-alias-bg-base) 26%,transparent) 50%,transparent 76%);animation:clarity-sheen 1.2s linear infinite}
+@keyframes clarity-sheen{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+/* The spinner's box exists at rest and only its ink is hidden, so the primary button
+   is the same width before and during the send and the row cannot rewrap under the
+   pointer. */
+.clarity-scope .clarity-spin{display:inline-block;width:9px;height:9px;flex:none;border-radius:50%;border:1.5px solid currentColor;border-right-color:transparent;animation:clarity-spin .8s linear infinite;visibility:hidden}
+.clarity-scope button[data-busy='true'] .clarity-spin{visibility:visible}
+@keyframes clarity-spin{to{transform:rotate(360deg)}}
+
+/* A comment that has just been added arrives without shoving the list. */
+@keyframes clarity-in{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
+.clarity-scope .clarity-row[data-new='true']{animation:clarity-in var(--clarity-d3) var(--clarity-ease) both}
+
+@media (prefers-reduced-motion:reduce){
+  .clarity-scope.clarity-arrival > *{animation:none}
+  .clarity-scope .clarity-card[aria-pressed='true']{transform:none}
+  .clarity-scope .clarity-card[aria-pressed='true'] .clarity-radio{animation:none}
+  .clarity-scope .clarity-row[data-new='true']{animation:none}
+  .clarity-scope button:active:not(:disabled){transform:none}
+  .clarity-scope button[data-busy='true']::after{display:none}
+}`
+
+    /**
+     * Put the motion stylesheet in the document once.
+     *
+     * The owner count lives on the node, not in this module: a hot reload evaluates a
+     * fresh bundle, so a module-level counter would let the old instance's disposer
+     * remove the sheet the new one is already using. Two instances, one node, one
+     * count — the last one out takes it.
+     * @returns {(() => void)|undefined} a disposer, or nothing outside a browser.
+     */
+    function ensureStyle() {
+      if (typeof document === 'undefined' || !document || typeof document.createElement !== 'function') return undefined
+      if (!document.head || typeof document.head.appendChild !== 'function') return undefined
+      let style = document.getElementById(STYLE_ID)
+      if (!style) {
+        style = document.createElement('style')
+        style.id = STYLE_ID
+        style.textContent = STYLE_RULES
+        document.head.appendChild(style)
+      }
+      const node = style
+      // A hot reload hands this function the previous bundle's node, whose rules are a
+      // version behind: the sheet is shared, its content is refreshed on every apply.
+      if (node.textContent !== STYLE_RULES) node.textContent = STYLE_RULES
+      node.__clarityUsers = (Number(node.__clarityUsers) || 0) + 1
+      let released = false
+      return () => {
+        if (released) return
+        released = true
+        node.__clarityUsers = Math.max(0, (Number(node.__clarityUsers) || 1) - 1)
+        if (node.__clarityUsers > 0) return
+        try {
+          node.remove()
+        } catch {
+          // A document torn down first needs no cleanup.
+        }
+      }
+    }
+
+    /** Whether the system asks for no motion, so a scripted scroll can obey too. */
+    function prefersReducedMotion() {
+      try {
+        return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches === true
+      } catch {
+        return false
+      }
+    }
+
     // Every string the panel draws lives here, so a language switch never has to
     // hunt through a render function. `en` is the baseline: `ctx.locale` requires
     // it, and it is what shows when the locale service is absent.
@@ -42,7 +160,6 @@ window.__ModuleLoader__.load({
         'comments.commentingOn': 'Commenting on',
         'comments.clear': 'Clear',
         'comments.emptyAnchored': 'Write the comment that belongs at that spot.',
-        'comments.empty': 'No comments yet. Use Annotate to point at an element, text, or code line.',
         'comments.showSpot': 'Show this spot in the artifact',
         'comments.remove': 'Remove comment',
         'comments.edit': 'Edit',
@@ -60,7 +177,6 @@ window.__ModuleLoader__.load({
         'composer.add': 'Add',
         'note.label': 'Note to the agent (optional)',
         'note.placeholder': 'One sentence the agent should carry into the implementation.',
-        'action.sending': 'Sending…',
         'action.accept': 'Accept',
         'action.revise': 'Revise',
         'action.rejectAll': 'Reject {variants}',
@@ -139,7 +255,6 @@ window.__ModuleLoader__.load({
         'comments.commentingOn': '正在批注',
         'comments.clear': '取消',
         'comments.emptyAnchored': '在这里写下你要说的。',
-        'comments.empty': '还没有批注。点一个元素、划一段文字，或者点一行代码，就可以在这里写。',
         'comments.showSpot': '在 artifact 里指给我看',
         'comments.remove': '删掉这条批注',
         'comments.edit': '编辑',
@@ -157,7 +272,6 @@ window.__ModuleLoader__.load({
         'composer.add': '添加',
         'note.label': '给 agent 的话（可选）',
         'note.placeholder': '一句话，让 agent 带进实现里。',
-        'action.sending': '发送中…',
         'action.accept': '接受',
         'action.revise': '继续修改',
         'action.rejectAll': '都不要',
@@ -232,11 +346,24 @@ window.__ModuleLoader__.load({
       flex: '1 1 auto',
       minHeight: 0,
       overflowY: 'auto',
-      padding: '10px 12px 18px',
+      // No bottom padding: the decision bar is the last child and carries its own,
+      // so a pinned bar sits flush with the bottom of the pane instead of floating.
+      padding: '10px 12px 0',
       fontFamily: FONT,
       fontSize: '12px',
       lineHeight: '18px',
       color: 'var(--dsw-alias-label-primary)',
+    }
+    /** A root for a state with no decision bar under it. */
+    const rootPadded = { ...root, padding: '10px 12px 18px' }
+    /**
+     * The scroll root's props: the motion scope the stylesheet hangs off, so every
+     * control inside the panel shares one set of timings.
+     * @param {object} [style] - root, or rootPadded for a state with no decision bar.
+     * @returns {object} props for the panel's scroll root.
+     */
+    function scope(style) {
+      return { className: 'clarity-scope', style: style || root }
     }
     const eyebrow = {
       color: MUTED,
@@ -272,7 +399,8 @@ window.__ModuleLoader__.load({
       cursor: 'pointer',
       overflow: 'hidden',
       padding: 0,
-      outline: 'none',
+      // No inline `outline`: the stylesheet owns the focus ring, and an inline
+      // declaration would beat it — and the browser's own ring would be gone too.
     }
     const variantGrid = {
       display: 'grid',
@@ -344,6 +472,12 @@ window.__ModuleLoader__.load({
       font: 'inherit',
       fontSize: '12px',
       lineHeight: '18px',
+      // A flex row so a spinner can sit beside a label with a gap instead of on top
+      // of it; a button with no spinner is unaffected.
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '6px',
       padding: '5px 10px',
       borderRadius: 'var(--dsw-radius-md)',
       border: HAIRLINE,
@@ -371,7 +505,52 @@ window.__ModuleLoader__.load({
       color: 'var(--dsw-alias-label-primary)',
       outline: 'none',
     }
-    const actions = { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }
+    // The bar pins to the bottom of the pane. A decision is the point of this tab,
+    // and reaching it must not depend on how much advice a variant carries.
+    const actions = {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px',
+      alignItems: 'center',
+      position: 'sticky',
+      bottom: 0,
+      zIndex: 2,
+      // `auto` pushes a short round's bar to the foot of the pane instead of letting
+      // it float right under the note; when the content overflows it resolves to 0.
+      marginTop: 'auto',
+      padding: '8px 0 10px',
+      borderTop: HAIRLINE,
+      background: 'var(--dsw-alias-bg-base)',
+    }
+    // The variant a comment belongs to is a choice of two, not a dropdown: at the
+    // sidebar's width that is one tap, and it never hides the option you are on.
+    const chip = {
+      font: 'inherit',
+      fontSize: '11px',
+      lineHeight: '16px',
+      padding: '1px 8px',
+      borderRadius: '99px',
+      border: HAIRLINE,
+      background: 'var(--dsw-alias-bg-layer-2)',
+      color: 'var(--dsw-alias-label-secondary)',
+      cursor: 'pointer',
+    }
+    const chipOn = { ...chip, borderColor: 'var(--dsw-alias-label-primary)', color: 'var(--dsw-alias-label-primary)', fontWeight: 600 }
+    const chipRow = { display: 'flex', flex: 'none', alignItems: 'center', gap: '4px', paddingBottom: '5px' }
+    const countChip = {
+      display: 'inline-block',
+      minWidth: '15px',
+      marginLeft: '2px',
+      padding: '0 5px',
+      border: HAIRLINE,
+      borderRadius: '99px',
+      background: 'var(--dsw-alias-bg-layer-2)',
+      color: MUTED,
+      fontSize: '10px',
+      lineHeight: '14px',
+      fontWeight: 650,
+      textAlign: 'center',
+    }
     const commentItem = {
       display: 'flex',
       gap: '6px',
@@ -1041,8 +1220,14 @@ window.__ModuleLoader__.load({
       const [pendingAnchor, setPendingAnchor] = useRemembered(draft, 'pendingAnchor')
       const [annotate, setAnnotate] = useRemembered(draft, 'annotate')
       const [note, setNote] = useRemembered(draft, 'note')
-      const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState(null)
+      // The comment this session just added, so only that one rises into place.
+      const [lastAdded, setLastAdded] = React.useState(-1)
+      // Which verb is in flight, if any. One boolean was not enough: every verb shares
+      // the same bar, and the accept button was reporting sends it had not been asked
+      // to make.
+      const [pending, setPending] = React.useState(null)
+      const busy = pending !== null
       const frameRefs = React.useRef(new Map())
       const composerRef = React.useRef(null)
 
@@ -1064,7 +1249,7 @@ window.__ModuleLoader__.load({
           if (composerRef.current) {
             composerRef.current.focus()
             try {
-              composerRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              composerRef.current.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
             } catch {
               // Older engines scroll on focus alone.
             }
@@ -1109,6 +1294,7 @@ window.__ModuleLoader__.load({
             artifactHash: contentHash(variant.html),
           },
         ])
+        setLastAdded(comments.length)
         setPendingAnchor(null)
         setCommentText('')
         setError(null)
@@ -1129,6 +1315,7 @@ window.__ModuleLoader__.load({
 
       function removeComment(index) {
         setComments((current) => current.filter((_, i) => i !== index))
+        setLastAdded(-1)
         // An edit that was open follows the list: it closes with the comment it
         // belonged to, and shifts up when an earlier comment goes.
         if (editingIndex === index) {
@@ -1202,7 +1389,7 @@ window.__ModuleLoader__.load({
           setError(t('comment.needsText'))
           return
         }
-        setBusy(true)
+        setPending(verdict)
         setError(null)
         try {
           const body = { roundId: round.id, verdict, selected, comments: outgoing, note }
@@ -1219,8 +1406,39 @@ window.__ModuleLoader__.load({
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause))
         } finally {
-          setBusy(false)
+          setPending(null)
         }
+      }
+
+      /**
+       * One verb in the decision bar. Only the button you pressed says it is working,
+       * and its label stays put: the spinner's box exists at rest, so the row cannot
+       * rewrap under the pointer.
+       * @param {string} verdict - the verb this button submits.
+       * @param {object} base - its resting style.
+       * @param {string} label - its text.
+       * @param {string} [tone] - 'primary' for the filled one.
+       * @returns {object} the button node.
+       */
+      function verbButton(verdict, base, label, tone) {
+        const working = pending === verdict
+        return h(
+          'button',
+          {
+            type: 'button',
+            'data-tone': tone,
+            'data-busy': working ? 'true' : undefined,
+            // Working is not unavailable: the button keeps full opacity and says so
+            // with a progress cursor. It has to be said here, because the disabled
+            // style it also carries is inline, and an inline declaration is what a
+            // stylesheet rule cannot reach.
+            style: working ? { ...base, cursor: 'progress' } : disabled ? { ...base, ...buttonDisabled } : base,
+            onClick: () => submit(verdict),
+            disabled,
+          },
+          tone === 'primary' ? h('span', { className: 'clarity-spin' }) : null,
+          label,
+        )
       }
 
       return h(
@@ -1233,6 +1451,7 @@ window.__ModuleLoader__.load({
             'button',
             {
               type: 'button',
+              'data-tone': annotate ? 'primary' : undefined,
               style: annotate ? { ...buttonPrimary, padding: '2px 8px' } : { ...buttonBase, padding: '2px 8px' },
               'aria-pressed': annotate,
               onClick: () => setAnnotate((current) => !current),
@@ -1264,13 +1483,11 @@ window.__ModuleLoader__.load({
                 key: variant.id,
                 role: 'button',
                 tabIndex: 0,
+                className: 'clarity-card',
                 'aria-pressed': selected === variant.id,
-                style: {
-                  ...variantCard,
-                  ...(selected === variant.id
-                    ? { borderColor: BRAND, boxShadow: '0 0 0 1px ' + BRAND + ' inset' }
-                    : {}),
-                },
+                // The ring, the lift and the header tint are the stylesheet's: it
+                // owns every state that a click changes, so they cannot drift.
+                style: variantCard,
                 onClick: () => {
                   if (!disabled) setSelected(variant.id)
                 },
@@ -1283,8 +1500,8 @@ window.__ModuleLoader__.load({
               },
               h(
                 'div',
-                { style: vhead },
-                h('span', { style: radio }, selected === variant.id ? '●' : '○'),
+                { className: 'clarity-vhead', style: vhead },
+                h('span', { className: 'clarity-radio', style: radio }, selected === variant.id ? '●' : '○'),
                 h('span', { style: vlabel }, variant.label),
               ),
               variant.source ? h('div', { style: sourceLine, title: variant.source }, variant.source) : null,
@@ -1308,7 +1525,12 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { style: section },
-          h('div', { style: sectionTitle }, t('comments.title')),
+          h(
+            'div',
+            { style: sectionTitle },
+            t('comments.title'),
+            comments.length === 0 ? null : h('span', { style: countChip }, String(comments.length)),
+          ),
           pendingAnchor
             ? h(
                 'div',
@@ -1332,14 +1554,12 @@ window.__ModuleLoader__.load({
                 h('div', { style: { color: MUTED, fontSize: '10px' } }, variantLabel(round, pendingAnchor.variantId)),
               )
             : null,
+          // An empty list draws no paragraph: the annotation bar already says how a
+          // comment starts, and the composer under it is the invitation.
           comments.length === 0
-            ? h(
-                'div',
-                { style: { color: MUTED } },
-                pendingAnchor
-                  ? t('comments.emptyAnchored')
-                  : t('comments.empty'),
-              )
+            ? pendingAnchor
+              ? h('div', { style: { color: MUTED } }, t('comments.emptyAnchored'))
+              : null
             : h(
                 'div',
                 { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
@@ -1349,6 +1569,11 @@ window.__ModuleLoader__.load({
                     'div',
                     {
                       key: String(index),
+                      className: 'clarity-row',
+                      // Only the row this session just added rises into place; a
+                      // draft read back on reload arrives with the round, not one
+                      // row at a time.
+                      'data-new': index === lastAdded ? 'true' : undefined,
                       style: editing ? commentItem : { ...commentItem, cursor: 'pointer' },
                       title: editing ? undefined : t('comments.showSpot'),
                       onClick: editing ? undefined : () => focusComment(comment),
@@ -1401,6 +1626,7 @@ window.__ModuleLoader__.load({
                               'button',
                               {
                                 type: 'button',
+                                'data-tone': 'primary',
                                 style: disabled ? { ...buttonPrimary, ...buttonDisabled } : buttonPrimary,
                                 onClick: saveEdit,
                                 disabled,
@@ -1453,15 +1679,23 @@ window.__ModuleLoader__.load({
             pendingAnchor
               ? null
               : h(
-                  'select',
-                  {
-                    value: commentVariantId,
-                    onChange: (event) => setCommentVariantId(event.target.value),
-                    style: { ...input, width: 'auto', flex: 'none' },
-                    'aria-label': t('comments.onVariant'),
-                    disabled,
-                  },
-                  round.variants.map((variant) => h('option', { key: variant.id, value: variant.id }, variant.label)),
+                  'div',
+                  { style: chipRow, role: 'group', 'aria-label': t('comments.onVariant') },
+                  round.variants.map((variant) =>
+                    h(
+                      'button',
+                      {
+                        key: variant.id,
+                        type: 'button',
+                        style: commentVariantId === variant.id ? chipOn : chip,
+                        'aria-pressed': commentVariantId === variant.id,
+                        title: variant.label,
+                        onClick: () => setCommentVariantId(variant.id),
+                        disabled,
+                      },
+                      variant.id.toUpperCase(),
+                    ),
+                  ),
                 ),
             h('textarea', {
               ref: composerRef,
@@ -1506,31 +1740,10 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { style: actions },
-          h(
-            'button',
-            {
-              type: 'button',
-              style: disabled ? { ...buttonPrimary, ...buttonDisabled } : buttonPrimary,
-              onClick: () => submit('accept'),
-              disabled,
-            },
-            busy ? t('action.sending') : `${t('action.accept')} ${variantLabel(round, selected)}`,
-          ),
-          h(
-            'button',
-            { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: () => submit('revise'), disabled },
-            selected ? `${t('action.revise')} ${selected.toUpperCase()}` : t('action.revise'),
-          ),
-          h(
-            'button',
-            { type: 'button', style: disabled ? { ...buttonDanger, ...buttonDisabled } : buttonDanger, onClick: () => submit('reject'), disabled },
-            t('action.rejectAll', { variants: round.variants.map((variant) => variant.id.toUpperCase()).join('&') }),
-          ),
-          h(
-            'button',
-            { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: () => submit('cancel'), disabled },
-            t('action.cancel'),
-          ),
+          verbButton('accept', buttonPrimary, `${t('action.accept')} ${variantLabel(round, selected)}`, 'primary'),
+          verbButton('revise', buttonBase, selected ? `${t('action.revise')} ${selected.toUpperCase()}` : t('action.revise')),
+          verbButton('reject', buttonDanger, t('action.rejectAll', { variants: round.variants.map((variant) => variant.id.toUpperCase()).join('&') })),
+          verbButton('cancel', buttonBase, t('action.cancel')),
         ),
       )
     }
@@ -1547,7 +1760,10 @@ window.__ModuleLoader__.load({
       const [observed, setObserved] = React.useState('')
       const [shots, setShots] = React.useState([])
       const [selectedShot, setSelectedShot] = React.useState(0)
-      const [busy, setBusy] = React.useState(false)
+      // Which verb is in flight, if any: the pressed button is the one that says it is
+      // working, the other two simply go quiet.
+      const [pending, setPending] = React.useState(null)
+      const busy = pending !== null
       const [error, setError] = React.useState(null)
       const [copied, setCopied] = React.useState(false)
       const fileRef = React.useRef(null)
@@ -1623,7 +1839,7 @@ window.__ModuleLoader__.load({
           setError(t('test.needsObservation'))
           return
         }
-        setBusy(true)
+        setPending(verdict)
         setError(null)
         try {
           const body = {
@@ -1641,8 +1857,38 @@ window.__ModuleLoader__.load({
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause))
         } finally {
-          setBusy(false)
+          setPending(null)
         }
+      }
+
+      /**
+       * One verb in the test bar. The one you pressed says it is working; the other
+       * two only go quiet, because they are not.
+       * @param {string} verdict - the verb this button submits.
+       * @param {object} base - its resting style.
+       * @param {string} label - its text.
+       * @param {string} [tone] - 'primary' for the filled one.
+       * @returns {object} the button node.
+       */
+      function verbButton(verdict, base, label, tone) {
+        const working = pending === verdict
+        return h(
+          'button',
+          {
+            type: 'button',
+            'data-tone': tone,
+            'data-busy': working ? 'true' : undefined,
+            // The greying that disables the other two is inline, so "working" is said
+            // inline here too — a stylesheet rule could not reach it.
+            style: working ? { ...base, cursor: 'progress' } : disabled ? { ...base, ...buttonDisabled } : base,
+            onClick: () => submit(verdict),
+            disabled,
+          },
+          // The primary carries the spinner at rest — same box, hidden ink — so pressing
+          // it cannot change the bar's width. The others say it with the sheen alone.
+          tone === 'primary' ? h('span', { className: 'clarity-spin' }) : null,
+          label,
+        )
       }
 
       /** Put the command on the clipboard; the user runs it, the tab never does. */
@@ -1709,6 +1955,7 @@ window.__ModuleLoader__.load({
                 'button',
                 {
                   type: 'button',
+                  'data-tone': 'primary',
                   style: disabled ? { ...buttonPrimary, ...buttonDisabled } : buttonPrimary,
                   onClick: () => setPhase('observe'),
                   disabled,
@@ -1842,21 +2089,9 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 { style: actions },
-                h(
-                  'button',
-                  { type: 'button', style: disabled ? { ...buttonPrimary, ...buttonDisabled } : buttonPrimary, onClick: () => submit('pass'), disabled },
-                  t('test.pass'),
-                ),
-                h(
-                  'button',
-                  { type: 'button', style: disabled ? { ...buttonDanger, ...buttonDisabled } : buttonDanger, onClick: () => submit('fail'), disabled },
-                  t('test.fail'),
-                ),
-                h(
-                  'button',
-                  { type: 'button', style: disabled ? { ...buttonBase, ...buttonDisabled } : buttonBase, onClick: () => submit('cancel'), disabled },
-                  t('test.cancel'),
-                ),
+                verbButton('pass', buttonPrimary, t('test.pass'), 'primary'),
+                verbButton('fail', buttonDanger, t('test.fail')),
+                verbButton('cancel', buttonBase, t('test.cancel')),
               ),
             ),
       )
@@ -1945,17 +2180,17 @@ window.__ModuleLoader__.load({
       }, [paramRoundId, props.sessionId])
 
       if (state.loading) {
-        return h('div', { style: root }, h('div', { style: { color: MUTED } }, t('state.reading')))
+        return h('div', scope(rootPadded), h('div', { style: { color: MUTED } }, t('state.reading')))
       }
       if (state.error) {
-        return h('div', { style: root }, h('div', { style: errorText, role: 'alert' }, state.error))
+        return h('div', scope(rootPadded), h('div', { style: errorText, role: 'alert' }, state.error))
       }
       const round = state.round
       if (!round) {
         if (sent) {
           return h(
             'div',
-            { style: root },
+            scope(rootPadded),
             h(
               'div',
               { style: { ...card, borderColor: 'var(--dsw-alias-state-success-primary)' } },
@@ -1966,7 +2201,7 @@ window.__ModuleLoader__.load({
         }
         return h(
           'div',
-          { style: root },
+          scope(rootPadded),
           h('div', { style: eyebrow }, 'Collaborative Clarity'),
           h('h2', { style: title }, t('state.noRound')),
           h(
@@ -1979,7 +2214,7 @@ window.__ModuleLoader__.load({
       if (round.status !== 'open' && !sent) {
         return h(
           'div',
-          { style: root },
+          scope(rootPadded),
           h(Header, { round }),
           h(
             'div',
@@ -1992,7 +2227,7 @@ window.__ModuleLoader__.load({
       if (sent) {
         return h(
           'div',
-          { style: root },
+          scope(rootPadded),
           h(Header, { round }),
           h(
             'div',
@@ -2011,9 +2246,11 @@ window.__ModuleLoader__.load({
       const complete = (result) => {
         setSent(result)
       }
+      // The root carries the round id as its key: a new round mounts a new root, so
+      // the entrance plays exactly once per round and never on a re-render.
       return h(
         'div',
-        { style: root },
+        { key: round.id, className: 'clarity-scope clarity-arrival', style: root },
         h(Header, { round }),
         round.kind === 'test'
           ? h(TestView, { round, sent, onSent: complete })
@@ -2566,6 +2803,9 @@ window.__ModuleLoader__.load({
     const pluginApi = {
       inject: ['slots', 'sidebarRightTabs', 'sidebarRight', 'uiSession'],
       apply(ctx) {
+        // The motion stylesheet is the only global this plugin adds to the page, and
+        // it goes in once, under its own id.
+        ctx.effect(() => ensureStyle(), 'clarity motion styles')
         // The panel speaks the GUI's language when the locale service is there: the
         // user picks it in Settings → General, and the choice reaches this tab
         // without a reload. `ctx.inject` waits for the service rather than sampling
