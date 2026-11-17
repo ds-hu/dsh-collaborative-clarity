@@ -35,6 +35,9 @@ window.__ModuleLoader__.load({
   transition:background-color var(--clarity-d1) var(--clarity-ease),border-color var(--clarity-d1) var(--clarity-ease),color var(--clarity-d1) var(--clarity-ease),box-shadow var(--clarity-d2) var(--clarity-ease),opacity var(--clarity-d2) var(--clarity-ease),transform var(--clarity-d1) var(--clarity-ease)}
 .clarity-scope button:active:not(:disabled){transform:scale(.996)}
 .clarity-scope button:focus-visible,.clarity-scope [role=button]:focus-visible{outline:1px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}
+/* A cell sits inside a clipped frame, so an outline would be cut off: the ring moves
+   inside the cell instead. */
+.clarity-scope .clarity-seg button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
 .clarity-scope input:focus,.clarity-scope textarea:focus{outline:none;border-color:var(--dsw-alias-border-l4)!important;box-shadow:0 0 0 1px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
 @media (hover:hover){
   /* An inset wash, not a background: it lands on any button whatever its own fill
@@ -61,18 +64,20 @@ window.__ModuleLoader__.load({
 .clarity-scope.clarity-arrival > *:nth-child(4){animation-delay:120ms}
 .clarity-scope.clarity-arrival > *:nth-child(n+5){animation-delay:160ms}
 
-/* Sending: the button says it is working once, not twice. Its own inline style says
-   so too — full opacity and a progress cursor — because an inline style is the only
-   thing that can beat the disabled style the same button carries. */
-.clarity-scope button[data-busy='true']{position:relative;overflow:hidden}
-.clarity-scope button[data-busy='true']::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,transparent 24%,color-mix(in srgb,var(--dsw-alias-bg-base) 26%,transparent) 50%,transparent 76%);animation:clarity-sheen 1.2s linear infinite}
-@keyframes clarity-sheen{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
-/* The spinner's box exists at rest and only its ink is hidden, so the primary button
-   is the same width before and during the send and the row cannot rewrap under the
-   pointer. */
-.clarity-scope .clarity-spin{display:inline-block;width:9px;height:9px;flex:none;border-radius:50%;border:1.5px solid currentColor;border-right-color:transparent;animation:clarity-spin .8s linear infinite;visibility:hidden}
-.clarity-scope button[data-busy='true'] .clarity-spin{visibility:visible}
-@keyframes clarity-spin{to{transform:rotate(360deg)}}
+/* Sending: the verb you pressed is the only thing that says so, and it says it in
+   its own letters — a band of lighter ink travels through the word. Nothing is
+   added to the row and nothing is taken away, so no press can change its width.
+   Round 0029's rule: the width a verdict bar has at rest is the width it keeps. */
+@supports (color:color-mix(in srgb,red 50%,blue)){
+  .clarity-scope button[data-busy='true'] .clarity-verb-label{display:inline-block;background-image:linear-gradient(90deg,currentColor 0 34%,color-mix(in srgb,currentColor 58%,var(--dsw-alias-bg-base)) 50%,currentColor 66% 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:clarity-sweep 1.4s linear infinite}
+}
+/* Without color-mix the trough would be a hole through the glyph, so the label
+   falls back to a plain fade instead of going invisible. */
+@supports not (color:color-mix(in srgb,red 50%,blue)){
+  .clarity-scope button[data-busy='true'] .clarity-verb-label{animation:clarity-fade 1.4s ease-in-out infinite}
+}
+@keyframes clarity-sweep{from{background-position:130% 0}to{background-position:-30% 0}}
+@keyframes clarity-fade{50%{opacity:.55}}
 
 /* A comment that has just been added arrives without shoving the list. */
 @keyframes clarity-in{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
@@ -84,7 +89,7 @@ window.__ModuleLoader__.load({
   .clarity-scope .clarity-card[aria-pressed='true'] .clarity-radio{animation:none}
   .clarity-scope .clarity-row[data-new='true']{animation:none}
   .clarity-scope button:active:not(:disabled){transform:none}
-  .clarity-scope button[data-busy='true']::after{display:none}
+  .clarity-scope button[data-busy='true'] .clarity-verb-label{animation:none;background:none;-webkit-text-fill-color:currentColor;opacity:.55}
 }`
 
     /**
@@ -472,12 +477,9 @@ window.__ModuleLoader__.load({
       font: 'inherit',
       fontSize: '12px',
       lineHeight: '18px',
-      // A flex row so a spinner can sit beside a label with a gap instead of on top
-      // of it; a button with no spinner is unaffected.
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: '6px',
       padding: '5px 10px',
       borderRadius: 'var(--dsw-radius-md)',
       border: HAIRLINE,
@@ -492,7 +494,49 @@ window.__ModuleLoader__.load({
       color: 'var(--dsw-alias-bg-base)',
       fontWeight: 600,
     }
-    const buttonDanger = { ...buttonBase, color: ERROR }
+    // The verdict bar is one choice, not a primary answer with satellites: every verb
+    // in it answers the same question, so they share one frame and differ only in ink.
+    // Nothing is filled — a filled verb tells the eye which answer is correct, and in
+    // a test gate that reads as "passing is expected".
+    const seg = {
+      display: 'flex',
+      flex: '1 1 220px',
+      minWidth: 0,
+      border: HAIRLINE,
+      borderRadius: 'var(--dsw-radius-md)',
+      overflow: 'hidden',
+      background: 'var(--dsw-alias-bg-layer-2)',
+    }
+    const segCell = {
+      font: 'inherit',
+      fontSize: '12px',
+      lineHeight: '18px',
+      flex: '1 1 auto',
+      minWidth: 0,
+      height: '30px',
+      padding: '0 6px',
+      border: 0,
+      borderLeft: HAIRLINE,
+      background: 'transparent',
+      color: 'var(--dsw-alias-label-secondary)',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      cursor: 'pointer',
+    }
+    const segFirst = { ...segCell, borderLeft: 0 }
+    const segHeavy = { color: 'var(--dsw-alias-label-primary)', fontWeight: 600 }
+    const segLight = { color: ERROR }
+    // Leaving is not an answer: it sits outside the frame, with the weight of a link.
+    const buttonQuiet = {
+      ...buttonBase,
+      flex: 'none',
+      height: '30px',
+      padding: '0 8px',
+      border: 0,
+      background: 'transparent',
+      color: MUTED,
+    }
     const buttonDisabled = { opacity: 0.45, cursor: 'default' }
     const input = {
       font: 'inherit',
@@ -1411,33 +1455,32 @@ window.__ModuleLoader__.load({
       }
 
       /**
-       * One verb in the decision bar. Only the button you pressed says it is working,
-       * and its label stays put: the spinner's box exists at rest, so the row cannot
-       * rewrap under the pointer.
+       * One cell of the round's verdict bar. Only the cell you pressed says it is
+       * working, and it says it in its own letters: nothing is added beside the label,
+       * so the row cannot rewrap under the pointer.
        * @param {string} verdict - the verb this button submits.
-       * @param {object} base - its resting style.
+       * @param {object} style - its resting style, which sets its place in the ink ladder.
        * @param {string} label - its text.
-       * @param {string} [tone] - 'primary' for the filled one.
+       * @param {boolean} [unavailable] - true when this verb has no object to act on.
        * @returns {object} the button node.
        */
-      function verbButton(verdict, base, label, tone) {
+      function verbButton(verdict, style, label, unavailable) {
         const working = pending === verdict
+        const off = disabled || unavailable === true
         return h(
           'button',
           {
             type: 'button',
-            'data-tone': tone,
             'data-busy': working ? 'true' : undefined,
             // Working is not unavailable: the button keeps full opacity and says so
             // with a progress cursor. It has to be said here, because the disabled
             // style it also carries is inline, and an inline declaration is what a
             // stylesheet rule cannot reach.
-            style: working ? { ...base, cursor: 'progress' } : disabled ? { ...base, ...buttonDisabled } : base,
+            style: working ? { ...style, cursor: 'progress' } : off ? { ...style, ...buttonDisabled } : style,
             onClick: () => submit(verdict),
-            disabled,
+            disabled: off,
           },
-          tone === 'primary' ? h('span', { className: 'clarity-spin' }) : null,
-          label,
+          h('span', { className: 'clarity-verb-label' }, label),
         )
       }
 
@@ -1740,10 +1783,19 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { style: actions },
-          verbButton('accept', buttonPrimary, `${t('action.accept')} ${variantLabel(round, selected)}`, 'primary'),
-          verbButton('revise', buttonBase, selected ? `${t('action.revise')} ${selected.toUpperCase()}` : t('action.revise')),
-          verbButton('reject', buttonDanger, t('action.rejectAll', { variants: round.variants.map((variant) => variant.id.toUpperCase()).join('&') })),
-          verbButton('cancel', buttonBase, t('action.cancel')),
+          h(
+            'div',
+            { className: 'clarity-seg', style: seg, role: 'group', 'aria-label': t('bubble.label') },
+            verbButton(
+              'accept',
+              selected ? { ...segFirst, ...segHeavy } : segFirst,
+              selected ? `${t('action.accept')} ${selected.toUpperCase()}` : t('action.accept'),
+              !selected,
+            ),
+            verbButton('revise', segCell, selected ? `${t('action.revise')} ${selected.toUpperCase()}` : t('action.revise')),
+            verbButton('reject', { ...segCell, ...segLight }, t('action.rejectAll', { variants: round.variants.map((variant) => variant.id.toUpperCase()).join('&') })),
+          ),
+          verbButton('cancel', buttonQuiet, t('action.cancel')),
         ),
       )
     }
@@ -1862,32 +1914,27 @@ window.__ModuleLoader__.load({
       }
 
       /**
-       * One verb in the test bar. The one you pressed says it is working; the other
-       * two only go quiet, because they are not.
+       * One cell of the test's verdict bar. The one you pressed says it is working in
+       * its own letters; the other only goes quiet, because it is not.
        * @param {string} verdict - the verb this button submits.
-       * @param {object} base - its resting style.
+       * @param {object} style - its resting style, which sets its place in the ink ladder.
        * @param {string} label - its text.
-       * @param {string} [tone] - 'primary' for the filled one.
        * @returns {object} the button node.
        */
-      function verbButton(verdict, base, label, tone) {
+      function verbButton(verdict, style, label) {
         const working = pending === verdict
         return h(
           'button',
           {
             type: 'button',
-            'data-tone': tone,
             'data-busy': working ? 'true' : undefined,
-            // The greying that disables the other two is inline, so "working" is said
+            // The greying that disables the other one is inline, so "working" is said
             // inline here too — a stylesheet rule could not reach it.
-            style: working ? { ...base, cursor: 'progress' } : disabled ? { ...base, ...buttonDisabled } : base,
+            style: working ? { ...style, cursor: 'progress' } : disabled ? { ...style, ...buttonDisabled } : style,
             onClick: () => submit(verdict),
             disabled,
           },
-          // The primary carries the spinner at rest — same box, hidden ink — so pressing
-          // it cannot change the bar's width. The others say it with the sheen alone.
-          tone === 'primary' ? h('span', { className: 'clarity-spin' }) : null,
-          label,
+          h('span', { className: 'clarity-verb-label' }, label),
         )
       }
 
@@ -2089,9 +2136,13 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 { style: actions },
-                verbButton('pass', buttonPrimary, t('test.pass'), 'primary'),
-                verbButton('fail', buttonDanger, t('test.fail')),
-                verbButton('cancel', buttonBase, t('test.cancel')),
+                h(
+                  'div',
+                  { className: 'clarity-seg', style: seg, role: 'group', 'aria-label': t('bubble.label') },
+                  verbButton('pass', { ...segFirst, ...segHeavy }, t('test.pass')),
+                  verbButton('fail', { ...segCell, ...segLight }, t('test.fail')),
+                ),
+                verbButton('cancel', buttonQuiet, t('test.cancel')),
               ),
             ),
       )
@@ -2987,7 +3038,7 @@ window.__ModuleLoader__.load({
       },
     }
     Object.defineProperty(pluginApi, '__test', {
-      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, MESSAGES, DecisionView, TestView, RoundPanel, newestOpenRound, decisionNode, DecisionBubble, bubbleText },
+      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, MESSAGES, STYLE_RULES, DecisionView, TestView, RoundPanel, newestOpenRound, decisionNode, DecisionBubble, bubbleText },
       enumerable: false,
     })
     return pluginApi

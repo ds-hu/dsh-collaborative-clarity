@@ -112,14 +112,23 @@ the obstacle.
   selected card's ring lives in the sheet (its border rule is `!important`), the card carries no inline
   `outline` (it would kill the focus ring and the browser's), and a working button is styled inline
   because it is also `disabled`. Only the verb you pressed says it is working (`pending === verdict`,
-  never one shared boolean — that made Accept spin for a Revise), and the primary's spinner box exists
-  at rest so a send cannot change the bar's width. The sheet's *content* is rewritten on every `apply`,
+  never one shared boolean — that made Accept spin for a Revise), and it says it in its own letters: a
+  band of lighter ink travels through the label (`background-clip: text`), so nothing is added beside
+  the text and no send can change the bar's width. The sheet's *content* is rewritten on every `apply`,
   so a hot-reloaded bundle never serves the previous bundle's rules. `data-tone="primary"` marks a
   filled primary button so the hover knows which one it is, and the wash is an inset shadow so it
   lands whatever the fill is.
   `prefers-reduced-motion: reduce` collapses the tokens to 1ms and turns every animation off except the
-  spinner. The law itself is round 0028's: **a new round arrives with motion; everything else moves
-  because you did something.**
+  label's: that one keeps saying "working" as a still, dimmed word. The law itself is round 0028's:
+  **a new round arrives with motion; everything else moves because you did something.**
+- **The verdict bar is one frame.** In a round and in a test gate the verbs answer the same question, so
+  they share one hairline frame (`.clarity-seg`) and differ only in ink — accept/pass heaviest, revise
+  plain, reject/fail in the error colour. Nothing in the bar is filled, because a filled verb tells the
+  eye which answer is correct, and in a verification gate that reads as "passing is expected". Leaving
+  (`Cancel this round`, `Cancel this test`) is not an answer: it sits outside the frame with the weight
+  of a link. A cell names its object by the variant id, never by the variant's label — a label can be a
+  sentence, and a third of the bar cannot hold one. See
+  [round 0029](docs/collaboration-draft/rounds/0029-verb-hierarchy/round.md).
 - **The decision row.** `decisionNode` is a `ConversationNodeDefinition` registered through
   `ctx.uiConversation.events.register` — the seam `ask_user_question` uses for its answered
   batches — and `DecisionBubble` occupies the keyed `conversation.chat.node` slot under

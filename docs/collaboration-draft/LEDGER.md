@@ -39,6 +39,7 @@ through the plugin. The plugin's verified scope is in
 | D28 | A settled real test draws the same kind of row: candidate, `Passed`/`Failed`/`Blocked`, the observation, and one line of screenshot file names — each name carrying its path in the title and opening that image in the right Sidebar | tested | [Rounds 0022–0025](rounds/0025-shots-one-line/round.md); real test `clarity-test-mw694ijz-304c8d` (pass; the name opened the image in the Sidebar); 85 tests |
 | D29 | A `pass` and a `cancel` need no observation: the route reads an empty **or blank** string as none, and the panel omits the field unless the box holds something — `fail` and `blocked` still refuse a blank one | tested | [Round 0026](rounds/0026-observation-optional/round.md), completed by [0027](rounds/0027-review-fixes/round.md); real tests `clarity-test-mw6hqby4-2df8c9` (fail, the bug) → `clarity-test-mw6ijiwp-06a9ae` (pass, empty box) → `clarity-test-mw6mkx9l-2debcf` (pass, a space in the box); 90 tests |
 | D30 | 面板的动效边界：只有用户触发的状态才动，还是新的一轮到达时也动？B 被选中——到达升起（每 40ms 一档、240ms 落定）+ 一份 90/150/240ms 的时长阶梯与一条曲线，另加吸底操作条、A/B 徽章、空批注区不画散文 | tested | [Round 0028](rounds/0028-motion-law/round.md); tool round `clarity-mwccv0ad-170d4d`; real test `clarity-test-mwcy7vn3-1e77f7` (pass); 101 tests |
+| D31 | The verdict bar is one frame, not a primary with satellites: the verbs differ only in ink, nothing in it is filled, leaving sits outside it, and the pressed verb reports itself by sweeping its own label | tested | [Round 0029](rounds/0029-verb-hierarchy/round.md); real test `clarity-test-mwkmqm8y-71606f` (pass); `tests/client.test.mjs` |
 
 ## Round ledger
 
@@ -65,6 +66,7 @@ A real round appends one row.
 | 2026-11-07 | [0026](rounds/0026-observation-optional/round.md) | 通过时到底要不要写观察 | 指令 + 真机 fail → 修 → 真机 pass | 两侧都改：宿主把空串当「没有」，面板干脆不发 | 空观察的气泡没有观察段；文案仍像必填；`blocked` 仍无按钮 | [round](rounds/0026-observation-optional/round.md); real tests `clarity-test-mw6hqby4-2df8c9`（fail，抓到 bug）→ `clarity-test-mw6ijiwp-06a9ae`（pass，空观察）; 87 tests | tested |
 | 2026-11-08 | [0027](rounds/0027-review-fixes/round.md) | 复查提的三个缺陷（空白串仍拦、CHANGELOG 自相矛盾、英文剪贴板混进全角冒号） | 修 + 真机 pass | 空白按 trim 判定；CHANGELOG 限定到决定行；`bubble.noteLine` | 空白串算「没写」；重复文案键一并删掉并加断言 | [round](rounds/0027-review-fixes/round.md); real test `clarity-test-mw6mkx9l-2debcf`（pass，空白观察）; 90 tests; 四条 mutation 验过 | tested |
 | 2026-11-12 | [0028](rounds/0028-motion-law/round.md) | 面板的动效收到什么程度：只在你动手时动，还是新的一轮到达时也动？ | accept | B（到达也动），拒绝了推荐 A | 「读的时候面板是静止的」；换来的是每轮 240ms 的升起，以及第一帧在动效里完成的那两块 iframe | [round](rounds/0028-motion-law/round.md); tool round `clarity-mwccv0ad-170d4d`; acceptance round `clarity-mwcy6xp7-4e7d8d`; real test `clarity-test-mwcy7vn3-1e77f7` (pass); 复查两轮（五条 + 四条）全部成立并修掉，七条反向验过; 101 tests | tested |
+| 2026-11-17 | [0029](rounds/0029-verb-hierarchy/round.md) | 接受 / 继续修改 / 都不要，以及测试闸门的 通过 / 失败，怎么分层才不读成「Accept/Pass 是正确答案」？ | revise → accept | A 一格三档，改后 A 字上扫光 | 栏里再没有填充色；「都不要」离「接受」只隔半根线，误触代价变高；忙碌态成了唯一在你不动时也在动的东西 | [round](rounds/0029-verb-hierarchy/round.md); tool rounds `clarity-mwkm3kn8-19896a` → `clarity-mwkm8wlr-0bc400`; real test `clarity-test-mwkmqm8y-71606f` (pass); 三条反向验过; 102 tests | tested |
 
 ## What would move a row
 
@@ -89,3 +91,4 @@ reader can close it instead of inheriting it.
 | 0013 — the panel follows the GUI's language | Every Chinese screenshot shows it working, but no gate covered it; `built` | Same |
 | `docs/README_image.png` is inside the published tarball | Inferred from the registry's `fileCount` and `unpackedSize`, not from a listing | `npm pack --dry-run --json`, outside the sandbox |
 | The README screenshot predates the Chinese panel | English chrome (`DECISION`, `Annotating`, `Comments`) is visible in it; the build behind it is unknown | Re-shoot it after the next real test |
+| Round 0029's bar has not been measured, only seen | The real test confirmed the shape at 360px in Chinese on the light theme; no stylesheet was extracted and measured (this sandbox cannot start Chromium), and the English width and the dark theme were not looked at | Resize the pane, switch the GUI to English and to dark, and press a verb once in each |

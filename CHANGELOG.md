@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+The verdict bar stops having a right answer. Round 0029 rebuilt it as one frame: accept, revise and
+reject are three degrees of one choice, and in a test gate pass and fail are two equal pieces of
+evidence — so nothing in it is filled any more.
+
+- `Accept B` / `Revise B` / `Reject A&B` share one hairline frame and differ only in ink — accept
+  heaviest, revise plain, reject in the error colour. `Pass` / `Fail` are the same frame, same weight.
+  `Cancel this round` / `Cancel this test` are not answers and sit outside it, with the weight of a link.
+- Nothing in either bar is filled: `data-tone="primary"` no longer appears on a verb, because a filled
+  verb tells the eye which answer is correct — and in a verification gate that reads as "passing is
+  expected".
+- The stuck padding on the left of Accept and Pass is gone. Its cause was a 9px spinner box that sat
+  there at rest (`visibility: hidden`) so a send could not change the bar's width; the box, the
+  spinner, the sheen over the button and the `gap` that measured it are all deleted. The pressed verb
+  now says it is working in its own letters: a band of lighter ink sweeps the label
+  (`background-clip: text`), 1.4s a pass, and nothing is added to the row — with
+  `prefers-reduced-motion: reduce` it settles into a still, dimmed word.
+- A cell names its variant by id, not by the variant's label: a label can be a sentence, and a third of
+  the bar cannot hold one.
+- See `docs/collaboration-draft/rounds/0029-verb-hierarchy`.
+
 The panel moves. Round 0028 settled the law: a new round rises into place once, and every other
 animation is a reply to something you did — a hover, a press, a comment you just added.
 
@@ -15,11 +35,10 @@ animation is a reply to something you did — a hover, a press, a comment you ju
 - The variant a comment belongs to is an A/B chip instead of a dropdown, the comments heading counts
   its rows, and an empty list draws no paragraph about being empty: the annotation bar and the composer
   already say how a comment starts. `comments.empty` is gone from both dictionaries.
-- The accept button keeps its label and its width while it works: the spinner's box sits there at rest
-  and only its ink appears, so the bar cannot rewrap under the pointer. A sheen and full opacity say
-  "working" where the disabled style would say "unavailable". The bar reports the verb you pressed and
-  only that one — pressing Revise no longer makes Accept spin — and the test gate's three verbs behave
-  the same way.
+- The bar reports the verb you pressed and only that one — pressing Revise no longer makes Accept spin —
+  and the test gate's verbs behave the same way. Full opacity and a progress cursor said "working" where
+  the disabled style would have said "unavailable". (The spinner that used to carry that message is gone
+  as of the bar above.)
 - Two defects the first pass shipped are fixed, both found by review. The busy button's exemption
   from the disabled greying was a stylesheet rule that an inline declaration outranked, so it is said
   inline now; and the variant card's focus ring could not paint at all, because the card carried its

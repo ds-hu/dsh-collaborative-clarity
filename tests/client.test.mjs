@@ -674,10 +674,7 @@ test('a comment typed but never added travels with the decision', async () => {
   composer(tree).props.onChange({ target: { value: 'Typed but never added.' } })
 
   tree = runtime.render(client.__test.DecisionView, props)
-  const accept = findNode(
-    tree,
-    (node) => node.type === 'button' && Array.isArray(node.children) && node.children.includes('Accept A'),
-  )
+  const accept = findNode(tree, (node) => node.type === 'button' && textOf(node) === 'Accept A')
   assert.ok(accept, 'the accept button names the recommended variant')
   await accept.props.onClick()
 
@@ -713,7 +710,7 @@ test('the action row names the variant each verb acts on', () => {
   const walk = (node) => {
     if (!node || typeof node !== 'object') return
     if (node.type === 'button' && Array.isArray(node.children)) {
-      const text = node.children.filter((child) => typeof child === 'string').join('')
+      const text = textOf(node)
       if (text !== '') labels.push(text)
     }
     for (const child of node.children || []) walk(child)
@@ -725,6 +722,17 @@ test('the action row names the variant each verb acts on', () => {
   assert.ok(labels.includes('Reject A&B'), 'reject names every variant it would reject')
   assert.ok(labels.includes('Cancel this round'), 'leaving the round says that it cancels it')
   assert.equal(labels.includes('Cancel'), false, 'the bare word alone reads as a safe undo')
+
+  // The three answers are one choice, so they live in one frame, in order of
+  // commitment; leaving is not an answer and stays outside it.
+  const frame = findNode(tree, (node) => node.props && node.props.className === 'clarity-seg')
+  assert.ok(frame, 'the verbs share a frame')
+  assert.deepEqual(frame.children.map(textOf), ['Accept B', 'Revise B', 'Reject A&B'])
+  assert.equal(
+    findNode(frame, (node) => node.type === 'button' && textOf(node) === 'Cancel this round'),
+    null,
+    'leaving sits outside the question',
+  )
 })
 
 test('cancelling a test gate sends cancel and needs no observation', async () => {
@@ -752,8 +760,7 @@ test('cancelling a test gate sends cancel and needs no observation', async () =>
     createdAt: 1,
   }
   const props = { round, sent: null, onSent() {} }
-  const button = (tree, label) =>
-    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+  const button = (tree, label) => findNode(tree, (node) => node.type === 'button' && textOf(node) === label)
 
   let tree = runtime.render(client.__test.TestView, props)
   assert.ok(button(tree, 'I’m ready to test'), 'the gate opens on the prepared build')
@@ -795,8 +802,7 @@ test('a pass with an empty observation is sent as no observation at all', async 
     createdAt: 1,
   }
   const props = { round, sent: null, onSent() {} }
-  const button = (tree, label) =>
-    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+  const button = (tree, label) => findNode(tree, (node) => node.type === 'button' && textOf(node) === label)
 
   let tree = runtime.render(client.__test.TestView, props)
   button(tree, 'I’m ready to test').props.onClick()
@@ -833,8 +839,7 @@ test('a whitespace-only observation is sent as nothing at all', async () => {
     createdAt: 1,
   }
   const props = { round, sent: null, onSent() {} }
-  const button = (tree, label) =>
-    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+  const button = (tree, label) => findNode(tree, (node) => node.type === 'button' && textOf(node) === label)
 
   let tree = runtime.render(client.__test.TestView, props)
   button(tree, 'I’m ready to test').props.onClick()
@@ -907,7 +912,7 @@ test('the panel speaks the GUI language, and English without the service', () =>
     const walk = (node) => {
       if (!node || typeof node !== 'object') return
       if (node.type === 'button' && Array.isArray(node.children)) {
-        const text = node.children.filter((child) => typeof child === 'string').join('')
+        const text = textOf(node)
         if (text !== '') found.push(text)
       }
       for (const child of node.children || []) walk(child)
@@ -986,11 +991,7 @@ function buttonsNamed(tree, label) {
       for (const child of node) walk(child)
       return
     }
-    if (
-      node.type === 'button' &&
-      Array.isArray(node.children) &&
-      node.children.filter((child) => typeof child === 'string').join('') === label
-    ) {
+    if (node.type === 'button' && textOf(node) === label) {
       found.push(node)
     }
     for (const child of node.children || []) walk(child)
@@ -1735,9 +1736,14 @@ test('a working button is not drawn as an unavailable one', () => {
 
   let tree = runtime.render(client.__test.DecisionView, props)
   const rest = buttonsNamed(tree, 'Accept A')[0]
-  assert.ok(
-    findNode(rest, (node) => node.props && node.props.className === 'clarity-spin'),
-    'the spinner’s box exists at rest, so the width cannot change when it starts',
+  // Nothing sits beside the label, at rest or in flight: the label is the whole
+  // content of the cell, so no send can change the bar's width or rewrap the row.
+  assert.equal(rest.children.length, 1, 'the button holds its label and nothing else')
+  assert.equal(rest.children[0].props.className, 'clarity-verb-label')
+  assert.equal(
+    findNode(tree, (node) => node.props && node.props.className === 'clarity-spin'),
+    null,
+    'the reserved spinner box is gone',
   )
 
   rest.props.onClick()
@@ -1745,12 +1751,29 @@ test('a working button is not drawn as an unavailable one', () => {
 
   const busy = findNode(tree, (node) => node.type === 'button' && node.props['data-busy'] === 'true')
   assert.ok(busy, 'the pressed button says it is working')
+  assert.equal(busy.children.length, 1, 'and says it without adding a node beside the label')
   assert.equal(busy.props.disabled, true, 'and is locked while it works')
   // The disabled style it would otherwise carry is inline, so the exemption has to be
   // inline too: a stylesheet rule cannot reach an inline declaration.
   assert.equal(busy.props.style.opacity, undefined, 'no 0.45 opacity that would read as unavailable')
   assert.equal(busy.props.style.cursor, 'progress', 'the cursor says which one is in flight')
   assert.equal(textOf(busy), 'Accept A', 'the label still says what is being sent, not a shorter one')
+})
+
+test('the working label is the indicator, and the sheet adds no box to the bar', () => {
+  const rules = loadClient(statefulReact().React).__test.STYLE_RULES
+  assert.match(
+    rules,
+    /data-busy='true'\] \.clarity-verb-label\{[^}]*background-clip:text/,
+    'the verb you pressed says it in its own letters',
+  )
+  assert.equal(rules.includes('clarity-spin'), false, 'and nothing is reserved beside them')
+  assert.equal(/data-busy='true'\]::after/.test(rules), false, 'nor laid over them')
+  assert.match(
+    rules,
+    /prefers-reduced-motion:reduce\)\{[\s\S]*clarity-verb-label\{animation:none/,
+    'without motion the label still dims, so working is still said',
+  )
 })
 
 test('the decision bar reports the verb you pressed, not the accept button', () => {
@@ -1804,8 +1827,7 @@ test('the test bar says which verb is working, and only that one', () => {
     createdAt: 1,
   }
   const props = { round, sent: null, onSent() {} }
-  const byLabel = (tree, label) =>
-    findNode(tree, (node) => node.type === 'button' && node.children.includes(label))
+  const byLabel = (tree, label) => findNode(tree, (node) => node.type === 'button' && textOf(node) === label)
 
   let tree = runtime.render(client.__test.TestView, props)
   byLabel(tree, 'I’m ready to test').props.onClick()

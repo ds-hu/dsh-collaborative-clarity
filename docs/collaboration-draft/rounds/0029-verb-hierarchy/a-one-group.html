@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A · 一格三档</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    /* DSH aliases, light */
+    --bg:#fff; --layer1:#fff; --layer2:#fff;
+    --ink:#0f1115; --ink2:#61666b; --ink3:#81858c;
+    --line2:rgba(0,0,0,.102);
+    --hover:rgba(38,49,72,.059);
+    --blood:#ec1313;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151517; --layer1:#232324; --layer2:#2c2c2e;
+      --ink:#f9fafb; --ink2:#cfd3d6; --ink3:#adb2b8;
+      --line2:rgba(255,255,255,.122);
+      --hover:rgba(255,255,255,.078);
+      --blood:#f25a5a;
+    }
+  }
+  *{ box-sizing:border-box }
+  html,body{ margin:0 }
+  body{
+    background:var(--bg); color:var(--ink);
+    font:12px/18px var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{ max-width:392px; margin:0 auto; padding:14px 12px 24px }
+
+  /* the specimen note: not part of the panel */
+  .lede{ margin:0 0 14px; color:var(--ink2); font-size:11px; line-height:17px }
+  .lede b{ color:var(--ink); font-weight:600 }
+  .cap{ margin:5px 0 14px; color:var(--ink3); font-size:10px; line-height:15px }
+  .eyebrow{
+    margin:0 0 4px; color:var(--ink3);
+    font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em;
+  }
+
+  /* the panel column, at its real width */
+  .pane{ width:360px; max-width:100%; border:0.5px solid var(--line2); border-radius:12px;
+    background:var(--layer1); padding:10px 12px 12px; display:flex; flex-direction:column }
+
+  .vhead{ display:flex; align-items:center; gap:6px; padding:5px 8px;
+    border:0.5px solid var(--line2); border-radius:8px; background:var(--layer1) }
+  .vhead + .vhead{ margin-top:6px }
+  .vhead[data-on]{ box-shadow:inset 0 0 0 1px var(--ink) }
+  .dot{ font-size:12px; line-height:12px; color:var(--ink3) }
+  .vhead[data-on] .dot{ color:var(--ink) }
+  .vname{ font-weight:600 }
+
+  .note{ margin-top:8px; min-height:34px; border:0.5px solid var(--line2); border-radius:8px;
+    padding:6px 8px; color:var(--ink3) }
+
+  /* ── the bar under test ───────────────────────────────────────── */
+  .bar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+    margin-top:8px; padding-top:8px; border-top:0.5px solid var(--line2) }
+
+  .seg{ display:flex; flex:1 1 240px; min-width:0;
+    border:0.5px solid var(--line2); border-radius:12px; overflow:hidden; background:var(--layer2) }
+  .seg .v{ position:relative; flex:1 1 auto; min-width:0; height:30px; padding:0 8px;
+    border:0; background:transparent; font:inherit; color:var(--ink2);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer }
+  .seg .v + .v{ border-left:0.5px solid var(--line2) }
+  .seg .v[data-weight="high"]{ color:var(--ink); font-weight:600 }
+  .seg .v[data-weight="low"]{ color:var(--blood) }
+  .seg .v:hover:not(:disabled){ background:var(--hover) }
+  .seg .v:disabled{ color:var(--ink3); font-weight:400; cursor:default }
+  .seg .v:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--ink) }
+
+  .leave{ height:30px; padding:0 8px; border:0; border-radius:12px; background:transparent;
+    font:inherit; color:var(--ink3); cursor:pointer }
+  .leave:hover{ color:var(--ink2); background:var(--hover) }
+
+  /* busy: the spinner floats over the label, the label keeps its place */
+  .spin{ display:none; position:absolute; inset:0; margin:auto;
+    width:9px; height:9px; border-radius:50%;
+    border:1.5px solid currentColor; border-right-color:transparent }
+  .v[data-busy]{ color:var(--ink); font-weight:600; cursor:progress }
+  .v[data-busy] .lbl{ opacity:.35 }
+  .v[data-busy] .spin{ display:block; animation:spin 700ms linear infinite }
+  @keyframes spin{ to{ transform:rotate(360deg) } }
+  @media (prefers-reduced-motion: reduce){ .v[data-busy] .spin{ animation-duration:2s } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="lede"><b>A · 一格三档</b>　接受、继续修改、都不要回答的是同一个问题，就放进同一格：三个动词共用一条边框，层次只由墨色排——接受最重，继续修改次之，都不要是红字。没有一个格子是填充色。</p>
+
+  <p class="eyebrow">ROUND · 已选 B</p>
+  <div class="pane">
+    <div class="vhead" data-on><span class="dot">●</span><span class="vname">A · 收：只在你动手时动</span></div>
+    <div class="vhead"><span class="dot">○</span><span class="vname">B · 起：到达也动</span></div>
+    <div class="note">一句话，让 agent 带进实现里。</div>
+    <div class="bar">
+      <div class="seg" role="group" aria-label="决定">
+        <button class="v" data-weight="high">接受 B</button>
+        <button class="v">继续修改</button>
+        <button class="v" data-weight="low">都不要</button>
+      </div>
+      <button class="leave">取消这一轮</button>
+    </div>
+  </div>
+  <p class="cap">同一格，三档重量。取消在这一格外面——它离开问题，不回答它。</p>
+
+  <p class="eyebrow">ROUND · 未选卡</p>
+  <div class="pane">
+    <div class="bar" style="margin-top:0;padding-top:0;border-top:0">
+      <div class="seg" role="group" aria-label="决定">
+        <button class="v" disabled>接受</button>
+        <button class="v">继续修改</button>
+        <button class="v" data-weight="low">都不要</button>
+      </div>
+      <button class="leave">取消这一轮</button>
+    </div>
+  </div>
+  <p class="cap">没有对象，就没有重量，也按不动。今天这里是一枚实心按钮，写着「接受 Round」。</p>
+
+  <p class="eyebrow">REAL TEST</p>
+  <div class="pane">
+    <div class="bar" style="margin-top:0;padding-top:0;border-top:0">
+      <div class="seg" role="group" aria-label="决定">
+        <button class="v" data-weight="high">通过</button>
+        <button class="v" data-weight="low">失败</button>
+      </div>
+      <button class="leave">取消该测试</button>
+    </div>
+  </div>
+  <p class="cap">通过和失败同格同重，红字仍是红字：谁都不预告结果。</p>
+
+  <p class="eyebrow">按下之后</p>
+  <div class="pane">
+    <div class="bar" style="margin-top:0;padding-top:0;border-top:0">
+      <div class="seg" role="group" aria-label="决定">
+        <button class="v" data-weight="high" data-busy><span class="lbl">接受 B</span><span class="spin"></span></button>
+        <button class="v">继续修改</button>
+        <button class="v" data-weight="low">都不要</button>
+      </div>
+      <button class="leave">取消这一轮</button>
+    </div>
+  </div>
+  <p class="cap">转圈浮在字上，字不挪位——左边那个常驻的 9px 空槽没有了。</p>
+
+</div>
+</body>
+</html>
