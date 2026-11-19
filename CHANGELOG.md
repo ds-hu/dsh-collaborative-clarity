@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-11-19
 
 The verdict bar stops having a right answer. Round 0029 rebuilt it as one frame: accept, revise and
 reject are three degrees of one choice, and in a test gate pass and fail are two equal pieces of
