@@ -52,6 +52,8 @@ animation is a reply to something you did — a hover, a press, a comment you ju
   being replaced.
 - See `docs/collaboration-draft/rounds/0028-motion-law`.
 
+Published to npm as `@ds-hu/dsh-collaborative-clarity@0.5.0`.
+
 ## 0.4.0 — 2026-11-08
 
 `clarity_test` takes a **prepared** build and an optional **command to run** instead of a "cold
