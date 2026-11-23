@@ -46,8 +46,9 @@ carried into the implementation as a follow-up; a blocking annotation may not.
 _Avoid_: issue, ticket.
 
 **Decision record**:
-The durable output of a round: the verdict, the selected variant, the resolutions of
-every annotation, and the foreclosures the user accepted. It is not the chat transcript.
+The durable output of a round: the verdict, the selected variant when the verdict names one, the
+resolutions of every annotation, and the foreclosures the user accepted. It is not the chat
+transcript.
 _Avoid_: answer, response, result (unqualified).
 
 **Park**:

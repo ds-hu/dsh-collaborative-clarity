@@ -71,6 +71,24 @@ test('a decision round resolves with the selected variant and comments', async (
   assert.deepEqual(result.comments, [{ variantId: 'a', text: 'Keep the word "New".' }])
 })
 
+test('a reject or a cancel hands back no selected variant', async () => {
+  const store = new RoundStore()
+  const rejectedPending = decisionTool(store, ctx()).execute(decisionArgs(), exec())
+  const rejectedRound = await firstRound(store)
+  store.decide(rejectedRound.id, { verdict: 'reject', selected: 'a', comments: [], note: 'Neither fits.' })
+  const rejected = await rejectedPending
+  assert.equal(rejected.status, 'decided')
+  assert.equal(rejected.verdict, 'reject')
+  assert.equal('selected' in rejected, false, 'a reject covers every variant, so it names none')
+
+  const cancelledPending = decisionTool(store, ctx()).execute(decisionArgs(), exec())
+  const cancelledRound = await firstRound(store)
+  store.decide(cancelledRound.id, { verdict: 'cancel', selected: 'b', comments: [], note: '' })
+  const cancelled = await cancelledPending
+  assert.equal(cancelled.status, 'cancelled')
+  assert.equal('selected' in cancelled, false, 'a cancel names no variant, so a selection there is noise')
+})
+
 test('a decision result keeps element, text, and line anchors', async () => {
   const store = new RoundStore()
   const pending = decisionTool(store, ctx()).execute(decisionArgs(), exec())

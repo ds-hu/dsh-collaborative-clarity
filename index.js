@@ -40,19 +40,20 @@ const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024
 const MAX_BODY_BYTES = 36 * 1024 * 1024
 
 /**
- * The timing rule, published as an always-on system section.
+ * The rules, published as an always-on system section.
  *
- * It sits in the policy region rather than inside the tool description: the
- * model meets it while deciding what to do, not while scanning a schema. The
- * description keeps the mechanism, so the rule is stated in one place only.
+ * They sit in the policy region rather than inside the tool description: the
+ * model meets them while deciding what to do, not while scanning a schema. The
+ * description keeps the mechanism, so each rule is stated in one place only.
  */
 export const GUIDANCE_SECTION = 'clarity:guidance'
 export const GUIDANCE_ORDER = 2950
 export const GUIDANCE_TEXT = [
   'Open a clarity_round when a request leaves a visual or behavioural choice open — "make it nicer", "A or B", which layout — or when it criticises something already rendered: show the choice, name your recommendation, and wait, before writing any implementation.',
-  'Before implementing a non-trivial system, open one blocking round whose artifact is the core pseudocode — data flow, invariants, failure modes — and wait for approval. A wrong core is the expensive kind of wrong; a wrong surface can be revised.',
-  'Blocking is the default. When the backend can proceed without the UI answer, pass blocking: false: the call returns { status: "pending", jobId } at once, you keep working, and the decision arrives as a background job completion that you collect with job_output. If the backend is ready first, implement your recommendation and say so in the result; a late decision still arrives as a notice. Several non-blocking rounds may be open at once.',
-  'Once a direction is accepted, finish the work and report. Do not open a round to confirm a decided thing, to ask permission, or to split one task into approvals. One decision per round.',
+  'Open one blocking round before you build a core that is not yet decided — a new mechanism, a data model, a flow that is hard to undo — and let the artifact be that core: data flow, invariants, failure modes. A wrong core is the expensive kind of wrong; a wrong surface can be revised. When the request has already fixed the shape, there is nothing to decide: build it.',
+  'Blocking is the default. When the backend can proceed without the answer, pass blocking: false: the call returns at once with the round and job ids, and the decision arrives as a background job completion you collect with job_output; if the backend was ready first, implement your recommendation and say so, and if the decision rejects it, take the change back out. The tab shows one round at a time, newest first: a second open round waits behind the visible one, so do not open two expecting both on screen.',
+  'Once a direction is accepted, finish the work and report — do not call it tested until a clarity_test gate passes, because a green contract run is not a person running the scenario. Do not open a round to confirm a decided thing, to ask permission, or to split one task into approvals. One decision per round.',
+  'A summary is derived, not remembered: before you compress a round or a document into prose — a record, a changelog line, a report — re-read the final draft at the path it names, because it may have changed since the round closed; never summarize the version you remember. The draft is also one description among several: make the other documents, comments and user-facing text agree with it in the same pass — a sentence that still describes the old shape is a conflict to fix, not a leftover.',
 ].join('\n\n')
 
 /** One variant the user can choose. */
@@ -162,7 +163,10 @@ const RESULT_SCHEMA = {
     jobId: { type: 'string' },
     recommendation: { type: 'string' },
     verdict: { type: 'string', enum: ['accept', 'revise', 'reject', 'pass', 'fail', 'blocked'] },
-    selected: { type: 'string' },
+    selected: {
+      type: 'string',
+      description: 'The variant an accept accepted or a revise revises. Absent on reject and cancel, which name no variant.',
+    },
     comments: { type: 'array', items: COMMENT_SCHEMA },
     note: { type: 'string' },
     observed: { type: 'string' },
@@ -280,11 +284,15 @@ export class RoundStore {
    */
   decide(roundId, payload) {
     const round = this.requireOpen(roundId)
+    // `selected` answers "which one", a question only accept and revise ask. A
+    // reject covers every variant and a cancel covers none, so a selection
+    // travelling with them read as "the user chose this, and rejected it".
+    const picks = payload.verdict === 'accept' || payload.verdict === 'revise'
     const value = {
       status: payload.verdict === 'cancel' ? 'cancelled' : 'decided',
       roundId,
       ...(payload.verdict === 'cancel' ? { reason: 'the user cancelled the round' } : { verdict: payload.verdict }),
-      ...(payload.selected === undefined ? {} : { selected: payload.selected }),
+      ...(picks && payload.selected !== undefined ? { selected: payload.selected } : {}),
       ...(payload.comments.length === 0 ? {} : { comments: payload.comments }),
       ...(payload.note === '' ? {} : { note: payload.note }),
     }
@@ -489,7 +497,7 @@ export function decisionTool(store, ctx) {
       'One decision, one or two variants. Each variant carries its own advice: `recommendation` is the one sentence that argues for it, `cost` is what taking it costs. Exactly one variant is recommended — that is the round\'s recommendation, and it lives on the card it argues for.',
       'Each variant names one file: `.html` renders as a document, Markdown as prose, any other text file as numbered source whose lines can be annotated. Keep it self-contained — no network, no external assets, no build; show final copy, mock only the change and its immediate context, and design at 360px first. The file is the record, so it can be edited and reopened without resending it.',
       'By default the call blocks until the user accepts, requests a revision, rejects, or cancels. With `blocking: false` it returns { status: "pending", roundId, jobId, recommendation } at once and the decision arrives as a background job; collect it with `job_output` (and the job settles when the user decides). Use blocking for core design, non-blocking for a UI choice the backend does not depend on.',
-      'The blocking result is structured: { status, verdict, selected, comments, note }.',
+      'The blocking result is structured: { status, roundId, verdict, comments, note } — `reason` instead of `verdict` on a cancel, and `selected` only when the verdict is accept or revise, naming the variant it acts on.',
       'In this mode, do not use ask_user_question for the decision: the round is the question.',
       'If the user requests a revision, open a new round with the changed artifact; never silently rewrite the accepted one.',
     ].join(' '),
@@ -657,7 +665,6 @@ export function testTool(store, ctx = { get: () => undefined }) {
       'Also pass a 3-7 step scenario with an expected observable, a failure signature, and a rollback.',
       'The tool blocks while the user runs the scenario. They record pass, fail, or blocked with what they observed, and may attach up to four screenshots.',
       'A pass is the only evidence that can mark the change tested. A fail is evidence too: fix, prepare again, and open a new test gate. Never call a feature done because contract tests are green.',
-      'Screenshots come back as `screenshots: [{ path, bytes }]`; open one with read_image when the observation alone is ambiguous.',
     ].join(' '),
     parameters: {
       type: 'object',
@@ -1040,10 +1047,11 @@ async function readBody(req) {
 /**
  * Write the screenshots a test gate attached to disk.
  *
- * They are files rather than tool image content so the model opens the one it
- * needs with `read_image`; the paths travel back in the test result. The
- * directory is inside the project (`.clarity/screenshots/<round>/`) so the
- * paths stay readable and the files are easy to delete.
+ * They are files rather than tool image content: the paths travel back in the
+ * test result, so a reader that can view images may open one — and nothing has
+ * to try. The prompt deliberately does not ask for it. The directory is inside
+ * the project (`.clarity/screenshots/<round>/`) so the paths stay readable and
+ * the files are easy to delete.
  *
  * @param {object} round - the open test round, carrying its working directory.
  * @param {unknown} value - the browser's `screenshots` array.

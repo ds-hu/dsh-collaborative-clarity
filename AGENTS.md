@@ -80,7 +80,9 @@ the obstacle.
   round survives leaving the conversation; the client holds no round id and asks on every mount,
   reconnect, and round event.
 - **The prompt section.** `clarity:guidance` at order `2950`, inside the tool-section region. It
-  carries the timing rule only; the mechanism lives in the tool description. It is registered
+  carries the rules and not the mechanism: when to open a round, when the evidence is a test gate,
+  and that prose derived from a draft is re-read and reconciled with the repository's other
+  descriptions. The mechanism lives in the tool description. It is registered
   through `ctx.get('systemPrompt')` rather than an inject requirement, so a composition without
   the prompt service keeps the tools and loses only the section.
 

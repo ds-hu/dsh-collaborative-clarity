@@ -24,7 +24,7 @@ function recordingContext() {
   }
 }
 
-test('the timing rule is one section in the policy region', () => {
+test('the rules are one section in the policy region', () => {
   const { ctx, seen } = recordingContext()
   const dispose = registerGuidance(ctx)
   assert.equal(seen.section.name, GUIDANCE_SECTION)
@@ -35,11 +35,13 @@ test('the timing rule is one section in the policy region', () => {
   assert.equal(seen.disposed, true, 'unloading the plugin retracts the section')
 })
 
-test('the published text names the trigger, the restraint, and no prompt variable', () => {
+test('the published text names the trigger, the restraint, the gate and the re-read rule', () => {
   assert.match(GUIDANCE_TEXT, /clarity_round/)
   assert.match(GUIDANCE_TEXT, /before writing any implementation/)
   assert.match(GUIDANCE_TEXT, /finish the work and report/)
   assert.match(GUIDANCE_TEXT, /One decision per round/)
+  assert.match(GUIDANCE_TEXT, /clarity_test/, 'the gate is named, so a claim of "tested" has its own rule')
+  assert.match(GUIDANCE_TEXT, /re-read the final draft/, 'a summary is rebuilt from the file, not from memory')
   assert.equal(GUIDANCE_TEXT.includes('{{'), false, 'a strict variable reference would fail the render')
 })
 
