@@ -54,7 +54,9 @@ the obstacle.
    ignored — that is how `warmStart` and `coldBuild` were removed.
 6. **A claim may not exceed its evidence.** `proposed`, `agreed`, `built`, `prepared`, `tested`,
    `verified`. Only a human-run real test promotes a change to `tested`; the vocabulary is
-   normative in [CONTEXT.md](docs/collaboration-draft/CONTEXT.md).
+   normative in [CONTEXT.md](docs/collaboration-draft/CONTEXT.md). **A pass covers the bytes the gate
+   ran on**: change the code afterwards and it is `built` again, and a record cites a hash together
+   with its subject ("`client.js` after that batch"), never as "the file".
 7. **The transcript row is a projection, not a store.** `decisionNode` derives it from the recorded
    `tool/call` and `tool/result`; it never reads the plugin store and never answers a request. Each
    kind words only its own verbs — `accept` / `revise` / `reject` for a `clarity_round`,
@@ -64,7 +66,10 @@ the obstacle.
    row never builds a URL or a filesystem read of its own. The tab's history is this same
    projection read back — `recordsFromChat` over the session's chat snapshot — so a settled round
    is never stored a second time in order to be browsed; the host's copy of a round it has just
-   settled stands in only until the log lands (`mergeRecords`: the log wins a duplicate).
+   settled stands in only until the log lands (`mergeRecords`: the log wins a duplicate). A bridge
+   that stands in for the log must reuse the fold's **selection rule**, not only its shape: a stand-in
+   for a cancelled round looked right for one session, then vanished on reload and shifted every `#N`
+   after it (round 0035's review).
    `tests/client.test.mjs` folds events through the definition and asserts both halves; removing
    either verb list reddens it.
 
@@ -187,6 +192,11 @@ with fake React runtimes rather than a DOM.
 
 A contract test that guards a rule should be shown to fail against the violation it guards, and
 the violation reverted byte-exact.
+
+Before you go on after a tooled edit, read `git diff --stat`: a diff that rewrites every line is a
+line-ending change, not a change (the shipped files are LF; `tests/client.test.mjs` is CRLF). After
+a feature, grep for the old claim's words — `cannot`, `not yet`, `one at a time` — instead of
+trusting that every document was updated; one was missed until review.
 
 ## Release
 
