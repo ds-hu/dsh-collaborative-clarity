@@ -61,8 +61,12 @@ the obstacle.
    `pass` / `fail` / `blocked` for a `clarity_test` — and anything else (cancelled, pending, errored,
    unreadable, or the other kind's verb) draws no row and leaves the tool row where it was. A
    screenshot is a file name with its path in the title, opened through the chat's `openFile`; the
-   row never builds a URL or a filesystem read of its own. `tests/client.test.mjs` folds events
-   through the definition and asserts both halves; removing either verb list reddens it.
+   row never builds a URL or a filesystem read of its own. The tab's history is this same
+   projection read back — `recordsFromChat` over the session's chat snapshot — so a settled round
+   is never stored a second time in order to be browsed; the host's copy of a round it has just
+   settled stands in only until the log lands (`mergeRecords`: the log wins a duplicate).
+   `tests/client.test.mjs` folds events through the definition and asserts both halves; removing
+   either verb list reddens it.
 
 ## The host half
 
@@ -76,9 +80,13 @@ the obstacle.
   `GET /health`. Everything is under `API_PREFIX = '/clarity/api'`; the router slices that prefix
   and dispatches on the remainder. A round is created by the tool, never by the browser, so there
   is no write route that publishes one.
-- **The store.** One round per conversation, keyed by the session ID the tools already carry. A
-  round survives leaving the conversation; the client holds no round id and asks on every mount,
-  reconnect, and round event.
+- **The store.** Rounds are keyed by the session ID the tools already carry, and the Map never
+  evicts — but `GET /rounds` serves only the `open` ones. A settled round stays in memory as the
+  host's copy, reachable through `GET /round?id=` until the process ends; it is not the record.
+  The browser keeps no round id of its own: which round is on screen is the tab's own navigation
+  (`navigation.params.roundId`; absent means the latest), settled rounds are read from the session
+  log (invariant 7), and the host's copy is asked for once only when the cursor names a round the
+  log has not landed yet.
 - **The prompt section.** `clarity:guidance` at order `2950`, inside the tool-section region. It
   carries the rules and not the mechanism: when to open a round, when the evidence is a test gate,
   and that prose derived from a draft is re-read and reconciled with the repository's other
@@ -90,6 +98,28 @@ the obstacle.
 
 - **Registration.** `TAB_ID = 'dsh-collaborative-clarity'`, registered under
   `sidebar.right.pane.tab` (and `.title`), one tab per conversation, with a guide entry.
+- **History.** The tab's history is the fold, read back. The slot hands the body a **resolver** —
+  `history: () => historySourceFor(sessionId)`, over `uiConversation.binding(sessionId).target('chat')`,
+  `null` where the composition has no chat — and `RoundPanel` calls it on every render, because the
+  binding lands after the body mounts (the first real gate caught exactly that: a snapshot captured
+  once left the tab empty). A **hit** is cached and a **miss is not** — a remembered miss made every
+  retry reopen the same "not yet" answer — and while it resolves to `null` the panel re-arms a
+  bounded 250ms × 8 and then shows an honest empty tab. Every render is derived from three sources
+  into one cursor: the host's open rounds, the log's records, and the host's stand-ins. `sent`,
+  `knownRound` and the "nothing open, go back for the old one" branch are gone; a decision sent
+  from the tab turns the round into its record from the round and the result already in hand, with
+  no second fetch. A change in the chat re-reads the snapshot and never reaches the network — only
+  an SSE event does (`roundFeed`). The cursor moves when a round opens, and when a strip cell is
+  pressed — see the next bullet.
+- **The strip and the overview.** `Strip` draws every round of the conversation above the round on
+  screen: numbered chronologically over the log's records and the host's open rounds together
+  (`entriesOf`), waiting first then newest settled (`stripOrder`), each cell the round's own
+  question truncated by `cellLabel` — a summary written here would be a second description to
+  drift. A cell calls the `navigate` prop, which is `openRound`, so the cursor stays the tab's
+  navigation. 「总览」 is pinned outside the scrolling strip and switches `view` to `Overview`: the
+  same rounds with verdicts, chosen variants, comments and notes, plus `markdownOf` (clipboard) and
+  `reportHtmlOf` (a self-contained download that escapes everything). Nothing in the overview
+  stores anything: it is the same projection, read at a different scale.
 - **Attention.** While a round waits, the session row gets a runtime `pendingInteraction` of
   kind `question`, which is what draws the shared warning dot and the trailing `Answer` label.
   It is not a custom pill.

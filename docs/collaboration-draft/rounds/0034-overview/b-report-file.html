@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B · 导出成一份报告</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --bg:#fff; --layer1:#fff; --layer2:#f4f5f7;
+    --ink:#0f1115; --ink2:#61666b; --ink3:#81858c;
+    --line:rgba(0,0,0,.102);
+    --brand:#2b6ae8; --ok:#127a42; --warn:#9a5b00; --blood:#ec1313;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151517; --layer1:#232324; --layer2:#2c2c2e;
+      --ink:#f9fafb; --ink2:#cfd3d6; --ink3:#adb2b8;
+      --line:rgba(255,255,255,.122);
+      --brand:#6aa8ff; --ok:#57cf8c; --warn:#e2a559; --blood:#f25a5a;
+    }
+  }
+  *{ box-sizing:border-box }
+  html,body{ margin:0 }
+  body{ background:var(--bg); color:var(--ink); font:12px/18px var(--sans);
+        -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100% }
+  .page{ max-width:760px; margin:0 auto; padding:16px 16px 28px }
+
+  .eyebrow{ margin:0 0 4px; color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  h1{ margin:0; font-size:16px; line-height:22px; font-weight:650 }
+  .lede{ margin:5px 0 0; color:var(--ink2) }
+  .lede b{ color:var(--ink); font-weight:600 }
+  .cap{ margin:8px 0 0; color:var(--ink3); font-size:10.5px; line-height:16px }
+
+  /* the panel, at its real width, as the tab shows it */
+  .pane{
+    width:360px; max-width:100%; border:0.5px solid var(--line); border-radius:12px;
+    background:var(--layer1); padding:10px 12px 12px; display:flex; flex-direction:column;
+  }
+  .headrow{ display:flex; align-items:center; justify-content:space-between; gap:8px }
+  .pane h2{ margin:2px 0 0; font-size:16px; line-height:22px; font-weight:650 }
+  .sum{ margin:3px 0 0; color:var(--ink2); font-size:11px; line-height:16px }
+  .sum b{ color:var(--ink); font-weight:600 }
+  .export{ display:flex; gap:6px; margin-top:12px; padding-top:10px; border-top:0.5px solid var(--line) }
+  .x{ flex:1 1 auto; height:32px; display:inline-flex; align-items:center; justify-content:center;
+      border:0.5px solid var(--line); border-radius:8px; background:var(--layer2);
+      color:var(--ink); font:inherit; font-size:12px; cursor:pointer }
+  .x.primary{ background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:600 }
+  .note{ margin-top:7px; color:var(--ink3); font-size:10px; line-height:15px }
+
+  /* ── the exported report, as a document ─────────────────────────────── */
+  .doc{ margin-top:14px; border:0.5px solid var(--line); border-radius:12px; background:var(--layer1);
+        padding:22px 24px 26px }
+  .doc .label{ color:var(--ink3); font-size:9.5px; letter-spacing:.09em; font-weight:650; text-transform:uppercase }
+  .doc h2{ margin:3px 0 0; font-size:22px; line-height:29px; font-weight:650; letter-spacing:-.01em }
+  .doc .meta{ margin:5px 0 0; color:var(--ink3); font-size:11px; line-height:16px }
+  .doc .meta b{ color:var(--ink2); font-weight:600 }
+
+  .stats{ display:flex; gap:18px; margin:16px 0 0; padding:10px 0 12px; border-top:0.5px solid var(--line);
+          border-bottom:0.5px solid var(--line) }
+  .stat{ display:flex; flex-direction:column; gap:1px }
+  .stat b{ font-size:19px; line-height:24px; font-weight:650; font-variant-numeric:tabular-nums }
+  .stat span{ color:var(--ink3); font-size:10px }
+
+  .timeline{ margin-top:16px; display:flex; flex-direction:column }
+  .trow{ display:flex; gap:14px; align-items:flex-start; padding:11px 0; border-bottom:0.5px solid var(--line) }
+  .trow:last-child{ border-bottom:0 }
+  .tn{ flex:none; width:34px; color:var(--ink3); font:11px/18px var(--mono); font-variant-numeric:tabular-nums;
+       padding-top:2px }
+  .tbody{ flex:1 1 auto; min-width:0 }
+  .tq{ font-size:13px; line-height:19px; font-weight:600 }
+  .tm{ margin-top:2px; color:var(--ink3); font-size:10.5px; line-height:16px; display:flex; gap:8px; flex-wrap:wrap }
+  .v{ font-weight:600 }
+  .v.ok{ color:var(--ok) } .v.bad{ color:var(--blood) } .v.wait{ color:var(--warn) } .v.mid{ color:var(--ink2) }
+  .tcom{ margin-top:4px; color:var(--ink2); font-size:11.5px; line-height:17px; padding-left:9px;
+         border-left:2px solid var(--line) }
+
+  .legend{ margin-top:12px; color:var(--ink3); font-size:10.5px; line-height:16px }
+  .legend b{ color:var(--ink2); font-weight:600 }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">变体 B · 导出成一份报告</p>
+  <h1>面板里只有「导出」，读的是文件</h1>
+  <p class="lede">tab 不新增视图：点「导出设计流程」，得到一份自包含的 HTML。
+  <b>要总览就打开它——它也是要发出去、要截图的那一份。</b></p>
+
+  <div style="height:16px"></div>
+
+  <div class="pane">
+    <div class="headrow">
+      <div class="eyebrow">这一轮</div>
+    </div>
+    <h2>历史怎么翻：顶部一条带，还是收进抽屉？</h2>
+    <p class="sum">这个会话已经决定 <b>10</b> 轮 · <b>2</b> 轮在等</p>
+    <div class="export">
+      <button class="x primary">导出设计流程</button>
+    </div>
+    <p class="note">导出为 self-contained HTML，放在下载目录；文件本身就是记录。</p>
+  </div>
+  <p class="cap">面板里没有总览页，只有这一个动作——面板始终是「决定」的地方。</p>
+
+  <div class="doc">
+    <div class="label">Design process</div>
+    <h2>Collaborative Clarity · 设计流程</h2>
+    <p class="meta">会话 <b>aa7c554c</b> · 2026-11-12 → 11-24 · 12 轮 · 导出时点 11-24 20:31</p>
+
+    <div class="stats">
+      <div class="stat"><b>9</b><span>已接受</span></div>
+      <div class="stat"><b>2</b><span>要求修改</span></div>
+      <div class="stat"><b>1</b><span>未通过</span></div>
+      <div class="stat"><b>0</b><span>都不要</span></div>
+      <div class="stat"><b>2</b><span>在等</span></div>
+    </div>
+
+    <div class="timeline">
+      <div class="trow">
+        <span class="tn">#12</span>
+        <span class="tbody">
+          <span class="tq">历史怎么翻：顶部一条带，还是收进抽屉？</span>
+          <span class="tm"><span class="v wait">需要决定</span><span>非阻塞</span><span>等你回答</span></span>
+        </span>
+      </div>
+      <div class="trow">
+        <span class="tn">#11</span>
+        <span class="tbody">
+          <span class="tq">Real test: dirty:a29acb4e17f386ea</span>
+          <span class="tm"><span class="v wait">需要决定</span><span>非阻塞</span><span>等你回答</span></span>
+        </span>
+      </div>
+      <div class="trow">
+        <span class="tn">#10</span>
+        <span class="tbody">
+          <span class="tq">Clarity tab 里能翻看的历史，应该是会话日志的投影，还是宿主自己记的一本账？</span>
+          <span class="tm"><span class="v ok">已接受</span><span>选中 A · 投影</span></span>
+        </span>
+      </div>
+      <div class="trow">
+        <span class="tn">#09</span>
+        <span class="tbody">
+          <span class="tq">接受 / 继续修改 / 都不要，以及测试闸门的 通过 / 失败，怎么分层才不读成「Accept/Pass 是正确答案」？</span>
+          <span class="tm"><span class="v ok">已接受</span><span>选中 A · 一格三档</span><span>1 条批注</span></span>
+          <span class="tcom">「这个感觉可以改成字体渐变动画，你知道我什么意思吗」</span>
+        </span>
+      </div>
+      <div class="trow">
+        <span class="tn">#08</span>
+        <span class="tbody">
+          <span class="tq">面板的动效收到什么程度：只在你动手时动，还是新的一轮到达时也动？</span>
+          <span class="tm"><span class="v ok">已接受</span><span>选中 B · 到达也动</span><span>4 条批注</span></span>
+        </span>
+      </div>
+      <div class="trow">
+        <span class="tn">#07</span>
+        <span class="tbody">
+          <span class="tq">真机测试 dirty:0f3c9a1b2e4d5f60</span>
+          <span class="tm"><span class="v bad">未通过</span><span>1 张截图</span></span>
+          <span class="tcom">「没有成功。另外，具体 UI 还没有给我过目，重新做 clarity round。」</span>
+        </span>
+      </div>
+    </div>
+  </div>
+  <p class="cap">导出的那一份：没有应用外壳，可以整页截图、可以打印成 PDF、可以直接发给别人。</p>
+
+  <p class="legend"><b>真：</b>面板的宽度与墨色、0029/0030 的真实问题、第四轮的真实观察。<br>
+  <b>拟：</b>那枚导出按钮与报告页的排版。<br>
+  <b>省：</b>下载目录不可控；报告是快照，导出后新的一轮不会自己进去。</p>
+</div>
+</body>
+</html>

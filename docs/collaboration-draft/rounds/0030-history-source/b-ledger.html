@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B · 账本</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    /* DSH aliases, light */
+    --bg:#fff; --layer1:#fff; --layer2:#f4f5f7;
+    --ink:#0f1115; --ink2:#61666b; --ink3:#81858c;
+    --line:rgba(0,0,0,.102);
+    --brand:#2b6ae8; --ok:#127a42; --warn:#9a5b00; --blood:#ec1313;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151517; --layer1:#232324; --layer2:#2c2c2e;
+      --ink:#f9fafb; --ink2:#cfd3d6; --ink3:#adb2b8;
+      --line:rgba(255,255,255,.122);
+      --brand:#6aa8ff; --ok:#57cf8c; --warn:#e2a559; --blood:#f25a5a;
+    }
+  }
+  *{ box-sizing:border-box }
+  html,body{ margin:0 }
+  body{ background:var(--bg); color:var(--ink); font:12px/18px var(--sans); -webkit-font-smoothing:antialiased }
+  .page{ max-width:392px; margin:0 auto; padding:14px 12px 24px }
+
+  .eyebrow{ margin:0 0 4px; color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  h1{ margin:0; font-size:16px; line-height:22px; font-weight:650 }
+  .lede{ margin:5px 0 0; color:var(--ink2) }
+  .lede b{ color:var(--ink); font-weight:600 }
+
+  section{ margin-top:16px }
+  h2{ margin:0 0 6px; color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  h2 small{ font-weight:400; letter-spacing:0; text-transform:none; color:var(--ink3) }
+
+  ul{ margin:0; padding-left:16px }
+  li{ margin:3px 0 }
+  li b{ font-weight:600 }
+  .yes li::marker{ color:var(--ok) }
+  .warn li::marker{ color:var(--warn) }
+
+  pre{
+    margin:0; padding:8px 9px; background:var(--layer2); border:0.5px solid var(--line); border-radius:8px;
+    overflow-x:auto; font:10.5px/16px var(--mono); white-space:pre;
+  }
+  code{ font:10.5px/15px var(--mono); background:var(--layer2); border:0.5px solid var(--line); border-radius:4px; padding:0 3px }
+  pre code{ background:none; border:0; padding:0 }
+
+  table{ border-collapse:collapse; width:100% }
+  td{ padding:3px 0; vertical-align:top; border-bottom:0.5px solid var(--line) }
+  td:first-child{ width:38%; padding-right:8px; color:var(--ink2) }
+  tr:last-child td{ border-bottom:0 }
+
+  /* the mocked record */
+  .rec{ border:0.5px solid var(--line); border-radius:10px; background:var(--layer1); padding:9px 10px }
+  .rhead{ display:flex; justify-content:space-between; gap:8px; color:var(--ink3); font-size:10px; line-height:15px }
+  .rhead b{ color:var(--ink); font-weight:650 }
+  .rv{ color:var(--ok); font-weight:600 }
+  .rc{ color:var(--ink3); font-weight:600 }
+  .rq{ margin:3px 0 7px; font-size:12.5px; line-height:18px; font-weight:600 }
+  .rvar{ margin:0 0 5px; padding-left:8px; border-left:2px solid var(--line) }
+  .rvar.rec-on{ border-left-color:var(--ink) }
+  .rvar .l{ font-weight:600 }
+  .rvar .adv{ color:var(--ink2) }
+  .rvar .adv i{ font-style:normal; color:var(--brand); font-weight:600 }
+  .rsel{ margin:6px 0 0; color:var(--ink2) }
+  .rsel b{ color:var(--ink) }
+  .rcom{ margin:3px 0 0; padding-left:8px }
+  .rcom .a{ color:var(--ink3); font-size:10.5px; line-height:15px }
+  .rframe{ margin:7px 0 0; height:64px; border:0.5px solid var(--line); border-radius:6px; background:var(--layer2);
+           display:flex; align-items:center; justify-content:center; color:var(--ink3); font-size:10.5px }
+  .rfile{ margin:6px 0 0; color:var(--ink3); font:10px/15px var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .rec + .rec{ margin-top:6px }
+  .rec.cancelled .rq{ color:var(--ink2); font-weight:400 }
+
+  .note{ margin-top:16px; padding:8px 10px; border-left:2px solid var(--brand); background:var(--layer2); border-radius:0 6px 6px 0; font-size:11.5px; line-height:17px }
+  .strike{ color:var(--ink3); text-decoration:line-through }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">变体 B · 账本</p>
+  <h1>宿主自己记一本账</h1>
+  <p class="lede"><code>RoundStore</code> 不再只管开着的轮。每个会话的每一轮——开着的、结算的、取消的——
+  都留在内存里，<code>/rounds</code> 一并给出。<b>tab 翻的就是这本账。</b></p>
+
+  <section>
+    <h2>出发点了：今天的 tab 记着五样 <small>（A 也从这里出发）</small></h2>
+    <table>
+      <tr><td><code>state.round</code></td><td>屏幕上这一轮</td></tr>
+      <tr><td><code>sent</code></td><td>我刚把决定送出去了</td></tr>
+      <tr><td><code>knownRound</code></td><td>上次解析到的 id——结算轮的兜底</td></tr>
+      <tr><td><code>paramRoundId</code></td><td>打开 tab 时带的 id</td></tr>
+      <tr><td><code>autoOpened</code></td><td>这个会话这一轮我已经开过 tab 了</td></tr>
+    </table>
+    <p class="lede" style="margin-top:6px">五处互相对账；每次 SSE 事件都重跑一遍 <code>load()</code>。
+    结算过的那一轮，只有 tab 自己还记着 id 时才看得到。</p>
+  </section>
+
+  <section>
+    <h2>数据从哪儿来</h2>
+<pre>tool ──► RoundStore.rounds（Map，<span style="color:var(--ink3)">今天就已经不过期</span>）
+              │ 开着的 + 结算的 + 取消的，HTML 都在
+              ▼
+        GET /rounds?sessionId ──► 列表 ──► cursor</pre>
+    <p class="lede" style="margin-top:6px">记录就是轮对象本身：<code>variants[]</code> 连同 <code>html</code>、
+    <code>recommendation</code>、<code>cost</code>、<code>result</code>。今天它已经在内存里，只是没人读。</p>
+  </section>
+
+  <section>
+    <h2>改完以后，tab 只记一样</h2>
+    <table>
+      <tr><td><code>cursor</code></td><td>住在 <code>navigation.params.roundId</code> 里。打开 tab 今天就是这么开的
+      （<code>openTab(KIND, { params: { roundId } })</code>）；翻到哪一轮＝改这个参数。刷新、撤销、再打开，都回到同一轮。</td></tr>
+    </table>
+    <p class="lede" style="margin-top:8px">其余全是推导：</p>
+    <table>
+      <tr><td>屏幕上是哪一轮</td><td><code>cursor</code>；没给就是列表最后一条</td></tr>
+      <tr><td>这一轮还在等</td><td>同一个对象，<code>status === 'open'</code></td></tr>
+      <tr><td>刚结算</td><td>还是同一个对象：<code>status</code> 变了、<code>result</code> 长出来了。SSE <code>decided</code> 一到就重读</td></tr>
+      <tr><td>列表</td><td><code>/rounds</code> 一次给全</td></tr>
+    </table>
+    <p class="lede" style="margin-top:8px"><span class="strike"><code>sent</code></span>、
+    <span class="strike"><code>knownRound</code></span>、
+    <span class="strike"><code>autoOpened</code></span>、
+    <span class="strike"><code>load()</code> 里「没开着的就回去找旧的」那一支</span>——全删。</p>
+  </section>
+
+  <section>
+    <h2>一条历史记录长什么样 <small>（模拟：排版还没画过真的）</small></h2>
+    <div class="rec">
+      <div class="rhead"><span><b>决定</b> · 11-17 14:02</span><span class="rv">已接受</span></div>
+      <div class="rq">接受 / 继续修改 / 都不要，以及测试闸门的 通过 / 失败，怎么分层才不读成「Accept/Pass 是正确答案」？</div>
+      <div class="rframe">当时那个 mock · 只读回放 · 标注关着</div>
+      <div class="rvar rec-on" style="margin-top:6px">
+        <div class="l">A · 一格三档</div>
+        <div class="adv"><i>推荐</i> 一格先说清这三件事回答的是同一个问题，没有哪一格靠填充色抢位。</div>
+        <div class="adv">代价 · 三档挤在一格里，误触距离变短</div>
+      </div>
+      <div class="rvar">
+        <div class="l">B · 选中点亮</div>
+        <div class="adv">代价 · 选完卡，接受还是变回一枚黑底按钮</div>
+      </div>
+      <div class="rsel">选了 <b>A</b> · 变体 一格三档</div>
+      <div class="rcom"><div class="a">整条变体</div>这个感觉可以改成字体渐变动画，你知道我什么意思吗</div>
+      <div class="rfile">docs/collaboration-draft/rounds/0029-verb-hierarchy/a-one-group.html</div>
+    </div>
+    <div class="rec cancelled">
+      <div class="rhead"><span><b>决定</b> · 11-16 22:40</span><span class="rc">已取消</span></div>
+      <div class="rq">README 首屏那个 vibe code：留着，还是换成说人话的标题？</div>
+      <div class="rcom"><div class="a">原因</div>the tool call was aborted</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>不变量 · 失败模式</h2>
+    <ul class="yes">
+      <li><b>记录就是轮对象</b>——没有第二份描述要同步。</li>
+      <li><b>取消的轮、非阻塞的轮都在</b>，带着原因。</li>
+      <li><b>能回放当时的 mock</b>，和你决定时看到的一字不差。</li>
+    </ul>
+    <ul class="warn" style="margin-top:4px">
+      <li><b>进程一重启，账本清零。</b>隔天复盘看到的是空列表。</li>
+      <li><b>内存只增不减</b>：每轮两份 HTML（各最多 400 KB）× 所有会话 × 进程寿命。要加淘汰；淘汰就意味着历史会在某一轮悄悄断掉。</li>
+      <li><b>和日志是两份记录</b>：同一个决定，气泡读日志、tab 读账本。不变量 7 写的就是这件事的反面。</li>
+      <li><b>宿主注释原话</b>「persisting the HTML would make a stale surface survive a restart」——这里没落盘，但让它在内存里活了一整个进程。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>代价</h2>
+    <ul>
+      <li><b>重启就没了。</b>隔天、换机器、下次打开——正是最想复盘的时候。</li>
+      <li><b>每会话每轮两份 HTML 留在内存里</b>，得定一个淘汰数；定了数，历史就会在某一轮悄悄断掉。</li>
+      <li><b>同一个决定两处记</b>（日志一份、账本一份），迟早说不到一块。</li>
+      <li><b>翻转了宿主「轮次是短命的」这条设计</b>：一个过期的界面活一整个进程。</li>
+      <li><b>真要跨重启</b>，还得加一条落盘——一个新文件格式、一条写路径、一套清理规则。</li>
+    </ul>
+  </section>
+
+  <div class="note">想要回放、又想要重启后还在，那是第三条路（落到 <code>.clarity/rounds/</code>）——B 的全部代价再加一个 schema。这一轮不摆它。</div>
+</div>
+</body>
+</html>

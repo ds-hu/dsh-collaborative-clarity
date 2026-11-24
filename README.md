@@ -55,6 +55,9 @@ used it first — on the real build, with their own eyes, before the user does.
    unambiguous.
 4. **The agent implements the verdict.** After a round you already know what you are getting, so the
    finished thing cannot blindside you.
+5. **The tab keeps the conversation's decisions.** A numbered strip above the round walks back
+   through them, and 总览 at its end reads the whole design process — copyable as Markdown, or one
+   self-contained HTML page to send on.
 
 ## `clarity_test`: a real test before it ships
 

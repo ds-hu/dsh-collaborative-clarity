@@ -234,6 +234,23 @@ window.__ModuleLoader__.load({
         'bubble.variant': 'variant {label}',
         'bubble.note': 'Note',
         'bubble.noteLine': 'Note: {note}',
+        'record.observed': 'Observed',
+        'strip.overview': 'Overview',
+        'strip.waiting': 'Waiting',
+        'strip.label': 'Rounds',
+        'overview.title': 'This conversation',
+        'overview.count': '{total} rounds',
+        'overview.summary': '{decided} decided · {waiting} waiting',
+        'overview.back': 'Back to this round',
+        'overview.copy': 'Copy Markdown',
+        'overview.download': 'Download HTML',
+        'overview.copied': 'Copied',
+        'overview.empty': 'Nothing has been decided in this conversation yet.',
+        'overview.selected': 'chose {label}',
+        'overview.comments': '{count} comments',
+        'overview.cancelled': 'Cancelled',
+        'overview.heading': 'Design process',
+        'overview.meta': 'Conversation {id} · exported {at}',
         'bubble.copy': 'Copy',
         'bubble.copied': 'Copied',
         'tab.guide': 'Artifact rounds: a decision shown, annotated, and chosen while the agent waits.',
@@ -329,6 +346,23 @@ window.__ModuleLoader__.load({
         'bubble.variant': '变体 {label}',
         'bubble.note': '说明',
         'bubble.noteLine': '说明：{note}',
+        'record.observed': '观察',
+        'strip.overview': '总览',
+        'strip.waiting': '等待中',
+        'strip.label': '轮次',
+        'overview.title': '这个会话',
+        'overview.count': '{total} 轮',
+        'overview.summary': '{decided} 已决定 · {waiting} 在等',
+        'overview.back': '回到这一轮',
+        'overview.copy': '复制 Markdown',
+        'overview.download': '下载 HTML',
+        'overview.copied': '已复制',
+        'overview.empty': '这个会话还没有决定过任何一轮。',
+        'overview.selected': '选中 {label}',
+        'overview.comments': '{count} 批注',
+        'overview.cancelled': '已取消',
+        'overview.heading': '设计流程',
+        'overview.meta': '会话 {id} · 导出于 {at}',
         'bubble.copy': '复制',
         'bubble.copied': '已复制',
         'tab.guide': 'Artifact round：把一个决定摆出来，你标注、你选，agent 在旁边等。',
@@ -646,6 +680,8 @@ window.__ModuleLoader__.load({
     const successText = { color: 'var(--dsw-alias-state-success-primary)' }
     const list = { margin: 0, paddingLeft: '18px', color: 'var(--dsw-alias-label-secondary)' }
     const preparedLine = { color: 'var(--dsw-alias-label-secondary)', fontSize: '12px', margin: '0 0 8px' }
+    // Words a record reads back: the user's own, kept as they were written.
+    const readText = { color: 'var(--dsw-alias-label-secondary)', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }
 
     function ClarityIcon(props) {
       const size = props && props.size ? props.size : 14
@@ -696,6 +732,24 @@ window.__ModuleLoader__.load({
       const at = new Date(value)
       if (Number.isNaN(at.getTime())) return String(value)
       return String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0')
+    }
+
+    /**
+     * The date too, for a record read back days later: HH:MM alone would not say
+     * which day the decision was made on.
+     */
+    function stamp(value) {
+      const at = new Date(value)
+      if (Number.isNaN(at.getTime())) return String(value)
+      const pad = (number) => String(number).padStart(2, '0')
+      return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${clock(at)}`
+    }
+
+    /** The last path segment, for a label the call did not give. */
+    function baseName(path) {
+      const parts = String(path || '').split('/')
+      const last = parts[parts.length - 1]
+      return last === '' ? String(path || '') : last
     }
 
     function contentHash(html) {
@@ -1247,7 +1301,6 @@ window.__ModuleLoader__.load({
 
     function DecisionView(props) {
       const round = props.round
-      const sent = props.sent
       // The recommendation is the variant that carries its own sentence. A round
       // stored before that shape existed falls back to its first variant.
       const recommended = round.variants.find((variant) => variant.recommendation)
@@ -1271,11 +1324,14 @@ window.__ModuleLoader__.load({
       // the same bar, and the accept button was reporting sends it had not been asked
       // to make.
       const [pending, setPending] = React.useState(null)
+      // Sent from this view. The panel turns the round into its record; until that
+      // swap lands the verbs stay quiet, so a second click cannot send twice.
+      const [done, setDone] = React.useState(false)
       const busy = pending !== null
       const frameRefs = React.useRef(new Map())
       const composerRef = React.useRef(null)
 
-      const disabled = busy || sent !== null
+      const disabled = busy || done
 
       React.useEffect(() => {
         function onMessage(event) {
@@ -1446,7 +1502,8 @@ window.__ModuleLoader__.load({
           }
           // The decision is the host's now; the draft that fed it is spent.
           forgetDraft(round.id)
-          props.onSent(result.result)
+          setDone(true)
+          props.onSent(result.result, round)
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause))
         } finally {
@@ -1802,7 +1859,6 @@ window.__ModuleLoader__.load({
 
     function TestView(props) {
       const round = props.round
-      const sent = props.sent
       const prepared = round.prepared && typeof round.prepared.command === 'string' ? round.prepared : null
       // The tab never runs anything: `runThis` is a line the user copies into a
       // terminal. Whoever starts the process owns it, so the round records no
@@ -1815,12 +1871,14 @@ window.__ModuleLoader__.load({
       // Which verb is in flight, if any: the pressed button is the one that says it is
       // working, the other two simply go quiet.
       const [pending, setPending] = React.useState(null)
+      // Sent from this view; the panel turns the gate into its record.
+      const [done, setDone] = React.useState(false)
       const busy = pending !== null
       const [error, setError] = React.useState(null)
       const [copied, setCopied] = React.useState(false)
       const fileRef = React.useRef(null)
       const panelRef = React.useRef(null)
-      const disabled = busy || sent !== null
+      const disabled = busy || done
       const activeShot = Math.min(selectedShot, Math.max(0, shots.length - 1))
 
       // Up to four PNG/JPEG/WebP files, kept as data URLs until the test is sent.
@@ -1905,7 +1963,8 @@ window.__ModuleLoader__.load({
             screenshots: shots.map((shot) => ({ name: shot.name, dataUrl: shot.dataUrl })),
           }
           const result = await api('/test', { method: 'POST', body: JSON.stringify(body) })
-          props.onSent(result.result)
+          setDone(true)
+          props.onSent(result.result, round)
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : String(cause))
         } finally {
@@ -2165,147 +2224,818 @@ window.__ModuleLoader__.load({
       },
     }
 
-    /** The newest still-open round of one conversation, or null. */
-    function newestOpenRound(rounds, sessionId) {
-      if (!Array.isArray(rounds)) return null
+    // The conversation service, when the composition has one. The arena in
+    // `apply` sets it; the tab body reads it for its history. A composition
+    // without it keeps the tab and loses only the records — the open rounds
+    // still come from the host.
+    let conversation = null
+    const historySources = new Map()
+
+    /**
+     * The chat snapshot of one conversation, or null where there is none.
+     *
+     * A hit is the session's source and stays cached. A miss is **not** cached:
+     * `binding` throws for a session the seat has not adopted yet, and a remembered
+     * miss is what turned the panel's bounded retry into a no-op — every retry
+     * reopened the same "not yet" answer without asking again.
+     */
+    function historySourceFor(sessionId) {
+      if (conversation === null || typeof conversation.binding !== 'function') return null
+      const cached = historySources.get(sessionId)
+      if (cached !== undefined) return cached
+      let source = null
+      try {
+        const bound = conversation.binding(sessionId)
+        const target = bound && typeof bound.target === 'function' ? bound.target('chat') : null
+        if (target && typeof target.getSnapshot === 'function' && typeof target.subscribe === 'function') source = target
+      } catch {
+        // Not bound yet: an empty history, never an error.
+      }
+      if (source !== null) historySources.set(sessionId, source)
+      return source
+    }
+
+    // -------------------------------------------------------------------------
+    // History
+    //
+    // A round's durable record is the decision in the session log, folded by
+    // `decisionNode` into the same node the transcript bubble draws. The tab's
+    // history is that fold, read back: nothing here is stored a second time, so
+    // a reload, a restart and next month all read the same record (round 0030).
+    // The host's own copy of a round it has just settled stands in only until
+    // the log lands — the one breath between `decided` and `tool/result`.
+    // -------------------------------------------------------------------------
+
+    /**
+     * The settled records of one conversation, oldest first, from the chat
+     * snapshot. Memoised on the snapshot: the panel re-reads it on every chat
+     * change, and `values()` walks every node.
+     */
+    const recordCache = { snapshot: null, records: [] }
+    function recordsFromChat(snapshot) {
+      if (recordCache.snapshot === snapshot) return recordCache.records
+      const records = []
+      const store = snapshot && snapshot.nodes
+      if (store && typeof store.values === 'function') {
+        for (const node of store.values()) {
+          const data = node && node.data
+          if (!node || node.kind !== NODE_KIND || !data || typeof data.roundId !== 'string') continue
+          records.push(data)
+        }
+      }
+      records.sort((a, b) => (a.time || 0) - (b.time || 0))
+      recordCache.snapshot = snapshot
+      recordCache.records = records
+      return records
+    }
+
+    /**
+     * The host's round, shaped as the fold would have shaped it.
+     *
+     * Used only for a round the host settled a moment ago, before the log has
+     * it; once the log lands, the log's record wins and this one is dropped.
+     */
+    function recordFromHost(round) {
+      const result = (round && round.result) || {}
+      const test = round.kind === 'test'
+      const data = {
+        kind: test ? 'test' : 'decision',
+        roundId: round.id,
+        verdict: typeof result.verdict === 'string' ? result.verdict : '',
+        selected: typeof result.selected === 'string' ? result.selected : '',
+        time: typeof round.createdAt === 'number' ? round.createdAt : 0,
+      }
+      if (test) {
+        data.candidate = typeof round.candidate === 'string' ? round.candidate : ''
+        data.observed = typeof result.observed === 'string' ? result.observed : ''
+        data.shots = shotPaths(result.screenshots)
+      } else {
+        const advice = adviceOf(round.variants)
+        const labels = {}
+        for (const variant of advice) labels[variant.id] = variant.label
+        data.decision = round.decision
+        data.context = typeof round.context === 'string' ? round.context : ''
+        data.variants = advice
+        data.variantLabel = data.verdict === 'reject' ? '' : labelOf(labels, data.selected)
+        data.comments = commentsOf(result.comments)
+        data.note = typeof result.note === 'string' ? result.note : ''
+      }
+      return data
+    }
+
+    /** The log's records plus the host's stand-ins, oldest first; the log wins a duplicate. */
+    function mergeRecords(log, standIns) {
+      const records = [...log]
+      const known = new Set(log.map((record) => record.roundId))
+      for (const round of standIns.values()) {
+        if (known.has(round.id)) continue
+        records.push(recordFromHost(round))
+      }
+      records.sort((a, b) => (a.time || 0) - (b.time || 0))
+      return records
+    }
+
+    /** The open round the cursor names, or else the newest open round of the conversation. */
+    function pickOpen(rounds, sessionId, cursor) {
       let newest = null
-      for (const round of rounds) {
-        if (!round || round.sessionId !== sessionId || round.status !== 'open') continue
+      for (const round of Array.isArray(rounds) ? rounds : []) {
+        if (!round || typeof round.id !== 'string' || round.sessionId !== sessionId || round.status !== 'open') continue
+        if (cursor !== undefined && round.id === cursor) return round
         if (newest === null || (round.createdAt || 0) >= (newest.createdAt || 0)) newest = round
       }
       return newest
     }
 
+    /**
+     * A settled round, read back: what was asked, what was advised and what it
+     * cost, what was chosen and what was said about it. Reading is all it does.
+     *
+     * There is no artifact in it: the log never held the HTML, and the file the
+     * advice names is the record (round 0002's rule), so its path is shown.
+     */
+    function RecordView(props) {
+      const record = props.record
+      const isTest = record.kind === 'test'
+      const cancelled = record.verdict === ''
+      const word = cancelled ? t('state.roundCancelled') : verdictWord(record.verdict)
+      const kept = record.verdict === 'accept' || record.verdict === 'pass'
+      const labels = {}
+      for (const variant of record.variants || []) labels[variant.id] = variant.label
+      const chosen = record.selected ? t('state.selected', { selected: labelOf(labels, record.selected) }) : ''
+      const comments = Array.isArray(record.comments) ? record.comments : []
+      const shots = Array.isArray(record.shots) ? record.shots : []
+
+      const body = [
+        h(
+          'div',
+          { key: 'verdict', style: { ...card, borderColor: kept ? 'var(--dsw-alias-state-success-primary)' : HAIRLINE } },
+          h('div', { style: { fontWeight: 600, color: kept ? successText.color : undefined } }, t('state.verdict', { verdict: word }) + chosen),
+          h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, stamp(record.time)),
+        ),
+      ]
+      if (!isTest) {
+        for (const variant of record.variants || []) {
+          body.push(
+            h(
+              'div',
+              { key: 'variant-' + variant.id, style: card },
+              h(
+                'div',
+                { style: vhead },
+                // The radio says which one was taken; it is not a control here.
+                h('span', { style: radio, 'aria-hidden': true }, record.selected === variant.id ? '●' : '○'),
+                h('span', { style: vlabel }, variant.label),
+              ),
+              variant.path ? h('div', { style: sourceLine, title: variant.path }, variant.path) : null,
+              variant.note ? h('div', { style: { ...fidelity, color: 'var(--dsw-alias-label-secondary)' } }, variant.note) : null,
+              h(Advice, { variant }),
+              h(Fidelity, { variant }),
+            ),
+          )
+        }
+      }
+      if (record.observed) {
+        body.push(
+          h('div', { key: 'observed', style: section }, h('div', { style: sectionTitle }, t('record.observed')), h('div', { style: readText }, record.observed)),
+        )
+      }
+      if (comments.length > 0) {
+        body.push(
+          h(
+            'div',
+            { key: 'comments', style: section },
+            h('div', { style: sectionTitle }, t('comments.title'), h('span', { style: countChip }, String(comments.length))),
+            h(
+              'div',
+              { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+              comments.map((comment, index) =>
+                h(
+                  'div',
+                  { key: String(index), style: commentItem },
+                  h(
+                    'div',
+                    { style: { display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, minWidth: 0 } },
+                    h(
+                      'div',
+                      { style: { display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' } },
+                      comment.variantId ? h('span', { style: commentVariant }, labelOf(labels, comment.variantId)) : null,
+                      h('span', { style: { color: MUTED, fontSize: '10px' } }, anchorLabel(comment.anchor)),
+                    ),
+                    h('span', { style: readText }, comment.text),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
+      }
+      if (record.note) {
+        body.push(
+          h('div', { key: 'note', style: section }, h('div', { style: sectionTitle }, t('bubble.note')), h('div', { style: readText }, record.note)),
+        )
+      }
+      if (shots.length > 0) {
+        body.push(
+          h(
+            'div',
+            { key: 'shots', style: section },
+            h('div', { style: sectionTitle }, t('bubble.shots')),
+            h(
+              'div',
+              { style: { display: 'flex', flexWrap: 'wrap', gap: '2px 10px', fontFamily: MONO, fontSize: '10px', lineHeight: '15px' } },
+              shots.map((path, index) => h('span', { key: String(index), style: { color: 'var(--dsw-alias-label-secondary)' }, title: path }, fileNameOf(path))),
+            ),
+          ),
+        )
+      }
+      // The root carries the round id as its key, so the entrance plays once per
+      // record and never on a re-render — the same law the live round follows.
+      // Inside the panel the strip is already above it, so `inline` drops the
+      // scope root and the padding; used alone it is still a whole screen.
+      const inner = [
+        h(Header, { round: { kind: record.kind, decision: record.decision, context: record.context, candidate: record.candidate } }),
+        ...body,
+      ]
+      if (props.inline) return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } }, inner)
+      return h('div', { key: record.roundId, className: 'clarity-scope clarity-arrival', style: rootPadded }, inner)
+    }
+
+    // -------------------------------------------------------------------------
+    // The strip, and the overview it ends at
+    //
+    // The strip is the tab's map of its own conversation: every round, numbered
+    // in the order it happened, newest first, and whoever is waiting in front of
+    // the settled ones. Round 0033 settled the numbering, 0032 the order, 0035
+    // the overview pinned at its right end.
+    // -------------------------------------------------------------------------
+
+    const stripWrap = { display: 'flex', alignItems: 'center', gap: '6px', margin: '-2px 0 10px', minWidth: 0 }
+    const stripRow = { display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', minWidth: 0 }
+    const stripChip = {
+      font: 'inherit',
+      fontSize: '11px',
+      lineHeight: '16px',
+      flex: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '5px',
+      height: '26px',
+      padding: '0 9px',
+      borderRadius: '99px',
+      border: HAIRLINE,
+      background: 'var(--dsw-alias-bg-layer-2)',
+      color: 'var(--dsw-alias-label-secondary)',
+      whiteSpace: 'nowrap',
+      cursor: 'pointer',
+      maxWidth: '240px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    }
+    const stripChipOn = { ...stripChip, borderColor: 'var(--dsw-alias-label-primary)', color: 'var(--dsw-alias-label-primary)', fontWeight: 600 }
+    const stripChipWait = { ...stripChip, borderColor: '#d4a72c', color: 'var(--dsw-alias-label-primary)' }
+    const stripChipWaitOn = { ...stripChipWait, fontWeight: 600 }
+    const stripDot = { flex: 'none', width: '6px', height: '6px', borderRadius: '50%' }
+
+    /**
+     * The strip's dot for one verdict.
+     *
+     * It used to paint everything except fail/reject in the success colour, so a
+     * revise and a blocked gate both read as green while the record view treated
+     * only accept and pass as kept. The two surfaces now agree.
+     */
+    function verdictTone(verdict) {
+      if (verdict === 'accept' || verdict === 'pass') return 'var(--dsw-alias-state-success-primary)'
+      if (verdict === 'fail' || verdict === 'reject') return ERROR
+      if (verdict === 'revise' || verdict === 'blocked') return '#d4a72c'
+      return MUTED
+    }
+    const stripNum = { color: MUTED, fontVariantNumeric: 'tabular-nums', fontWeight: 650 }
+    const stripDivider = { flex: 'none', width: '0.5px', height: '18px', background: 'var(--dsw-alias-border-l2)' }
+    const stripOverview = { ...stripChip, background: 'transparent', flex: 'none' }
+    const overviewRow = { display: 'flex', flexDirection: 'column', gap: '1px', width: '100%', textAlign: 'left' }
+    const overviewHead = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }
+    const overviewBack = {
+      font: 'inherit',
+      fontSize: '10.5px',
+      lineHeight: '16px',
+      flex: 'none',
+      height: '22px',
+      padding: '0 7px',
+      borderRadius: '99px',
+      border: HAIRLINE,
+      background: 'transparent',
+      color: MUTED,
+      cursor: 'pointer',
+    }
+    const overviewList = { display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '10px' }
+    const overviewItem = { display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', textAlign: 'left' }
+    const overviewQuestion = { fontSize: '11.5px', lineHeight: '17px', color: 'var(--dsw-alias-label-secondary)', whiteSpace: 'normal' }
+    const overviewMeta = { display: 'flex', gap: '6px', flexWrap: 'wrap', color: MUTED, fontSize: '10px', lineHeight: '15px' }
+    // A comment reads as two things, so it is drawn as two: where it points, in
+    // the muted small line, and what was said, in the user's own words. Joined by
+    // a dash, the anchor and the sentence ran together as one grey line.
+    const overviewCommentBlock = {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '1px',
+      marginTop: '4px',
+      paddingLeft: '8px',
+      borderLeft: '2px solid var(--dsw-alias-border-l2)',
+    }
+    const overviewCommentAnchor = { color: MUTED, fontSize: '10px', lineHeight: '15px' }
+    const overviewCommentText = {
+      color: 'var(--dsw-alias-label-secondary)',
+      fontSize: '11px',
+      lineHeight: '17px',
+      overflowWrap: 'anywhere',
+      whiteSpace: 'pre-wrap',
+    }
+    const overviewExport = { display: 'flex', gap: '6px', marginTop: '12px', paddingTop: '10px', borderTop: HAIRLINE }
+    const exportButton = {
+      font: 'inherit',
+      fontSize: '12px',
+      lineHeight: '18px',
+      flex: '1 1 auto',
+      height: '32px',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      border: HAIRLINE,
+      borderRadius: 'var(--dsw-radius-md)',
+      background: 'var(--dsw-alias-bg-layer-2)',
+      color: 'var(--dsw-alias-label-primary)',
+      cursor: 'pointer',
+    }
+    const exportPrimary = { ...exportButton, background: 'var(--dsw-alias-label-primary)', borderColor: 'var(--dsw-alias-label-primary)', color: 'var(--dsw-alias-bg-base)', fontWeight: 600 }
+
+    /**
+     * Every round of this conversation, oldest first, numbered from 1.
+     *
+     * The number is the name a round is pointed at by ("#03"), so it is assigned
+     * once, over the log's records and the host's open rounds together, in time
+     * order: a round keeps its number when it settles.
+     */
+    function entriesOf(records, rounds, sessionId) {
+      const items = []
+      const seen = new Set()
+      for (const record of records) {
+        if (seen.has(record.roundId)) continue
+        seen.add(record.roundId)
+        items.push({
+          number: 0,
+          kind: record.kind,
+          roundId: record.roundId,
+          question: record.kind === 'test' ? record.candidate : record.decision,
+          verdict: record.verdict,
+          time: record.time || 0,
+          record,
+        })
+      }
+      for (const round of Array.isArray(rounds) ? rounds : []) {
+        if (!round || typeof round.id !== 'string' || round.sessionId !== sessionId || seen.has(round.id)) continue
+        seen.add(round.id)
+        items.push({
+          number: 0,
+          kind: round.kind,
+          roundId: round.id,
+          question: round.kind === 'test' ? round.candidate : round.decision,
+          verdict: '',
+          time: round.createdAt || 0,
+          round,
+        })
+      }
+      items.sort((a, b) => a.time - b.time)
+      for (const [index, item] of items.entries()) item.number = index + 1
+      return items
+    }
+
+    /** What the strip shows: whoever is waiting first, then the newest settled. */
+    function stripOrder(items) {
+      const waiting = items.filter((item) => item.round !== undefined).reverse()
+      const settled = items.filter((item) => item.round === undefined).reverse()
+      return waiting.concat(settled)
+    }
+
+    /** A strip cell's one line: the question itself, truncated. Never a summary. */
+    function cellLabel(item) {
+      return shortText(String(item.question || ''), 42)
+    }
+
+    /** The verdict as a word for a row or a report; a waiting round says so. */
+    function entryWord(item) {
+      if (item.round !== undefined) return t('strip.waiting')
+      return verdictWord(item.verdict) || t('overview.cancelled')
+    }
+
+    /** The whole design process as Markdown: what the copy action writes. */
+    function markdownOf(items) {
+      const lines = ['# ' + t('overview.heading'), '']
+      for (const item of items) {
+        lines.push(`- **#${item.number}** ${entryWord(item)} · ${String(item.question || '')}`)
+        const record = item.record
+        if (record && record.kind !== 'test') {
+          const labels = {}
+          for (const variant of record.variants || []) labels[variant.id] = variant.label
+          if (record.selected) lines.push('  - ' + t('overview.selected', { label: labelOf(labels, record.selected) }))
+          for (const comment of Array.isArray(record.comments) ? record.comments : []) {
+            lines.push('  - ' + anchorLabel(comment.anchor) + ' — ' + comment.text)
+          }
+          if (record.note) lines.push('  - ' + t('bubble.note') + ' — ' + record.note)
+        }
+        if (record && record.kind === 'test' && record.observed) lines.push('  - ' + record.observed)
+      }
+      return lines.join('\n')
+    }
+
+    /** One self-contained document, for the download action. */
+    function reportHtmlOf(items, sessionId, exportedAt) {
+      const escape = (value) =>
+        String(value === undefined || value === null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+      const rows = items
+        .map((item) => {
+          const record = item.record
+          const parts = [
+            `<li><p class="q"><b>#${item.number}</b> ${escape(item.question)}</p>`,
+            `<p class="m">${escape(entryWord(item))}</p>`,
+          ]
+          if (record && record.kind !== 'test') {
+            const labels = {}
+            for (const variant of record.variants || []) labels[variant.id] = variant.label
+            if (record.selected) parts.push(`<p class="m">${escape(t('overview.selected', { label: labelOf(labels, record.selected) }))}</p>`)
+            for (const comment of Array.isArray(record.comments) ? record.comments : []) {
+              parts.push(`<p class="c">${escape(anchorLabel(comment.anchor))} — ${escape(comment.text)}</p>`)
+            }
+            if (record.note) parts.push(`<p class="c">${escape(t('bubble.note'))} — ${escape(record.note)}</p>`)
+          }
+          if (record && record.kind === 'test' && record.observed) parts.push(`<p class="c">${escape(record.observed)}</p>`)
+          parts.push('</li>')
+          return parts.join('')
+        })
+        .join('\n')
+      return [
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width,initial-scale=1">',
+        '<title>' + escape(t('overview.heading')) + '</title>',
+        '<style>body{margin:0;padding:28px 22px 40px;font:14px/22px ui-sans-serif,system-ui,"Segoe UI",sans-serif;color:#111}',
+        'h1{margin:0 0 4px;font-size:22px;line-height:29px}p{margin:0}',
+        '.meta{color:#666;font-size:12px;margin-bottom:18px}',
+        'ol{list-style:none;margin:0;padding:0}',
+        'li{padding:12px 0;border-bottom:1px solid #e6e8ec}',
+        '.q{margin:0;font-weight:600}.m{margin:2px 0 0;color:#666;font-size:12px}',
+        '.c{margin:4px 0 0;padding-left:9px;border-left:2px solid #e6e8ec;color:#333;font-size:13px}',
+        '@media (prefers-color-scheme:dark){body{background:#151517;color:#f9fafb}.meta{color:#adb2b8}li{border-color:#2c2c2e}.m{color:#adb2b8}.c{border-color:#2c2c2e;color:#cfd3d6}}',
+        '</style></head><body>',
+        '<h1>' + escape(t('overview.heading')) + '</h1>',
+        '<p class="meta">' + escape(t('overview.meta', { id: sessionId, at: exportedAt })) + '</p>',
+        '<ol>' + rows + '</ol></body></html>',
+      ].join('')
+    }
+
+    /** Write a document to the browser's download directory. */
+    function downloadText(name, text, type) {
+      try {
+        if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Blob === 'undefined') return false
+        const url = URL.createObjectURL(new Blob([text], { type: type }))
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = name
+        anchor.click()
+        setTimeout(() => URL.revokeObjectURL(url), 2_000)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    /** The strip: every round, newest first, waiting in front, overview pinned. */
+    function Strip(props) {
+      const items = props.items
+      return h(
+        'div',
+        { style: stripWrap },
+        h(
+          'div',
+          // A group of buttons: `role="listitem"` on a <button> replaces its button
+          // role, so a screen reader announced "list item" and lost the only word
+          // that says the thing acts.
+          { style: stripRow, role: 'group', 'aria-label': t('strip.label') },
+          items.map((item) => {
+            const waiting = item.round !== undefined
+            const current = item.roundId === props.current
+            const style = waiting ? (current ? stripChipWaitOn : stripChipWait) : current ? stripChipOn : stripChip
+            return h(
+              'button',
+              {
+                key: item.roundId,
+                type: 'button',
+                style,
+                title: String(item.question || ''),
+                'aria-current': current ? 'true' : undefined,
+                onClick: () => props.onOpen(item.roundId),
+              },
+              h('span', { style: { ...stripDot, background: waiting ? '#d4a72c' : verdictTone(item.verdict) } }),
+              h('span', { style: stripNum }, '#' + item.number),
+              h(
+                'span',
+                { style: { overflow: 'hidden', textOverflow: 'ellipsis' } },
+                // Waiting is said in words as well as in the colour: a yellow ring
+                // alone is not a label. Then the question itself, truncated.
+                waiting ? t('strip.waiting') + ' · ' + cellLabel(item) : cellLabel(item),
+              ),
+            )
+          }),
+        ),
+        h('span', { style: stripDivider }),
+        h(
+          'button',
+          { type: 'button', style: stripOverview, title: t('overview.title'), onClick: props.onOverview },
+          t('strip.overview'),
+          h('span', { style: countChip }, String(items.length)),
+        ),
+      )
+    }
+
+    /** The overview: the whole design process, with what was said about each round. */
+    function Overview(props) {
+      const items = props.items
+      const [copied, setCopied] = React.useState(false)
+      const decided = items.filter((item) => item.round === undefined).length
+      const waiting = items.length - decided
+      const exportFrom = () => {
+        const markdown = markdownOf(items)
+        return {
+          markdown,
+          html: reportHtmlOf(items, props.sessionId, stamp(Date.now())),
+        }
+      }
+      const copy = () => {
+        const { markdown } = exportFrom()
+        if (typeof navigator === 'undefined' || !navigator.clipboard) return
+        Promise.resolve(navigator.clipboard.writeText(markdown))
+          .then(() => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1_500)
+          })
+          .catch(() => {})
+      }
+      const download = () => {
+        const { html } = exportFrom()
+        downloadText('clarity-design-process.html', html, 'text/html;charset=utf-8')
+      }
+      return h(
+        'div',
+        { style: rootPadded },
+        h(
+          'div',
+          { style: overviewHead },
+          h('div', { style: eyebrow }, t('strip.overview')),
+          h('button', { type: 'button', style: overviewBack, onClick: props.onBack }, t('overview.back')),
+        ),
+        h('h2', { style: title }, t('overview.title')),
+        h('p', { style: { ...context, marginTop: '3px' } }, t('overview.count', { total: items.length })),
+        h('p', { style: { ...context, marginTop: '2px' } }, t('overview.summary', { decided, waiting })),
+        items.length === 0
+          ? h('p', { style: { ...context, marginTop: '10px' } }, t('overview.empty'))
+          : h(
+              'div',
+              { style: overviewList, role: 'list' },
+              items.map((item) => {
+                const record = item.record
+                const labels = {}
+                for (const variant of record && record.variants ? record.variants : []) labels[variant.id] = variant.label
+                const comments = record && Array.isArray(record.comments) ? record.comments : []
+                return h(
+                  'div',
+                  { key: item.roundId, role: 'listitem', style: { ...commentItem, ...overviewItem, cursor: 'default' } },
+                  h(
+                    'div',
+                    { style: overviewMeta },
+                    h('span', { style: { ...stripNum, color: MUTED } }, '#' + item.number),
+                    h('span', { style: { fontWeight: 600, color: item.round !== undefined ? '#9a5b00' : 'inherit' } }, entryWord(item)),
+                    record && record.kind !== 'test' && record.selected
+                      ? h('span', null, t('overview.selected', { label: labelOf(labels, record.selected) }))
+                      : null,
+                    comments.length > 0 ? h('span', null, t('overview.comments', { count: comments.length })) : null,
+                  ),
+                  h('div', { style: overviewQuestion }, String(item.question || '')),
+                  comments.map((comment, index) =>
+                    h(
+                      'div',
+                      { key: String(index), style: overviewCommentBlock },
+                      h('div', { style: overviewCommentAnchor }, anchorLabel(comment.anchor)),
+                      h('div', { style: overviewCommentText }, comment.text),
+                    ),
+                  ),
+                  record && record.note
+                    ? h(
+                        'div',
+                        { style: overviewCommentBlock },
+                        h('div', { style: overviewCommentAnchor }, t('bubble.note')),
+                        h('div', { style: overviewCommentText }, record.note),
+                      )
+                    : null,
+                  record && record.kind === 'test' && record.observed
+                    ? h(
+                        'div',
+                        { style: overviewCommentBlock },
+                        h('div', { style: overviewCommentAnchor }, t('record.observed')),
+                        h('div', { style: overviewCommentText }, record.observed),
+                      )
+                    : null,
+                )
+              }),
+            ),
+        h(
+          'div',
+          { style: overviewExport },
+          h('button', { type: 'button', style: exportButton, onClick: copy }, copied ? t('overview.copied') : t('overview.copy')),
+          h('button', { type: 'button', style: exportPrimary, onClick: download }, t('overview.download')),
+        ),
+      )
+    }
+
     function RoundPanel(props) {
       const info = props.useTabInfo ? props.useTabInfo() : null
-      const paramRoundId = info && info.tab && info.tab.navigation && info.tab.navigation.params
-        ? info.tab.navigation.params.roundId
-        : undefined
-      const [state, setState] = React.useState({ loading: true, error: null, round: null })
-      const [sent, setSent] = React.useState(null)
-      // The round this body last resolved; the host is authoritative, so the id
-      // is only a locator — never a substitute for asking.
-      const knownRound = React.useRef(null)
+      const params = info && info.tab && info.tab.navigation && info.tab.navigation.params
+      // The cursor: the round the opener navigated to. Absent means "the latest".
+      // It lives in the tab's own navigation, so a reload, an undo and a second
+      // open all land on the same round; the panel holds no round id of its own.
+      const cursor = params && typeof params.roundId === 'string' && params.roundId !== '' ? params.roundId : undefined
+      const [state, setState] = React.useState({ loading: true, error: null, rounds: [] })
+      const [view, setView] = React.useState('round')
+      // Settled copies the host still holds for rounds the log has not landed
+      // yet. The log wins a duplicate, so the map empties as the log catches up.
+      const standIns = React.useRef(new Map())
+      const navigate = typeof props.navigate === 'function' ? props.navigate : () => {}
+
+      // The history source is resolved per render, not captured once: the tab body
+      // can mount before the seat has bound this conversation's chat, and a prop
+      // computed once would then stay empty for as long as the tab is open.
+      const history = typeof props.history === 'function' ? props.history() : props.history
+      const logNow = () => recordsFromChat(history && typeof history.getSnapshot === 'function' ? history.getSnapshot() : null)
+      // A source that never arrives must not leave the tab empty forever: while it
+      // is missing, ask again a few times (the binding lands a tick after the seat
+      // adopts the session) and then stop — a tab that keeps a timer forever is
+      // worse than one that is honestly empty.
+      //
+      // Two effects, not one: the retry has to re-arm itself, and an effect whose
+      // deps are `[history]` never runs again while `history` stays null — the
+      // tick is what makes the second attempt happen at all.
+      const [tick, retune] = React.useState(0)
+      const retries = React.useRef(0)
+      React.useEffect(() => {
+        if (!history || typeof history.subscribe !== 'function') return undefined
+        retries.current = 0
+        return history.subscribe(() => retune((value) => value + 1))
+      }, [history])
+      React.useEffect(() => {
+        if (history !== null && history !== undefined) return undefined
+        if (retries.current >= 8) return undefined
+        const timer = setTimeout(() => {
+          retries.current += 1
+          retune((value) => value + 1)
+        }, 250)
+        return () => clearTimeout(timer)
+      }, [history, tick])
 
       React.useEffect(() => {
         let live = true
         let ticket = 0
         const load = async () => {
           const mine = ++ticket
-          let next = null
+          let rounds = []
+          let standIn = null
           try {
             const body = await api('/rounds?sessionId=' + encodeURIComponent(props.sessionId))
-            next = newestOpenRound(body.rounds, props.sessionId)
+            rounds = (Array.isArray(body.rounds) ? body.rounds : []).filter(
+              (round) => round && round.sessionId === props.sessionId && round.status === 'open',
+            )
+            // The cursor names a round that is neither open nor in the log yet.
+            // The host may still hold the copy it settled a moment ago, in this
+            // process; ask once. A 404 is the honest "nowhere", and the panel
+            // falls back to the latest below.
+            const known = rounds.some((round) => round.id === cursor)
+            if (!known && cursor !== undefined && !logNow().some((record) => record.roundId === cursor)) {
+              try {
+                const single = await api('/round?id=' + encodeURIComponent(cursor))
+                if (single.round && single.round.sessionId === props.sessionId && single.round.status !== 'open') standIn = single.round
+              } catch {
+                // Nowhere to be had: the fallback below is the answer.
+              }
+            }
           } catch (cause) {
             if (live && mine === ticket) {
-              setState({ loading: false, error: cause instanceof Error ? cause.message : String(cause), round: null })
+              setState({ loading: false, error: cause instanceof Error ? cause.message : String(cause), rounds: [] })
             }
             return
           }
-          const known = paramRoundId ?? knownRound.current
-          if (next === null && known) {
-            // A settled round still deserves its record, not an empty tab.
-            try {
-              const body = await api('/round?id=' + encodeURIComponent(known))
-              if (body.round && body.round.sessionId === props.sessionId) next = body.round
-            } catch {
-              // The host no longer has it: the empty state is the honest answer.
-            }
-          }
           if (!live || mine !== ticket) return
-          if (next !== null && next.id !== knownRound.current) {
-            knownRound.current = next.id
-            setSent(null)
-          }
-          setState({ loading: false, error: null, round: next })
+          if (standIn !== null) standIns.current.set(standIn.id, standIn)
+          // Keep the round on screen while a refresh is in flight; only a first
+          // load shows the placeholder.
+          setState({ loading: false, error: null, rounds })
         }
-        // Keep the round on screen while a refresh is in flight; only a first
-        // load shows the placeholder.
-        setState((previous) => ({ loading: previous.round === null, error: null, round: previous.round }))
         load()
         const unsubscribe = roundFeed.subscribe(load)
         return () => {
           live = false
           unsubscribe()
         }
-      }, [paramRoundId, props.sessionId])
+        // `history` is in the deps so that a binding that landed after the first
+        // load re-runs it: `load` closes over `logNow`, and a closure holding the
+        // null of the first render would keep re-reading an empty log.
+      }, [cursor, props.sessionId, history])
 
-      if (state.loading) {
-        return h('div', scope(rootPadded), h('div', { style: { color: MUTED } }, t('state.reading')))
+      const records = mergeRecords(logNow(), standIns.current)
+      const items = entriesOf(records, state.rounds, props.sessionId)
+      const ordered = stripOrder(items)
+
+      if (view === 'overview') {
+        return h(Overview, { items: ordered, sessionId: props.sessionId, onBack: () => setView('round') })
       }
+
       if (state.error) {
         return h('div', scope(rootPadded), h('div', { style: errorText, role: 'alert' }, state.error))
       }
-      const round = state.round
-      if (!round) {
-        if (sent) {
-          return h(
-            'div',
-            scope(rootPadded),
-            h(
-              'div',
-              { style: { ...card, borderColor: 'var(--dsw-alias-state-success-primary)' } },
-              h('div', { style: { ...successText, fontWeight: 600 } }, t('state.decisionSent')),
-              h('p', { style: { ...context, margin: 0 } }, t('state.close')),
-            ),
-          )
+      // Until the host has answered once, "the latest" is not known yet: showing
+      // a record first and swapping to a waiting round would be a flash.
+      if (cursor === undefined && state.loading) {
+        return h('div', scope(rootPadded), h('div', { style: { color: MUTED } }, t('state.reading')))
+      }
+
+      // What is on screen, derived on every render from three sources: the
+      // host's open rounds, the log's records, and the host's stand-ins.
+      const open = pickOpen(state.rounds, props.sessionId, cursor)
+      let entry = null
+      if (cursor !== undefined) {
+        if (open && open.id === cursor) entry = { live: open }
+        else {
+          const record = records.find((item) => item.roundId === cursor)
+          if (record) entry = { record }
         }
+      }
+      // A cursor that names nothing anywhere — an id from before a restart, a
+      // round the chat window has not loaded — falls back to the latest, once
+      // the host has answered. Before that nothing is known to be the latest.
+      if (entry === null && (!state.loading || cursor === undefined)) {
+        if (open) entry = { live: open }
+        else if (records.length > 0) entry = { record: records[records.length - 1] }
+      }
+      const strip = ordered.length === 0
+        ? null
+        : h(Strip, {
+            items: ordered,
+            current: entry === null ? undefined : entry.live ? entry.live.id : entry.record.roundId,
+            onOpen: navigate,
+            onOverview: () => setView('overview'),
+          })
+      if (entry === null) {
+        if (state.loading) return h('div', scope(rootPadded), h('div', { style: { color: MUTED } }, t('state.reading')))
         return h(
           'div',
           scope(rootPadded),
+          strip,
           h('div', { style: eyebrow }, 'Collaborative Clarity'),
           h('h2', { style: title }, t('state.noRound')),
-          h(
-            'p',
-            { style: context },
-            t('state.noRoundHint'),
-          ),
+          h('p', { style: context }, t('state.noRoundHint')),
         )
       }
-      if (round.status !== 'open' && !sent) {
+
+      if (entry.record) {
         return h(
           'div',
-          scope(rootPadded),
-          h(Header, { round }),
-          h(
-            'div',
-            { style: card },
-            h('div', { style: { fontWeight: 600 } }, round.status === 'cancelled' ? t('state.roundCancelled') : t('state.answered')),
-            h('div', { style: { color: 'var(--dsw-alias-label-secondary)' } }, t('state.hasResult')),
-          ),
+          // `rootPadded`: a record has no decision bar under it, so it carries its
+          // own bottom padding — `root` ends at 0 because the bar carries it.
+          { key: entry.record.roundId, className: 'clarity-scope clarity-arrival', style: rootPadded },
+          strip,
+          h(RecordView, { record: entry.record, inline: true }),
         )
       }
-      if (sent) {
-        return h(
-          'div',
-          scope(rootPadded),
-          h(Header, { round }),
-          h(
-            'div',
-            { style: { ...card, borderColor: 'var(--dsw-alias-state-success-primary)' } },
-            h('div', { style: { ...successText, fontWeight: 600 } }, sent.status === 'tested' ? 'Result sent to the agent.' : sent.status === 'cancelled' ? 'Round cancelled.' : t('state.decisionSent')),
-            h(
-              'div',
-              { style: { color: 'var(--dsw-alias-label-secondary)' } },
-              sent.verdict ? t('state.verdict', { verdict: sent.verdict }) : t('state.returned'),
-              sent.selected ? t('state.selected', { selected: sent.selected }) : '',
-            ),
-          ),
-          h('p', { style: { ...context, marginTop: '2px' } }, t('state.close')),
-        )
+
+      const round = entry.live
+      // The host has settled the round that was on screen; the log lands a
+      // moment later. Its copy stands in until then, built from the round that
+      // was on screen and the result the route just returned — no second fetch
+      // and no second description to drift.
+      const complete = (result, settled) => {
+        // A cancelled round is not history: the fold draws no row for it, so a
+        // stand-in would show it in the strip until the next reload and then
+        // renumber every round after it when it vanished (round 0030's rule).
+        if (result.status !== 'cancelled') {
+          standIns.current.set(settled.id, { ...settled, status: result.verdict, result })
+        }
+        setState((previous) => ({ ...previous, rounds: previous.rounds.filter((item) => item.id !== settled.id) }))
       }
-      const complete = (result) => {
-        setSent(result)
-      }
-      // The root carries the round id as its key: a new round mounts a new root, so
-      // the entrance plays exactly once per round and never on a re-render.
       return h(
         'div',
         { key: round.id, className: 'clarity-scope clarity-arrival', style: root },
+        strip,
         h(Header, { round }),
-        round.kind === 'test'
-          ? h(TestView, { round, sent, onSent: complete })
-          : h(DecisionView, { round, sent, onSent: complete }),
+        round.kind === 'test' ? h(TestView, { round, onSent: complete }) : h(DecisionView, { round, onSent: complete }),
       )
     }
 
@@ -2541,17 +3271,51 @@ window.__ModuleLoader__.load({
       return paths
     }
 
-    /** The comments the panel sent, each with an anchor this row can word. */
+    /**
+     * The advice a round gave, kept as the call gave it.
+     *
+     * The record a user reads back days later is mostly this: what was asked,
+     * what was recommended, and what it cost. The artifact itself is not in the
+     * log — its path is, and the file is the record (round 0002's rule).
+     */
+    function adviceOf(variants) {
+      const list = []
+      for (const variant of Array.isArray(variants) ? variants : []) {
+        if (!variant || typeof variant.id !== 'string' || variant.id === '') continue
+        const path = typeof variant.path === 'string' ? variant.path : typeof variant.source === 'string' ? variant.source : ''
+        list.push({
+          id: variant.id,
+          label:
+            typeof variant.label === 'string' && variant.label !== ''
+              ? variant.label
+              : path === ''
+                ? variant.id
+                : baseName(path),
+          path,
+          note: typeof variant.note === 'string' ? variant.note : '',
+          recommendation: typeof variant.recommendation === 'string' ? variant.recommendation : '',
+          cost: Array.isArray(variant.cost) ? variant.cost.filter((item) => typeof item === 'string') : [],
+          real: Array.isArray(variant.real) ? variant.real.filter((item) => typeof item === 'string') : [],
+          mocked: Array.isArray(variant.mocked) ? variant.mocked.filter((item) => typeof item === 'string') : [],
+          omitted: Array.isArray(variant.omitted) ? variant.omitted.filter((item) => typeof item === 'string') : [],
+        })
+      }
+      return list
+    }
+
+    /** The comments a decision carried, each with the variant it belongs to. */
     function commentsOf(value) {
       const comments = []
       for (const comment of Array.isArray(value) ? value : []) {
         if (!comment || typeof comment.text !== 'string' || comment.text === '') continue
-        comments.push({
+        const clean = {
           text: comment.text,
           // A stored anchor is what the panel sent; anything else is read as the
           // whole-variant anchor, which is the widest true statement.
           anchor: isAnchor(comment.anchor) ? comment.anchor : { kind: 'variant' },
-        })
+        }
+        if (typeof comment.variantId === 'string' && comment.variantId !== '') clean.variantId = comment.variantId
+        comments.push(clean)
       }
       return comments
     }
@@ -2559,12 +3323,16 @@ window.__ModuleLoader__.load({
     /**
      * Fold our own tool call into the row that records what the user chose.
      *
-     * `start` keeps the decision sentence and the variant labels from the call
-     * arguments; `update` reads the verdict out of the tool result. Everything
+     * `start` keeps the decision sentence, the context and the advice from the
+     * call arguments; `update` reads the verdict out of the tool result. Everything
      * else — a cancelled round, a round still pending, an error, a result that
      * is not ours — leaves the node unset, and an unset node is a row that is
      * simply not there. The node is built once, in `update`, so replaying the
      * same history hands the view back the same object instead of a new one.
+     *
+     * The folded `data` is also the tab's record (round 0030): the transcript
+     * bubble and the tab's history read the same projection, so the two cannot
+     * disagree about what was decided.
      */
     const decisionNode = {
       kind: 'clarity-round',
@@ -2593,18 +3361,21 @@ window.__ModuleLoader__.load({
         const event = match.event
         const args = event && event.type === 'tool/call' ? readJson(event.data.arguments) : null
         const test = event && event.type === 'tool/call' && event.data.name === TEST_TOOL
-        const labels = {}
         const variants = args && Array.isArray(args.variants) ? args.variants : []
-        for (const variant of variants) {
-          if (!variant || typeof variant.id !== 'string' || variant.id === '') continue
-          labels[variant.id] =
-            typeof variant.label === 'string' && variant.label !== '' ? variant.label : variant.id
-        }
+        const labels = {}
+        for (const variant of adviceOf(variants)) labels[variant.id] = variant.label
         // The muted first line: the question that was asked, or what was tested.
         const label = test
           ? args && typeof args.candidate === 'string' ? args.candidate : ''
           : args && typeof args.decision === 'string' ? args.decision : ''
-        return { kind: test ? 'test' : 'decision', label, labels, node: null }
+        return {
+          kind: test ? 'test' : 'decision',
+          label,
+          labels,
+          context: !test && args && typeof args.context === 'string' ? args.context : '',
+          advice: test ? [] : adviceOf(variants),
+          node: null,
+        }
       },
       update(context, match) {
         const state = context.state
@@ -2623,7 +3394,9 @@ window.__ModuleLoader__.load({
         if (!value || !drawable.includes(value.verdict)) return state
         const data = {
           kind: state.kind,
+          roundId: value.roundId,
           verdict: value.verdict,
+          selected: typeof value.selected === 'string' ? value.selected : '',
           time: typeof event.time === 'number' ? event.time : 0,
         }
         if (state.kind === 'test') {
@@ -2632,6 +3405,8 @@ window.__ModuleLoader__.load({
           data.shots = shotPaths(value.screenshots)
         } else {
           data.decision = state.label
+          data.context = state.context
+          data.variants = state.advice
           data.variantLabel = value.verdict === 'reject' ? '' : labelOf(state.labels, value.selected)
           data.comments = commentsOf(value.comments)
           data.note = typeof value.note === 'string' ? value.note : ''
@@ -2918,7 +3693,10 @@ window.__ModuleLoader__.load({
                 {
                   name: 'sidebar.right.pane.tab',
                   key: TAB_ID,
-                  inject: (sessionId) => ({ sessionId }),
+                  // The body reads its history through a resolver, not a snapshot:
+                  // the chat binding can land after the body mounts, so the panel
+                  // asks on every render instead of being handed a value once.
+                  inject: (sessionId) => ({ sessionId, history: () => historySourceFor(sessionId), navigate: (roundId) => openRound(roundId) }),
                 },
                 RoundPanel,
               ),
@@ -2942,17 +3720,24 @@ window.__ModuleLoader__.load({
           'clarity session dot',
         )
 
-        // The transcript row. `uiConversation` is optional, like the locale
-        // service: a composition without the chat keeps the tab and loses only
-        // the bubble. The definition reads the events; the renderer below is
-        // reached only where the slot exists.
+        // The transcript row, and the tab's history. `uiConversation` is
+        // optional, like the locale service: a composition without the chat
+        // keeps the tab and loses the bubble and the records. The definition
+        // reads the events; the renderer below is reached only where the slot
+        // exists; the tab reads the fold back through the session's binding.
         if (typeof ctx.inject === 'function') {
           ctx.inject(['uiConversation'], (arena) => {
             const uiConversation = arena.uiConversation
             if (!uiConversation || !uiConversation.events || typeof uiConversation.events.register !== 'function') {
               return undefined
             }
-            return arena.effect(() => uiConversation.events.register(decisionNode), 'clarity chat row')
+            const disposeRow = arena.effect(() => uiConversation.events.register(decisionNode), 'clarity chat row')
+            if (typeof uiConversation.binding === 'function') conversation = uiConversation
+            return () => {
+              conversation = null
+              historySources.clear()
+              disposeRow()
+            }
           })
         }
         ctx.effect(
@@ -3038,7 +3823,35 @@ window.__ModuleLoader__.load({
       },
     }
     Object.defineProperty(pluginApi, '__test', {
-      value: { clarityBridge, withBridge, anchorLabel, contentHash, isAnchor, MESSAGES, STYLE_RULES, DecisionView, TestView, RoundPanel, newestOpenRound, decisionNode, DecisionBubble, bubbleText },
+      value: {
+        clarityBridge,
+        withBridge,
+        anchorLabel,
+        contentHash,
+        isAnchor,
+        MESSAGES,
+        STYLE_RULES,
+        DecisionView,
+        TestView,
+        RecordView,
+        RoundPanel,
+        Strip,
+        Overview,
+        verdictTone,
+        entriesOf,
+        stripOrder,
+        cellLabel,
+        markdownOf,
+        reportHtmlOf,
+        recordsFromChat,
+        recordFromHost,
+        mergeRecords,
+        pickOpen,
+        historySourceFor,
+        decisionNode,
+        DecisionBubble,
+        bubbleText,
+      },
       enumerable: false,
     })
     return pluginApi

@@ -210,9 +210,12 @@ What this does **not** prove: the parent panel's message handler, the composer, 
 
 These are gaps against the specification, not hidden features:
 
-- **The tab follows one round at a time.** The store holds several open rounds and each
-  non-blocking one settles its own job, but the panel shows the newest; a decision on an
-  older round reaches the agent only when it collects that job.
+- **The strip walks the conversation's history.** The round on screen is the one the tab's
+  navigation names, else the newest open one; a strip above it lists every round, numbered in the
+  order they happened and with whoever is waiting in front, and each cell moves the cursor there
+  ([rounds 0031–0035](rounds/0035-history-ui/round.md)). Settled rounds are read from the session
+  log ([round 0030](rounds/0030-history-source/round.md)). A decision on an older *open* round still
+  reaches the agent only when it collects that job.
 - **`ask_user_question` is not hidden.** The plugin adds tools; it does not compose a
   preset that removes the old one. The tool descriptions tell the agent not to use it for
   a round, but the composition does not enforce that. Closing this needs a preset (or a

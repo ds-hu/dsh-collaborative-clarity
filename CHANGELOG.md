@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.6.0 — 2026-11-25
+
+The tab remembers what was decided. Round 0030 made a conversation's history a projection of its
+session log — the same fold that draws the transcript's decision bubble — instead of a second store,
+and the panel's state collapsed from five reconciling pieces into one cursor.
+
+- A settled round stays in the tab as a **record**: the question and its context, each variant's
+  recommendation, cost and fidelity as they were given, what was chosen, every comment with its
+  anchor, the note — and, for a test gate, the observation and the screenshot file names. No
+  artifact: the log never held the HTML, so each variant names its file instead.
+- Which round is on screen is the tab's own navigation (`navigation.params.roundId`; absent means
+  the latest). A tab with history and nothing waiting shows the last decision instead of
+  "No round is open".
+- `sent`, `knownRound` and the settled-round fallback are gone. Deciding in the tab turns the round
+  into its record at once, from the round and the result in hand; the host's copy of a just-settled
+  round stands in only until the log lands, and the log wins a duplicate.
+- A change in the chat re-reads the snapshot and never reaches the host — only an SSE event does.
+- The slot hands the tab a **resolver**, not a snapshot: the chat binding lands a tick after the
+  body mounts, and a value captured once left the tab empty forever. Fixed after the first real
+  gate (`clarity-test-mwu9kjv0-9bae6a`) showed the empty state; the resolver is asked again on
+  every render, with a bounded retry (250ms × 8) while it is missing.
+- The fold (`decisionNode`) now carries `roundId`, `selected`, `context` and the advice as given, so
+  the bubble and the tab read one definition of a record. The transcript bubble itself is unchanged.
+- Not yet: a control to walk back through the history (the next round), cancelled and non-blocking
+  rounds (they draw no row, by invariant 7), and rounds older than the chat's loaded window.
+- See `docs/collaboration-draft/rounds/0030-history-source`.
+
+The tab can walk its own history. Rounds 0031–0035 turned the record into a surface: a numbered
+strip over the round, and an overview at its end.
+
+- A **strip** of every round in the conversation, numbered in the order they happened (`#1` the
+  oldest), whoever is waiting first and then the newest settled. A cell is the round's own question,
+  truncated — never a summary — and a waiting one says 「等待中」/`Waiting` in words, not only in a
+  colour. Clicking a cell moves the tab's cursor to that round.
+- **「总览 N」 pinned at the strip's right end** opens the overview: every round with its verdict,
+  the variant it chose, every comment with its anchor on its own line above the words, and the note —
+  plus **Copy Markdown** and **Download HTML**, the download being one self-contained document,
+  escaping everything it carries.
+- `decisionNode` now also keeps the round id, the chosen variant, the context and the advice as it
+  was given, so a record reads back without a second store.
+- Review fixes after the pass: a remembered "not bound yet" made the retry a no-op, so a miss is no
+  longer cached; a cancelled round no longer leaves a stand-in that vanished on reload; the strip's
+  dot follows the verdict (revise and blocked are not green); a record keeps its own bottom padding;
+  and a strip cell stays a button for assistive tech.
+- See `docs/collaboration-draft/rounds/0035-history-ui`.
+
 ## 0.5.0 — 2026-11-19
 
 The verdict bar stops having a right answer. Round 0029 rebuilt it as one frame: accept, revise and

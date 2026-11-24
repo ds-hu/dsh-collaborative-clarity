@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A′ · 总览钉在带子右端</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --bg:#fff; --layer1:#fff; --layer2:#f4f5f7;
+    --ink:#0f1115; --ink2:#61666b; --ink3:#81858c;
+    --line:rgba(0,0,0,.102);
+    --brand:#2b6ae8; --ok:#127a42; --warn:#9a5b00; --blood:#ec1313;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151517; --layer1:#232324; --layer2:#2c2c2e;
+      --ink:#f9fafb; --ink2:#cfd3d6; --ink3:#adb2b8;
+      --line:rgba(255,255,255,.122);
+      --brand:#6aa8ff; --ok:#57cf8c; --warn:#e2a559; --blood:#f25a5a;
+    }
+  }
+  *{ box-sizing:border-box }
+  html,body{ margin:0 }
+  body{ background:var(--bg); color:var(--ink); font:12px/18px var(--sans);
+        -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100% }
+  .page{ max-width:392px; margin:0 auto; padding:14px 12px 24px }
+  .eyebrow{ margin:0 0 4px; color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  h1{ margin:0; font-size:16px; line-height:22px; font-weight:650 }
+  .lede{ margin:5px 0 0; color:var(--ink2) }
+  .lede b{ color:var(--ink); font-weight:600 }
+  .cap{ margin:6px 0 0; color:var(--ink3); font-size:10.5px; line-height:16px }
+  .spacer{ height:16px }
+  .pane{
+    width:360px; max-width:100%; border:0.5px solid var(--line); border-radius:12px;
+    background:var(--layer1); padding:10px 12px 12px; display:flex; flex-direction:column;
+  }
+
+  .stripwrap{ display:flex; align-items:center; gap:6px; margin:-2px 0 10px; min-width:0 }
+  .strip{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; min-width:0; scrollbar-width:none }
+  .strip::-webkit-scrollbar{ display:none }
+  .chip{ flex:none; display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 9px;
+         border:0.5px solid var(--line); border-radius:99px; background:var(--layer2);
+         color:var(--ink2); font:inherit; font-size:11px; white-space:nowrap; cursor:pointer;
+         max-width:240px; overflow:hidden; text-overflow:ellipsis }
+  .chip[data-on]{ border-color:var(--ink); color:var(--ink); font-weight:600 }
+  .chip[data-wait]{ border-color:var(--warn); color:var(--ink) }
+  .n{ color:var(--ink3); font-variant-numeric:tabular-nums; font-weight:650 }
+  .chip[data-on] .n, .chip[data-wait] .n{ color:var(--ink2) }
+  .dot{ width:6px; height:6px; border-radius:50%; flex:none }
+  .dot.ok{ background:var(--ok) } .dot.bad{ background:var(--blood) } .dot.wait{ background:var(--warn) }
+  .pin{ flex:none; display:flex; align-items:center; gap:6px }
+  .divider{ flex:none; width:0.5px; height:18px; background:var(--line) }
+  .ov{ flex:none; display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 9px;
+       border:0.5px solid var(--line); border-radius:99px; background:transparent;
+       color:var(--ink2); font:inherit; font-size:11px; cursor:pointer; white-space:nowrap }
+
+  .headrow{ display:flex; align-items:center; justify-content:space-between; gap:8px }
+  .hbtn{ flex:none; display:inline-flex; align-items:center; height:22px; padding:0 7px;
+         border:0.5px solid var(--line); border-radius:99px; background:transparent;
+         color:var(--ink3); font:inherit; font-size:10.5px; cursor:pointer }
+  .head h2{ margin:2px 0 0; font-size:16px; line-height:22px; font-weight:650 }
+  .ctx{ margin:5px 0 0; color:var(--ink2) }
+
+  .card{ border:0.5px solid var(--line); border-radius:10px; background:var(--layer1); padding:8px; margin-top:8px }
+  .card.verdict{ border-color:var(--ok) }
+  .v1{ font-weight:600 }
+  .v2{ color:var(--ink2); font-size:11px; line-height:16px; margin-top:1px }
+
+  /* overview */
+  .sum{ margin:3px 0 0; color:var(--ink2); font-size:11px; line-height:16px }
+  .sum b{ color:var(--ink); font-weight:600 }
+  .timeline{ margin-top:10px; display:flex; flex-direction:column; gap:4px }
+  .trow{ display:flex; gap:8px; align-items:flex-start; width:100%; text-align:left;
+         border:0.5px solid var(--line); border-radius:8px; background:var(--layer1);
+         padding:6px 8px; font:inherit; cursor:pointer }
+  .trow[data-on]{ border-color:var(--ink) }
+  .trow[data-wait]{ border-color:var(--warn) }
+  .tn{ flex:none; min-width:26px; color:var(--ink3); font:10.5px/17px var(--mono);
+       font-variant-numeric:tabular-nums; padding-top:1px }
+  .tbody{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px }
+  .tq{ color:var(--ink2); font-size:11.5px; line-height:17px }
+  .trow[data-on] .tq{ color:var(--ink) }
+  .tm{ color:var(--ink3); font-size:10px; line-height:15px; display:flex; gap:6px; flex-wrap:wrap }
+  .v{ font-weight:600 }
+  .v.ok{ color:var(--ok) } .v.bad{ color:var(--blood) } .v.wait{ color:var(--warn) }
+  .tcom{ margin-top:2px; color:var(--ink2); font-size:10.5px; line-height:16px; padding-left:8px;
+         border-left:2px solid var(--line); overflow-wrap:anywhere }
+  .tnote{ margin-top:2px; color:var(--ink3); font-size:10.5px; line-height:16px }
+  .tnote b{ color:var(--ink2); font-weight:650 }
+
+  .export{ display:flex; gap:6px; margin-top:12px; padding-top:10px; border-top:0.5px solid var(--line) }
+  .x{ flex:1 1 auto; height:32px; display:inline-flex; align-items:center; justify-content:center;
+      border:0.5px solid var(--line); border-radius:8px; background:var(--layer2);
+      color:var(--ink); font:inherit; font-size:12px; cursor:pointer }
+  .x.primary{ background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:600 }
+  .note2{ margin-top:7px; color:var(--ink3); font-size:10px; line-height:15px }
+
+  .legend{ margin-top:10px; color:var(--ink3); font-size:10.5px; line-height:16px }
+  .legend b{ color:var(--ink2); font-weight:600 }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">变体 A′ · 入口在带子右端</p>
+  <h1>总览是带子右端钉住的一格</h1>
+  <p class="lede">带子左端是等待、往右是过去；<b>最右端钉一枚「总览 12」，滑到多早它都在</b>。</p>
+
+  <div class="spacer"></div>
+
+  <div class="pane">
+    <div class="stripwrap">
+      <div class="strip" role="list">
+        <button class="chip" data-wait><i class="dot wait"></i><span class="n">#12</span> · 需要决定 · 历史怎么翻：顶部一条带…</button>
+        <button class="chip"><i class="dot wait"></i><span class="n">#11</span> · 需要决定 · 真机测试 dirty:a29acb4e17f386ea</button>
+        <button class="chip" data-on><i class="dot ok"></i><span class="n">#10</span> · 接受 / 继续修改 / 都不要，以及测试闸门的…</button>
+        <button class="chip"><i class="dot ok"></i><span class="n">#09</span> · 草稿落到 storage：跟着标签页走（session…</button>
+      </div>
+      <div class="divider"></div>
+      <div class="pin">
+        <button class="ov">总览 12</button>
+      </div>
+    </div>
+    <div class="head">
+      <h2>接受 / 继续修改 / 都不要，以及测试闸门的 通过 / 失败，怎么分层才不读成「Accept/Pass 是正确答案」？</h2>
+      <p class="ctx">两版都把转圈删掉，改由标签自己报告进度。</p>
+    </div>
+    <div class="card verdict">
+      <div class="v1">结论：已接受 · 选中：一格三档</div>
+      <div class="v2">2026-11-17 14:02</div>
+    </div>
+  </div>
+  <p class="cap">入口就在带子上，和轮次同一套语法：它也是「可以去的地方」之一。</p>
+
+  <div class="pane">
+      <div class="headrow">
+        <div class="eyebrow">总览</div>
+        <button class="hbtn">回到这一轮</button>
+      </div>
+    <h2>这个会话 · 12 轮</h2>
+    <p class="sum"><b>9</b> 已接受 · <b>2</b> 要求修改 · <b>1</b> 未通过 · <b>2</b> 在等</p>
+    <div class="timeline">
+      <button class="trow" data-wait>
+        <span class="tn">#12</span>
+        <span class="tbody">
+          <span class="tq">历史怎么翻：顶部一条带，还是收进抽屉？</span>
+          <span class="tm"><span class="v wait">需要决定</span><span>非阻塞</span></span>
+        </span>
+      </button>
+      <button class="trow" data-wait>
+        <span class="tn">#11</span>
+        <span class="tbody">
+          <span class="tq">Real test: dirty:a29acb4e17f386ea</span>
+          <span class="tm"><span class="v wait">需要决定</span><span>非阻塞</span></span>
+        </span>
+      </button>
+      <button class="trow">
+        <span class="tn">#10</span>
+        <span class="tbody">
+          <span class="tq">Clarity tab 里能翻看的历史，应该是会话日志的投影，还是宿主自己记的一本账？</span>
+          <span class="tm"><span class="v ok">已接受</span><span>A · 投影</span></span>
+        </span>
+      </button>
+      <button class="trow">
+        <span class="tn">#09</span>
+        <span class="tbody">
+          <span class="tq">接受 / 继续修改 / 都不要，以及测试闸门的 通过 / 失败，怎么分层才不读成「Accept/Pass 是正确答案」？</span>
+          <span class="tm"><span class="v ok">已接受</span><span>A · 一格三档</span><span>1 批注</span></span>
+          <span class="tcom">A · 一格三档 · 元素「接受 B」——这个感觉可以改成字体渐变动画，你知道我什么意思吗</span>
+          <span class="tnote"><b>说明</b>忙碌态只问手感的差别。</span>
+        </span>
+      </button>
+      <button class="trow">
+        <span class="tn">#08</span>
+        <span class="tbody">
+          <span class="tq">面板的动效收到什么程度：只在你动手时动，还是新的一轮到达时也动？</span>
+          <span class="tm"><span class="v ok">已接受</span><span>B · 到达也动</span><span>2 批注</span></span>
+          <span class="tcom">B · 到达也动——起的时候别抢滚动</span>
+          <span class="tcom">整条变体——时间阶梯再慢一点</span>
+        </span>
+      </button>
+      <button class="trow">
+        <span class="tn">#07</span>
+        <span class="tbody">
+          <span class="tq">真机测试 dirty:0f3c9a1b2e4d5f60</span>
+          <span class="tm"><span class="v bad">未通过</span><span>1 张截图</span></span>
+          <span class="tcom">观察——没有成功。具体 UI 还没有给我过目。</span>
+        </span>
+      </button>
+    </div>
+    <div class="export">
+      <button class="x">复制 Markdown</button>
+      <button class="x primary">下载 HTML</button>
+    </div>
+    <p class="note2">下载的那份是自包含的，打开就能截图、发人；复制的那份能贴进 issue。</p>
+  </div>
+  <p class="cap">总览把每一轮的批注与说明都摊开，不再只给一个「1 批注」的数字。</p>
+
+  <p class="legend"><b>真：</b>带子与记录的全部排版、0029/0030 的真实问题。<br><b>拟：</b>右端钉住的「总览」格、总览页与行内的批注/说明。<br><b>省：</b>12 轮全量时的滚动；导出后的 HTML。</p>
+</div>
+</body>
+</html>

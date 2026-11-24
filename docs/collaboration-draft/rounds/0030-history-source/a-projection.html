@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A · 投影</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    /* DSH aliases, light */
+    --bg:#fff; --layer1:#fff; --layer2:#f4f5f7;
+    --ink:#0f1115; --ink2:#61666b; --ink3:#81858c;
+    --line:rgba(0,0,0,.102);
+    --brand:#2b6ae8; --ok:#127a42; --warn:#9a5b00; --blood:#ec1313;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151517; --layer1:#232324; --layer2:#2c2c2e;
+      --ink:#f9fafb; --ink2:#cfd3d6; --ink3:#adb2b8;
+      --line:rgba(255,255,255,.122);
+      --brand:#6aa8ff; --ok:#57cf8c; --warn:#e2a559; --blood:#f25a5a;
+    }
+  }
+  *{ box-sizing:border-box }
+  html,body{ margin:0 }
+  body{ background:var(--bg); color:var(--ink); font:12px/18px var(--sans); -webkit-font-smoothing:antialiased }
+  .page{ max-width:392px; margin:0 auto; padding:14px 12px 24px }
+
+  .eyebrow{ margin:0 0 4px; color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  h1{ margin:0; font-size:16px; line-height:22px; font-weight:650 }
+  .lede{ margin:5px 0 0; color:var(--ink2) }
+  .lede b{ color:var(--ink); font-weight:600 }
+
+  section{ margin-top:16px }
+  h2{ margin:0 0 6px; color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  h2 small{ font-weight:400; letter-spacing:0; text-transform:none; color:var(--ink3) }
+
+  ul{ margin:0; padding-left:16px }
+  li{ margin:3px 0 }
+  li b{ font-weight:600 }
+  .yes li::marker{ color:var(--ok) }
+  .warn li::marker{ color:var(--warn) }
+
+  pre{
+    margin:0; padding:8px 9px; background:var(--layer2); border:0.5px solid var(--line); border-radius:8px;
+    overflow-x:auto; font:10.5px/16px var(--mono); white-space:pre;
+  }
+  code{ font:10.5px/15px var(--mono); background:var(--layer2); border:0.5px solid var(--line); border-radius:4px; padding:0 3px }
+  pre code{ background:none; border:0; padding:0 }
+
+  table{ border-collapse:collapse; width:100% }
+  td{ padding:3px 0; vertical-align:top; border-bottom:0.5px solid var(--line) }
+  td:first-child{ width:38%; padding-right:8px; color:var(--ink2) }
+  tr:last-child td{ border-bottom:0 }
+
+  /* the mocked record */
+  .rec{ border:0.5px solid var(--line); border-radius:10px; background:var(--layer1); padding:9px 10px }
+  .rhead{ display:flex; justify-content:space-between; gap:8px; color:var(--ink3); font-size:10px; line-height:15px }
+  .rhead b{ color:var(--ink); font-weight:650 }
+  .rv{ color:var(--ok); font-weight:600 }
+  .rq{ margin:3px 0 7px; font-size:12.5px; line-height:18px; font-weight:600 }
+  .rvar{ margin:0 0 5px; padding-left:8px; border-left:2px solid var(--line) }
+  .rvar.rec-on{ border-left-color:var(--ink) }
+  .rvar .l{ font-weight:600 }
+  .rvar .adv{ color:var(--ink2) }
+  .rvar .adv i{ font-style:normal; color:var(--brand); font-weight:600 }
+  .rsel{ margin:6px 0 0; color:var(--ink2) }
+  .rsel b{ color:var(--ink) }
+  .rcom{ margin:3px 0 0; padding-left:8px }
+  .rcom .a{ color:var(--ink3); font-size:10.5px; line-height:15px }
+  .rfile{ margin:6px 0 0; color:var(--ink3); font:10px/15px var(--mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .rno{ margin:7px 0 0; padding:6px 8px; border:0.5px dashed var(--line); border-radius:6px; color:var(--ink3); font-size:10.5px; line-height:15px }
+
+  .note{ margin-top:16px; padding:8px 10px; border-left:2px solid var(--brand); background:var(--layer2); border-radius:0 6px 6px 0; font-size:11.5px; line-height:17px }
+  .strike{ color:var(--ink3); text-decoration:line-through }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">变体 A · 投影</p>
+  <h1>历史是会话日志的投影</h1>
+  <p class="lede">tab 不自己记历史。它读的就是对话里那条「决定气泡」已经在读的东西：
+  <code>decisionNode</code> 把 <code>tool/call</code> 和 <code>tool/result</code> 折成的那条记录。
+  <b>一次折叠，两处读。</b></p>
+
+  <section>
+    <h2>出发点了：今天的 tab 记着五样 <small>（B 也从这里出发）</small></h2>
+    <table>
+      <tr><td><code>state.round</code></td><td>屏幕上这一轮</td></tr>
+      <tr><td><code>sent</code></td><td>我刚把决定送出去了</td></tr>
+      <tr><td><code>knownRound</code></td><td>上次解析到的 id——结算轮的兜底</td></tr>
+      <tr><td><code>paramRoundId</code></td><td>打开 tab 时带的 id</td></tr>
+      <tr><td><code>autoOpened</code></td><td>这个会话这一轮我已经开过 tab 了</td></tr>
+    </table>
+    <p class="lede" style="margin-top:6px">五处互相对账；每次 SSE 事件都重跑一遍 <code>load()</code>。
+    结算过的那一轮，只有 tab 自己还记着 id 时才看得到。</p>
+  </section>
+
+  <section>
+    <h2>数据从哪儿来</h2>
+<pre>日志 ──► decisionNode ──► chat.nodes.values()
+          <span style="color:var(--ink3)">（气泡已经在用的那次折叠）</span>   │
+                                              ▼
+宿主 /rounds ──► 开着的轮 ─────────────► 列表 ──► cursor</pre>
+    <p class="lede" style="margin-top:6px"><code>uiConversation.binding(sessionId).target('chat')</code>，
+    按 <code>kind === 'clarity-decision'</code> 筛出来，就是这段会话的每一轮。
+    还在等的那一轮日志里没结果，由宿主给。</p>
+  </section>
+
+  <section>
+    <h2>改完以后，tab 只记一样</h2>
+    <table>
+      <tr><td><code>cursor</code></td><td>住在 <code>navigation.params.roundId</code> 里。打开 tab 今天就是这么开的
+      （<code>openTab(KIND, { params: { roundId } })</code>）；翻到哪一轮＝改这个参数。刷新、撤销、再打开，都回到同一轮。</td></tr>
+    </table>
+    <p class="lede" style="margin-top:8px">其余全是推导：</p>
+    <table>
+      <tr><td>屏幕上是哪一轮</td><td><code>cursor</code>；没给就是列表最后一条</td></tr>
+      <tr><td>这一轮还在等</td><td>宿主 <code>/rounds</code> 里有它</td></tr>
+      <tr><td>刚结算</td><td>宿主说 <code>decided</code> 了，日志里还没落 → 先拿 <code>/round?id=</code> 顶一拍，折叠的记录一到就换过去</td></tr>
+      <tr><td>列表</td><td>折叠记录 ∪ 开着的轮，按时间排</td></tr>
+    </table>
+    <p class="lede" style="margin-top:8px"><span class="strike"><code>sent</code></span>、
+    <span class="strike"><code>knownRound</code></span>、
+    <span class="strike"><code>autoOpened</code></span>、
+    <span class="strike"><code>load()</code> 里「没开着的就回去找旧的」那一支</span>——全删。</p>
+  </section>
+
+  <section>
+    <h2>一条历史记录长什么样 <small>（模拟：排版还没画过真的）</small></h2>
+    <div class="rec">
+      <div class="rhead"><span><b>决定</b> · 11-17 14:02</span><span class="rv">已接受</span></div>
+      <div class="rq">接受 / 继续修改 / 都不要，以及测试闸门的 通过 / 失败，怎么分层才不读成「Accept/Pass 是正确答案」？</div>
+      <div class="rvar rec-on">
+        <div class="l">A · 一格三档</div>
+        <div class="adv"><i>推荐</i> 一格先说清这三件事回答的是同一个问题，没有哪一格靠填充色抢位。</div>
+        <div class="adv">代价 · 三档挤在一格里，误触距离变短</div>
+      </div>
+      <div class="rvar">
+        <div class="l">B · 选中点亮</div>
+        <div class="adv">代价 · 选完卡，接受还是变回一枚黑底按钮</div>
+      </div>
+      <div class="rsel">选了 <b>A</b> · 变体 一格三档</div>
+      <div class="rcom"><div class="a">整条变体</div>这个感觉可以改成字体渐变动画，你知道我什么意思吗</div>
+      <div class="rcom"><div class="a">说明</div>忙碌态只问手感的差别。</div>
+      <div class="rfile">docs/collaboration-draft/rounds/0029-verb-hierarchy/a-one-group.html</div>
+      <div class="rno">这里没有 iframe。日志里没有 HTML——文件路径是记录，文件本身在仓库里。</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>不变量 · 失败模式</h2>
+    <ul class="yes">
+      <li><b>重启、换浏览器、下个月都一样</b>——读的是日志，不是内存。</li>
+      <li><b>一条记录只有一个定义处</b>：<code>decisionNode</code>。气泡和 tab 不会各说各话。</li>
+      <li><b><code>/clarity/api</code> 不加路由、不收文件路径</b>；<code>/rounds</code> 仍只给开着的轮。</li>
+    </ul>
+    <ul class="warn" style="margin-top:4px">
+      <li><b><code>decided</code> 到 <code>tool/result</code> 之间有一拍空档</b>：宿主先说结算了，日志还没落。用 <code>/round?id=</code> 顶过那一拍——这是留下来的最后一点本地状态。</li>
+      <li><b>「已加载」≠「全部」</b>：聊天窗只装一段日志，更早的轮次要等聊天往上翻。</li>
+      <li><b>取消的轮、非阻塞的轮没有记录</b>——折叠今天就不给它们画行（不变量 7）。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>代价</h2>
+    <ul>
+      <li><b>历史里看不到 mock 本身</b>，只看到它的文件路径。要回放，得另加一层「宿主还记得就拿 <code>/round?id=</code> 画」，那是这个模型之上的可选层，不是它的一部分。</li>
+      <li><b>取消掉的轮次翻不到。</b></li>
+      <li><b>更早的轮次要等聊天装载到那一段</b>，tab 自己推不动装载。</li>
+      <li><b><code>decisionNode.start</code> 要多留一些 <code>args.variants</code></b>（推荐、代价、真实/模拟/省略）——折叠重了一点。</li>
+    </ul>
+  </section>
+
+  <div class="note">这一轮不决定翻页长什么样——一条带、上一条/下一条、还是抽屉。那是下一轮，建在这个模型上。</div>
+</div>
+</body>
+</html>

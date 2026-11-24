@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A″ · 带编号</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --bg:#fff; --layer1:#fff; --layer2:#f4f5f7;
+    --ink:#0f1115; --ink2:#61666b; --ink3:#81858c;
+    --line:rgba(0,0,0,.102);
+    --brand:#2b6ae8; --ok:#127a42; --warn:#9a5b00; --blood:#ec1313;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#151517; --layer1:#232324; --layer2:#2c2c2e;
+      --ink:#f9fafb; --ink2:#cfd3d6; --ink3:#adb2b8;
+      --line:rgba(255,255,255,.122);
+      --brand:#6aa8ff; --ok:#57cf8c; --warn:#e2a559; --blood:#f25a5a;
+    }
+  }
+  *{ box-sizing:border-box }
+  html,body{ margin:0 }
+  body{ background:var(--bg); color:var(--ink); font:12px/18px var(--sans);
+        -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100% }
+  .page{ max-width:392px; margin:0 auto; padding:14px 12px 24px }
+  .eyebrow{ margin:0 0 4px; color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  h1{ margin:0; font-size:16px; line-height:22px; font-weight:650 }
+  .lede{ margin:5px 0 0; color:var(--ink2) }
+  .lede b{ color:var(--ink); font-weight:600 }
+  .cap{ margin:6px 0 0; color:var(--ink3); font-size:10.5px; line-height:16px }
+  .spacer{ height:16px }
+  .pane{
+    width:360px; max-width:100%; border:0.5px solid var(--line); border-radius:12px;
+    background:var(--layer1); padding:10px 12px 12px; display:flex; flex-direction:column;
+  }
+  .strip{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; margin:-2px 0 10px;
+          min-width:0; scrollbar-width:none }
+  .strip::-webkit-scrollbar{ display:none }
+  .chip{ flex:none; display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 9px;
+         border:0.5px solid var(--line); border-radius:99px; background:var(--layer2);
+         color:var(--ink2); font:inherit; font-size:11px; white-space:nowrap; cursor:pointer;
+         max-width:240px; overflow:hidden; text-overflow:ellipsis }
+  .chip[data-on]{ border-color:var(--ink); color:var(--ink); font-weight:600 }
+  .chip[data-wait]{ border-color:var(--warn); color:var(--ink) }
+  .n{ color:var(--ink3); font-variant-numeric:tabular-nums; font-weight:650 }
+  .chip[data-on] .n, .chip[data-wait] .n{ color:var(--ink2) }
+  .dot{ width:6px; height:6px; border-radius:50%; flex:none }
+  .dot.ok{ background:var(--ok) } .dot.bad{ background:var(--blood) } .dot.wait{ background:var(--warn) }
+  .head{ margin-bottom:8px }
+  .head h2{ margin:2px 0 0; font-size:16px; line-height:22px; font-weight:650 }
+  .ctx{ margin:5px 0 0; color:var(--ink2) }
+  .card{ border:0.5px solid var(--line); border-radius:10px; background:var(--layer1); padding:8px; margin-top:8px }
+  .card.verdict{ border-color:var(--ok) }
+  .v1{ font-weight:600 }
+  .v2{ color:var(--ink2); font-size:11px; line-height:16px; margin-top:1px }
+  .vhead{ display:flex; align-items:center; gap:6px; padding-bottom:5px }
+  .radio{ color:var(--ink3); font-size:12px; line-height:12px }
+  .card[data-sel] .radio{ color:var(--ink) }
+  .vname{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .path{ color:var(--ink3); font:10px/15px var(--mono); overflow:hidden; text-overflow:ellipsis;
+         white-space:nowrap; padding:0 0 4px }
+  .adv{ display:flex; gap:5px; align-items:flex-start; font-size:10px; line-height:15px; padding-top:3px;
+        border-top:0.5px solid var(--line); margin-top:4px }
+  .lab{ flex:none; width:2.6em; color:var(--ink3); font-weight:650; letter-spacing:.06em }
+  .lab.why{ color:var(--brand) }
+  .val{ color:var(--ink2) }
+  .sec{ margin-top:12px }
+  .stitle{ color:var(--ink3); font-size:10px; line-height:15px; font-weight:650; letter-spacing:.06em }
+  .count{ display:inline-block; min-width:15px; margin-left:3px; padding:0 5px; border:0.5px solid var(--line);
+          border-radius:99px; background:var(--layer2); font-size:10px; line-height:14px; text-align:center }
+  .crow{ display:flex; flex-direction:column; gap:1px; border:0.5px solid var(--line); border-radius:8px;
+         background:var(--layer1); padding:5px 7px; margin-top:4px }
+  .crow-top{ display:flex; gap:6px; align-items:baseline; flex-wrap:wrap }
+  .cvar{ color:var(--brand); font-weight:600; font-size:10px; line-height:16px }
+  .canchor{ color:var(--ink3); font-size:10px }
+  .ctext{ color:var(--ink2); overflow-wrap:anywhere; white-space:pre-wrap }
+  .note{ color:var(--ink2); margin-top:3px }
+  .pane.live{ margin-top:10px }
+  .bar{ display:flex; gap:0; border:0.5px solid var(--line); border-radius:8px; overflow:hidden;
+        background:var(--layer2); margin-top:8px }
+  .cell{ flex:1 1 auto; min-width:0; height:30px; display:flex; align-items:center; justify-content:center;
+         font-size:12px; color:var(--ink2); border-left:0.5px solid var(--line); white-space:nowrap;
+         overflow:hidden; text-overflow:ellipsis; padding:0 6px }
+  .cell:first-child{ border-left:0; color:var(--ink); font-weight:600 }
+  .cell.bad{ color:var(--blood) }
+  .quiet{ align-self:flex-end; color:var(--ink3); font-size:11px; padding:6px 0 0 }
+  .legend{ margin-top:10px; color:var(--ink3); font-size:10.5px; line-height:16px }
+  .legend b{ color:var(--ink2); font-weight:600 }
+  .rule{ margin-top:8px; padding:8px 9px; border-left:2px solid var(--brand); background:var(--layer2);
+         border-radius:0 6px 6px 0; font-size:11px; line-height:17px; color:var(--ink2) }
+  .rule b{ color:var(--ink); font-weight:600 }
+  .rule code{ font:10.5px/15px var(--mono); color:var(--ink) }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">变体 A″ · 每格一个编号</p>
+  <h1>每一轮一个编号</h1>
+  <p class="lede">带子上每格以 <b>#05</b> 这样的编号开头，等待的那几枚写「需要决定」，其余直接是问题原文。</p>
+
+  <div class="spacer"></div>
+
+  <div class="pane">
+    <div class="strip" role="list">
+      <button class="chip" data-wait><i class="dot wait"></i><span class="n">#05</span> · 需要决定 · 历史怎么翻：顶部一条带，还是收进抽屉？</button>
+      <button class="chip" data-wait><i class="dot wait"></i><span class="n">#04</span> · 需要决定 · 真机测试 dirty:a29acb4e17f386ea</button>
+      <button class="chip" data-on><i class="dot ok"></i><span class="n">#03</span> · 接受 / 继续修改 / 都不要，以及测试闸门的…</button>
+      <button class="chip"><i class="dot ok"></i><span class="n">#02</span> · 草稿落到 storage：跟着标签页走（session…</button>
+      <button class="chip"><i class="dot bad"></i><span class="n">#01</span> · 真机测试 dirty:0f3c9a1b2e4d5f60</button>
+    </div>
+    <div class="head">
+      <div class="eyebrow">决定 · #03</div>
+      <h2>接受 / 继续修改 / 都不要，以及测试闸门的 通过 / 失败，怎么分层才不读成「Accept/Pass 是正确答案」？</h2>
+      <p class="ctx">两版都把转圈删掉，改由标签自己报告进度。</p>
+    </div>
+    <div class="card verdict">
+      <div class="v1">结论：已接受 · 选中：一格三档</div>
+      <div class="v2">2026-11-17 14:02</div>
+    </div>
+    <div class="card" data-sel>
+      <div class="vhead"><span class="radio">●</span><span class="vname">A · 一格三档</span></div>
+      <div class="path">docs/collaboration-draft/rounds/0029-verb-hierarchy/a2-sweep-text.html</div>
+      <div class="adv"><span class="lab why">推荐</span><span class="val">一格先说清这三件事回答的是同一个问题，没有哪一格靠填充色抢位。</span></div>
+      <div class="adv"><span class="lab">代价</span><span class="val">三档挤在一格里，误触距离变短</span></div>
+    </div>
+    <div class="card">
+      <div class="vhead"><span class="radio">○</span><span class="vname">B · 选中点亮</span></div>
+      <div class="path">docs/collaboration-draft/rounds/0029-verb-hierarchy/b2-tide-text.html</div>
+      <div class="adv"><span class="lab">代价</span><span class="val">选完卡，接受还是变回一枚黑底按钮</span></div>
+    </div>
+    <div class="sec">
+      <div class="stitle">批注<span class="count">1</span></div>
+      <div class="crow">
+        <div class="crow-top"><span class="cvar">A · 一格三档</span><span class="canchor">元素 · 接受 B</span></div>
+        <div class="ctext">这个感觉可以改成字体渐变动画，你知道我什么意思吗</div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="stitle">说明</div>
+      <div class="note">忙碌态只问手感的差别。</div>
+    </div>
+  </div>
+  <p class="cap">记录顶上的眉题也跟着带上「· #03」，同一条带子上读到的编号与记录对得上。</p>
+
+  <div class="pane live">
+    <div class="strip" role="list">
+      <button class="chip" data-wait><i class="dot wait"></i><span class="n">#05</span> · 需要决定 · 历史怎么翻：顶部一条带，还是收进抽屉？</button>
+      <button class="chip" data-wait><i class="dot wait"></i><span class="n">#04</span> · 需要决定 · 真机测试 dirty:a29acb4e17f386ea</button>
+      <button class="chip" data-on><i class="dot ok"></i><span class="n">#03</span> · 接受 / 继续修改 / 都不要，以及测试闸门的…</button>
+      <button class="chip"><i class="dot ok"></i><span class="n">#02</span> · 草稿落到 storage：跟着标签页走（session…</button>
+      <button class="chip"><i class="dot bad"></i><span class="n">#01</span> · 真机测试 dirty:0f3c9a1b2e4d5f60</button>
+    </div>
+    <h2 style="margin:2px 0 0;font-size:15px;line-height:21px;font-weight:650">历史怎么翻：顶部一条带，还是收进抽屉？</h2>
+    <div class="bar" role="group" aria-label="决定">
+      <span class="cell">接受 A</span><span class="cell">继续修改 A</span><span class="cell bad">都不要</span>
+    </div>
+    <div class="quiet">取消这一轮</div>
+  </div>
+  <p class="cap">等待一轮时：两枚「需要决定」并排在最前，翻旧账也先看见它们。</p>
+
+  <p class="legend"><b>真：</b>记录卡的全部排版、墨色阶梯、360px、深色 token、0029 的真实内容。<br><b>拟：</b>那条带、倒序、以及两个「需要决定」并存的排法。<br><b>省：</b>横滑到更早轮次之后的样子；长记录滚动。</p>
+  <div class="rule"><b>排序：</b>先说等待，再按新到旧——两枚「需要决定」并排在左端，因为非阻塞轮可以让一轮以上在等。日期已按批注拿掉：同一天没有辨识力。</div>
+</div>
+</body>
+</html>

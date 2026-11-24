@@ -62,6 +62,9 @@ function loadClient(ReactOverride, fetchImpl, storage, documentImpl) {
     EventSource: FakeEventSource,
     console,
     fetch: fetchImpl || (async () => ({ ok: true, json: async () => ({}) })),
+    // The page has timers; a sandbox without them fails a panel the browser runs.
+    setTimeout,
+    clearTimeout,
   }
   // A test that leaves this out is a host with no `document`: the panel must run
   // there too, so nothing may touch it unguarded.
@@ -207,6 +210,18 @@ function textOf(tree) {
   // invoke them); render it by hand to reach its text.
   if (typeof tree.type === 'function') return textOf(tree.type(tree.props))
   return (tree.children || []).map(textOf).join('')
+}
+
+/**
+ * A value from the bundle, brought into this realm.
+ *
+ * The client runs in its own `vm` context, so an array it built has that
+ * context's `Array.prototype`, and `deepStrictEqual` (which is what
+ * `node:assert/strict` makes of `deepEqual`) reads the two as different. The
+ * host's own boundary is JSON anyway; compare the way the host does.
+ */
+function plain(value) {
+  return JSON.parse(JSON.stringify(value))
 }
 
 test('the recommendation and its cost sit inside the card, above the fidelity rows', () => {
@@ -1550,6 +1565,735 @@ test('the chat row is contributed where the chat exists, and nowhere else', () =
   assert.equal(calls.nodes.length, 1, 'the renderer is registered for the kind the definition emits')
   assert.equal(calls.nodes[0].options.key, 'clarity-decision')
   assert.equal(calls.registered.length, 1, 'the tab is registered with or without the chat')
+})
+
+// ---------------------------------------------------------------------------
+// History (round 0030): the tab's history is the fold read back; the cursor
+// is the tab's own navigation; the host's settled copy stands in for one breath.
+// ---------------------------------------------------------------------------
+
+/** A chat snapshot holding exactly these nodes. */
+function chatOf(nodes) {
+  return { nodes: { values: () => nodes } }
+}
+
+/** An observable over one snapshot, whose `emit` is the chat publishing. */
+function historyOf(snapshot) {
+  const listeners = new Set()
+  return {
+    getSnapshot: () => snapshot,
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    emit() {
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
+
+const ADVISED_ARGS = {
+  decision: 'Which row?',
+  context: 'Two shapes, one seat.',
+  variants: [
+    {
+      id: 'a',
+      path: 'docs/rounds/0001/a.html',
+      recommendation: 'Smaller.',
+      cost: ['B is lost.'],
+      real: ['The bar'],
+      mocked: [],
+      omitted: ['Dark theme'],
+    },
+    { id: 'b', label: 'B — with reasons', path: 'docs/rounds/0001/b.html', cost: ['Two lines taller.'] },
+  ],
+}
+
+/** One folded record, with the round id and the result time the caller names. */
+function foldedRecord(client, callId, roundId, time) {
+  const result = toolResultEvent(callId, decidedPayload({ roundId }))
+  if (time !== undefined) result.time = time
+  const folded = foldDecision(client.__test.decisionNode, [toolCallEvent('clarity_round', callId, ADVISED_ARGS), result])
+  return folded.node
+}
+
+test('the folded row carries what a record reads back: the advice as given, and which variant was taken', () => {
+  const client = loadClient()
+  const data = foldedRecord(client, 'call-1', 'clarity-mw61y3rn-e8183f').data
+  assert.equal(data.roundId, 'clarity-mw61y3rn-e8183f')
+  assert.equal(data.selected, 'b', 'the record names the variant, not only its label')
+  assert.equal(data.context, 'Two shapes, one seat.')
+  assert.equal(data.variants.length, 2)
+  assert.deepEqual(plain(data.variants[0]), {
+    id: 'a',
+    // A variant the call did not label is named by its file, as the host names it.
+    label: 'a.html',
+    path: 'docs/rounds/0001/a.html',
+    note: '',
+    recommendation: 'Smaller.',
+    cost: ['B is lost.'],
+    real: ['The bar'],
+    mocked: [],
+    omitted: ['Dark theme'],
+  })
+  assert.equal(data.variants[1].label, 'B — with reasons')
+  assert.equal(data.variants[1].recommendation, '', 'only the recommended variant carries a sentence')
+
+  const placed = foldDecision(client.__test.decisionNode, [
+    toolCallEvent('clarity_round', 'call-1', ADVISED_ARGS),
+    toolResultEvent('call-1', decidedPayload({ comments: [{ variantId: 'b', text: 'On B.', anchor: { kind: 'variant' } }] })),
+  ])
+  assert.equal(placed.node.data.comments[0].variantId, 'b', 'a comment keeps the variant it was made on')
+  assert.equal(data.comments[0].variantId, undefined, 'a comment without one claims none')
+})
+
+test('the history is the fold read back: our nodes only, oldest first, and the same array for the same snapshot', () => {
+  const client = loadClient()
+  const older = foldedRecord(client, 'call-1', 'clarity-first', 1762000060000)
+  const newer = foldedRecord(client, 'call-2', 'clarity-second', 1762000070000)
+  const snapshot = chatOf([
+    { kind: 'tool', data: { name: 'read_file' } },
+    newer,
+    { kind: 'clarity-decision', data: { kind: 'decision', verdict: 'accept' } },
+    older,
+  ])
+  const records = client.__test.recordsFromChat(snapshot)
+  assert.deepEqual(
+    plain(records.map((record) => record.roundId)),
+    ['clarity-first', 'clarity-second'],
+    'oldest first, and a node without a round id is not a record',
+  )
+  assert.equal(client.__test.recordsFromChat(snapshot), records, 'the read is memoised on the snapshot')
+  assert.deepEqual(plain(client.__test.recordsFromChat(null)), [])
+  assert.deepEqual(plain(client.__test.recordsFromChat({})), [], 'a snapshot without a node store is an empty history')
+})
+
+test('a round the host just settled is shaped as the fold would have shaped it', () => {
+  const client = loadClient()
+  const round = {
+    id: 'r1',
+    kind: 'decision',
+    sessionId: 's',
+    decision: 'Which?',
+    context: 'Why now.',
+    createdAt: 5,
+    status: 'accepted',
+    variants: [
+      {
+        id: 'a',
+        label: 'A',
+        source: 'docs/rounds/0001/a.html',
+        html: '<h1>A</h1>',
+        recommendation: 'Smaller.',
+        cost: ['B is lost.'],
+        real: [],
+        mocked: [],
+        omitted: [],
+        note: '',
+      },
+    ],
+    result: {
+      status: 'decided',
+      roundId: 'r1',
+      verdict: 'accept',
+      selected: 'a',
+      comments: [{ variantId: 'a', text: 'On A.', anchor: { kind: 'variant' } }],
+      note: 'Ship it.',
+    },
+  }
+  const record = client.__test.recordFromHost(round)
+  assert.deepEqual(
+    plain(Object.keys(record).sort()),
+    ['comments', 'context', 'decision', 'kind', 'note', 'roundId', 'selected', 'time', 'variantLabel', 'variants', 'verdict'],
+    'the same keys the fold emits, so one view reads both',
+  )
+  assert.equal(record.roundId, 'r1')
+  assert.equal(record.verdict, 'accept')
+  assert.equal(record.selected, 'a')
+  assert.equal(record.time, 5)
+  assert.equal(record.decision, 'Which?')
+  assert.equal(record.context, 'Why now.')
+  assert.equal(record.variantLabel, 'A')
+  assert.equal(record.variants[0].path, 'docs/rounds/0001/a.html', 'the path comes from `source`, where the host keeps it')
+  assert.equal(record.variants[0].recommendation, 'Smaller.')
+  assert.equal(record.variants[0].html, undefined, 'the artifact is not carried into a record')
+  assert.equal(record.comments[0].variantId, 'a')
+  assert.equal(record.note, 'Ship it.')
+
+  const test = client.__test.recordFromHost({
+    id: 't1',
+    kind: 'test',
+    sessionId: 's',
+    decision: 'Real test: abc123',
+    candidate: 'abc123',
+    createdAt: 6,
+    status: 'tested',
+    result: {
+      status: 'tested',
+      roundId: 't1',
+      verdict: 'fail',
+      observed: 'It broke.',
+      screenshots: [{ path: '.clarity/screenshots/t1/shot-1.png', bytes: 1 }],
+    },
+  })
+  assert.equal(test.kind, 'test')
+  assert.equal(test.candidate, 'abc123')
+  assert.equal(test.observed, 'It broke.')
+  assert.deepEqual(plain(test.shots), ['.clarity/screenshots/t1/shot-1.png'])
+
+  const cancelled = client.__test.recordFromHost({ ...round, status: 'cancelled', result: { status: 'cancelled', roundId: 'r1', reason: 'x' } })
+  assert.equal(cancelled.verdict, '', 'a cancelled round words no verdict')
+})
+
+test('the log wins a duplicate, so the host’s stand-in retires itself', () => {
+  const client = loadClient()
+  const log = [{ roundId: 'a', time: 1, decision: 'from the log' }, { roundId: 'c', time: 3 }]
+  const standIns = new Map([
+    ['b', { id: 'b', kind: 'test', createdAt: 2, candidate: 'abc', result: { verdict: 'pass' } }],
+    ['a', { id: 'a', kind: 'decision', createdAt: 1, decision: 'stale copy', result: { verdict: 'accept' } }],
+  ])
+  const merged = client.__test.mergeRecords(log, standIns)
+  assert.deepEqual(
+    plain(merged.map((record) => record.roundId)),
+    ['a', 'b', 'c'],
+  )
+  assert.equal(merged[0].decision, 'from the log', 'the log record, never the stand-in')
+})
+
+test('the open round on screen is the one the cursor names, else the newest of this conversation', () => {
+  const client = loadClient()
+  const rounds = [
+    { id: 'old', sessionId: 's', status: 'open', createdAt: 1 },
+    { id: 'new', sessionId: 's', status: 'open', createdAt: 2 },
+    { id: 'other', sessionId: 'x', status: 'open', createdAt: 3 },
+    { id: 'shut', sessionId: 's', status: 'accepted', createdAt: 4 },
+  ]
+  assert.equal(client.__test.pickOpen(rounds, 's', 'old').id, 'old')
+  assert.equal(client.__test.pickOpen(rounds, 's', undefined).id, 'new')
+  assert.equal(client.__test.pickOpen(rounds, 's', 'nowhere').id, 'new', 'a cursor naming no open round still finds the newest')
+  assert.equal(client.__test.pickOpen([], 's', undefined), null)
+  assert.equal(client.__test.pickOpen(undefined, 's', undefined), null)
+})
+
+/** A RoundPanel client whose fetch is recorded, with a history source and a cursor. */
+async function renderPanel(history, cursor, fetchFor) {
+  const seen = []
+  const runtime = effectReact()
+  const client = loadClient(
+    runtime.React,
+    async (url) => {
+      seen.push(url)
+      return fetchFor(url)
+    },
+  )
+  const props = {
+    sessionId: 's',
+    history,
+    useTabInfo: () => ({ tab: { navigation: { params: cursor === undefined ? {} : { roundId: cursor } } } }),
+  }
+  const tree = await runtime.render(client.__test.RoundPanel, props)
+  return { client, runtime, props, seen, tree }
+}
+
+const emptyFetch = () => ({ ok: true, json: async () => ({ rounds: [] }) })
+
+test('a tab with history and nothing waiting shows the last decision, not an empty state', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'clarity-mw61y3rn-e8183f')]))
+  const { seen, tree, client: panel } = await renderPanel(history, undefined, emptyFetch)
+
+  const text = textOf(tree)
+  assert.ok(text.includes('Which row?'), 'the question that was asked')
+  assert.ok(text.includes('Ship it.'), 'the note that travelled with it')
+  assert.ok(!text.includes('No round is open'), 'history is not an empty tab')
+  assert.ok(findNode(tree, (node) => node.type === panel.__test.RecordView), 'a record, read-only')
+  assert.equal(findNode(tree, (node) => node.type === panel.__test.DecisionView), null, 'nothing to answer')
+  assert.deepEqual(
+    seen.filter((url) => url.includes('/rounds?')),
+    ['/clarity/api/rounds?sessionId=s'],
+    'the host is asked once whether anything waits',
+  )
+})
+
+test('the cursor in the tab’s navigation picks the record, not the newest one', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'clarity-first', 1), foldedRecord(client, 'call-2', 'clarity-second', 2)]))
+  // Both records ask "Which row?"; the second differs by its round id in the key.
+  const { tree, client: rendered } = await renderPanel(history, 'clarity-first', emptyFetch)
+  const view = findNode(tree, (node) => node.type === rendered.__test.RecordView)
+  assert.equal(view.props.record.roundId, 'clarity-first')
+})
+
+test('the newest record is the one shown when the cursor is absent', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'clarity-first', 1), foldedRecord(client, 'call-2', 'clarity-second', 2)]))
+  const { tree, client: rendered } = await renderPanel(history, undefined, emptyFetch)
+  assert.equal(findNode(tree, (node) => node.type === rendered.__test.RecordView).props.record.roundId, 'clarity-second')
+})
+
+test('the history is resolved on every render, so a binding that lands late is not lost', async () => {
+  // The tab body can mount before the seat has bound this conversation's chat:
+  // the resolver answers null on the first render and the source afterwards, and
+  // a plain re-render — no remount — is enough to pick it up.
+  const client = loadClient()
+  let source = null
+  const runtime = effectReact()
+  const panel = loadClient(runtime.React, async () => ({ ok: true, json: async () => ({ rounds: [] }) }))
+  const props = {
+    sessionId: 's',
+    history: () => source,
+    useTabInfo: () => ({ tab: { navigation: { params: {} } } }),
+  }
+
+  const first = await runtime.render(panel.__test.RoundPanel, props)
+  assert.ok(textOf(first).includes('No round is open'), 'an unbound chat is an honest empty tab')
+
+  source = historyOf(chatOf([foldedRecord(client, 'call-1', 'clarity-late', 3)]))
+  const second = await runtime.render(panel.__test.RoundPanel, props)
+  assert.ok(textOf(second).includes('Which row?'), 'the same props, a later render, and the record is there')
+})
+
+test('a round the log has not landed yet is read from the host once, and a 404 falls back to the latest', async () => {
+  const client = loadClient()
+  const older = foldedRecord(client, 'call-1', 'clarity-older', 1)
+  const settled = {
+    id: 'clarity-just',
+    kind: 'decision',
+    sessionId: 's',
+    decision: 'Just decided?',
+    context: '',
+    createdAt: 9,
+    status: 'revise',
+    variants: [{ id: 'a', label: 'A', source: 'docs/a.html', recommendation: '', cost: [], real: [], mocked: [], omitted: [], note: '' }],
+    result: {
+      status: 'decided',
+      roundId: 'clarity-just',
+      verdict: 'revise',
+      selected: 'a',
+      comments: [{ text: 'Again.', anchor: { kind: 'variant' } }],
+    },
+  }
+
+  const held = await renderPanel(historyOf(chatOf([older])), 'clarity-just', (url) =>
+    url.includes('/round?') ? { ok: true, json: async () => ({ round: settled }) } : emptyFetch(),
+  )
+  assert.ok(textOf(held.tree).includes('Just decided?'), 'the host’s copy stands in')
+  assert.ok(textOf(held.tree).includes('Again.'))
+  assert.equal(held.seen.filter((url) => url === '/clarity/api/round?id=clarity-just').length, 1, 'asked once')
+
+  // The same cursor after a restart: the host has nothing, so the latest record is the answer.
+  const gone = await renderPanel(historyOf(chatOf([older])), 'clarity-just', (url) =>
+    url.includes('/round?') ? { ok: false, status: 404, json: async () => ({ error: { message: 'unknown round' } }) } : emptyFetch(),
+  )
+  assert.equal(findNode(gone.tree, (node) => node.type === gone.client.__test.RecordView).props.record.roundId, 'clarity-older')
+  assert.ok(!textOf(gone.tree).includes('unknown round'), 'a 404 is a fallback, never an error on screen')
+})
+
+test('a round the log already has is not asked of the host', async () => {
+  const client = loadClient()
+  const record = foldedRecord(client, 'call-1', 'clarity-known', 1)
+  const { seen } = await renderPanel(historyOf(chatOf([record])), 'clarity-known', emptyFetch)
+  assert.equal(seen.some((url) => url.includes('/round?')), false, 'the log is enough')
+})
+
+test('deciding in the tab turns the round into its record at once, from the round and the result', async () => {
+  const open = {
+    id: 'r-live',
+    kind: 'decision',
+    sessionId: 's',
+    decision: 'Which row?',
+    context: '',
+    variants: [
+      { id: 'a', label: 'A', html: '<h1>A</h1>', source: 'docs/a.html', recommendation: 'Smaller.', cost: ['B is lost.'], real: [], mocked: [], omitted: [], note: '' },
+      { id: 'b', label: 'B — with reasons', html: '<h1>B</h1>', source: 'docs/b.html', recommendation: '', cost: [], real: [], mocked: [], omitted: [], note: '' },
+    ],
+    status: 'open',
+    createdAt: 7,
+  }
+  const { tree, seen, props, runtime, client: panel } = await renderPanel(historyOf(chatOf([])), 'r-live', () => ({ ok: true, json: async () => ({ rounds: [open] }) }))
+  const view = findNode(tree, (node) => node.type === panel.__test.DecisionView)
+  assert.ok(view, 'the waiting round is on screen')
+  assert.equal(view.props.sent, undefined, 'the panel no longer keeps a second "sent" state')
+
+  view.props.onSent(decidedPayload({ roundId: 'r-live' }), open)
+  const after = await runtime.render(panel.__test.RoundPanel, props)
+  const text = textOf(after)
+  assert.ok(text.includes('Which row?'))
+  assert.ok(text.includes('Accepted'), 'the verdict is the record’s first line')
+  assert.ok(text.includes('Ship it.'), 'the note is read back')
+  assert.ok(!text.includes('Decision sent to the agent.'), 'the "sent" card is gone; the record is what remains')
+  assert.ok(findNode(after, (node) => node.type === panel.__test.RecordView))
+  assert.equal(seen.some((url) => url.includes('/round?')), false, 'no second fetch: the round and the result were already in hand')
+})
+
+test('a change in the log re-reads the snapshot, never the network', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([]))
+  const first = await renderPanel(history, undefined, emptyFetch)
+  assert.equal(first.seen.length, 1)
+
+  // The chat publishes (the `tool/result` landed); nothing is waiting, so the
+  // record appears from the snapshot alone.
+  const snapshot = chatOf([foldedRecord(client, 'call-1', 'clarity-late', 3)])
+  history.getSnapshot = () => snapshot
+  history.emit()
+  const after = await first.runtime.render(first.client.__test.RoundPanel, first.props)
+  assert.ok(textOf(after).includes('Which row?'), 'the landed record is on screen')
+  assert.equal(first.seen.length, 1, 'a chat change never reaches the host')
+})
+
+test('a record carries the advice as given and the path of each artifact, and no artifact', async () => {
+  const runtime = effectReact()
+  const client = loadClient(runtime.React)
+  const data = foldedRecord(client, 'call-1', 'clarity-mw61y3rn-e8183f').data
+  const tree = await runtime.render(client.__test.RecordView, { record: data })
+  const text = textOf(tree)
+  assert.ok(text.includes('Two shapes, one seat.'), 'the context')
+  assert.ok(text.includes('Smaller.'), 'the recommendation, as it was given')
+  assert.ok(text.includes('B is lost.'), 'and its cost')
+  assert.ok(text.includes('The bar'), 'what was real')
+  assert.ok(text.includes('docs/rounds/0001/a.html'), 'the file is the record, so its path is named')
+  assert.ok(text.includes('B — with reasons'), 'the label of the variant that was taken')
+  assert.ok(text.includes('Round the button to the card radius.'), 'and what was said about it')
+  assert.equal(findNode(tree, (node) => node.type === 'iframe'), null, 'the log never held the HTML')
+  assert.equal(findNode(tree, (node) => node.type === 'textarea'), null, 'a record answers nothing')
+})
+
+test('a cancelled round reads as cancelled, with no verdict to fill in', async () => {
+  const runtime = effectReact()
+  const client = loadClient(runtime.React)
+  const tree = await runtime.render(client.__test.RecordView, {
+    record: client.__test.recordFromHost({
+      id: 'r9',
+      kind: 'decision',
+      sessionId: 's',
+      decision: 'Gone?',
+      context: '',
+      createdAt: 1,
+      status: 'cancelled',
+      variants: [],
+      result: { status: 'cancelled', roundId: 'r9', reason: 'the user cancelled the round' },
+    }),
+  })
+  const text = textOf(tree)
+  assert.ok(text.includes('This round was cancelled.'))
+  assert.ok(!text.includes('Verdict: accept'), 'no verb is invented for a round nobody answered')
+})
+
+test('the tab is handed the chat snapshot of its conversation when the composition has the chat', () => {
+  const client = loadClient()
+  const { ctx, calls } = makeCtx()
+  const sources = new Map([['s1', { getSnapshot: () => chatOf([]), subscribe: () => () => {} }]])
+  ctx.inject = (deps, callback) => {
+    if (deps[0] !== 'uiConversation') return { then() {} }
+    callback({
+      uiConversation: {
+        events: { register: () => () => {} },
+        binding(id) {
+          const source = sources.get(id)
+          if (source === undefined) throw new Error('no binding for ' + id)
+          return { target: (target) => (target === 'chat' ? source : undefined) }
+        },
+      },
+      effect(fn) {
+        fn()
+      },
+    })
+    return { then() {} }
+  }
+  client.apply(ctx)
+  assert.deepEqual([...client.inject].sort(), ['sidebarRight', 'sidebarRightTabs', 'slots', 'uiSession'], 'the chat stays optional, not injected')
+
+  const inject = calls.bodies[0].options.inject
+  const props = inject('s1')
+  assert.equal(props.sessionId, 's1')
+  assert.equal(typeof props.history, 'function', 'the body is handed a resolver, not a snapshot')
+  assert.equal(props.history(), sources.get('s1'), 'the resolver finds this conversation’s chat')
+  assert.equal(inject('s1').history(), props.history(), 'one source per conversation, so the props stay stable')
+  assert.equal(inject('unknown').history(), null, 'an unbound session is an empty history, never an error')
+  assert.equal(inject('unknown').history(), null, 'and stays empty for the tick instead of throwing on every render')
+  assert.equal(client.__test.historySourceFor('s1'), sources.get('s1'))
+})
+
+test('without the chat service the history is empty, and the tab still opens', () => {
+  const client = loadClient()
+  assert.equal(client.__test.historySourceFor('s1'), null)
+  const { ctx } = makeCtx()
+  client.apply(ctx)
+  assert.equal(client.__test.historySourceFor('s1'), null, 'applying without the arena leaves it empty')
+})
+
+test('a binding that is not ready yet is asked again, not remembered as a miss', () => {
+  // The panel retries a missing history; that only works if a miss is not cached.
+  // With a remembered miss every retry reopened the same "not yet" answer.
+  const client = loadClient()
+  const { ctx } = makeCtx()
+  const source = { getSnapshot: () => chatOf([]), subscribe: () => () => {} }
+  let ready = false
+  ctx.inject = (deps, callback) => {
+    if (deps[0] !== 'uiConversation') return { then() {} }
+    callback({
+      uiConversation: {
+        events: { register: () => () => {} },
+        binding() {
+          if (!ready) throw new Error('not adopted yet')
+          return { target: (target) => (target === 'chat' ? source : undefined) }
+        },
+      },
+      effect(fn) {
+        fn()
+      },
+    })
+    return { then() {} }
+  }
+  client.apply(ctx)
+
+  assert.equal(client.__test.historySourceFor('s1'), null, 'before the seat adopts, there is nothing')
+  ready = true
+  assert.equal(client.__test.historySourceFor('s1'), source, 'and the next ask finds it')
+  assert.equal(client.__test.historySourceFor('s1'), source, 'a hit stays cached')
+})
+
+test('the strip’s dot follows the verdict instead of calling everything but a fail green', () => {
+  const client = loadClient()
+  assert.equal(client.__test.verdictTone('accept'), 'var(--dsw-alias-state-success-primary)')
+  assert.equal(client.__test.verdictTone('pass'), 'var(--dsw-alias-state-success-primary)')
+  assert.equal(client.__test.verdictTone('fail'), 'var(--dsw-alias-state-error-primary)')
+  assert.equal(client.__test.verdictTone('reject'), 'var(--dsw-alias-state-error-primary)')
+  assert.equal(client.__test.verdictTone('revise'), '#d4a72c', 'a revise asked for changes; it was not kept')
+  assert.equal(client.__test.verdictTone('blocked'), '#d4a72c', 'and a blocked gate never ran')
+  assert.equal(client.__test.verdictTone(''), 'var(--dsw-alias-label-tertiary)', 'a cancelled round is neither')
+})
+
+// ---------------------------------------------------------------------------
+// The strip and the overview (rounds 0032–0035): numbered chronologically,
+// waiting in front, the overview pinned at the right end of the strip.
+// ---------------------------------------------------------------------------
+
+function openRoundOf(id, createdAt, decision) {
+  return { id, kind: 'decision', sessionId: 's', decision, createdAt, status: 'open', variants: [] }
+}
+
+test('rounds are numbered in the order they happened, waiting or settled alike', () => {
+  const client = loadClient()
+  const older = foldedRecord(client, 'call-1', 'r-old', 100).data
+  const newer = foldedRecord(client, 'call-2', 'r-new', 300).data
+  const items = client.__test.entriesOf([older, newer], [openRoundOf('r-wait', 200, 'Still open?')], 's')
+  assert.deepEqual(
+    plain(items.map((item) => [item.number, item.roundId])),
+    [[1, 'r-old'], [2, 'r-wait'], [3, 'r-new']],
+    'chronological, over the log and the host together',
+  )
+  assert.equal(items[1].round.id, 'r-wait', 'an open round carries its round')
+  assert.equal(items[0].record.roundId, 'r-old', 'a settled one carries its record')
+
+  const foreign = client.__test.entriesOf([], [openRoundOf('r-x', 1, 'Other')], 'another-session')
+  assert.deepEqual(plain(foreign), [], 'another conversation’s round is not in this strip')
+
+  const twice = client.__test.entriesOf([older], [openRoundOf('r-old', 100, 'Same')], 's')
+  assert.equal(twice.length, 1, 'a round in both places is one entry, and the record wins')
+  assert.equal(twice[0].record.roundId, 'r-old')
+})
+
+test('the strip puts whoever is waiting first, then the newest settled', () => {
+  const client = loadClient()
+  const records = [foldedRecord(client, 'call-1', 'r1', 1).data, foldedRecord(client, 'call-2', 'r2', 2).data]
+  const items = client.__test.entriesOf(records, [openRoundOf('r9', 9, 'Later?')], 's')
+  const ordered = client.__test.stripOrder(items)
+  assert.deepEqual(plain(ordered.map((item) => item.roundId)), ['r9', 'r2', 'r1'])
+})
+
+test('a strip cell is the question itself, truncated — never a summary', () => {
+  const client = loadClient()
+  assert.equal(
+    client.__test.cellLabel({ question: 'Should the package be the repository root as it stands, or the root with a build?' }),
+    'Should the package be the repository root…',
+    'the first characters of the question, ellipsised',
+  )
+  assert.equal(client.__test.cellLabel({ question: 'Short?' }), 'Short?')
+})
+
+test('the copied design process is numbered, and carries what was said about each round', () => {
+  const client = loadClient()
+  const records = [foldedRecord(client, 'call-1', 'r-old', 1).data, foldedRecord(client, 'call-2', 'r-new', 2).data]
+  const items = client.__test.stripOrder(client.__test.entriesOf(records, [], 's'))
+  const markdown = client.__test.markdownOf(items)
+  assert.ok(markdown.startsWith('# Design process'), 'one heading')
+  assert.ok(markdown.includes('- **#2** Accepted · Which row?'), 'numbered, newest first, with the verdict word')
+  assert.ok(markdown.includes('chose B — with reasons'), 'the variant that was taken, by its label')
+  assert.ok(markdown.includes('Element · Save — Round the button to the card radius.'), 'the comment, with its anchor')
+  assert.ok(markdown.includes('Note — Ship it.'), 'and the note')
+})
+
+test('the downloaded report is one self-contained document, and escapes what it carries', () => {
+  const client = loadClient()
+  const record = foldedRecord(client, 'call-1', 'r-old', 1).data
+  record.decision = 'Is <script>alert(1)</script> safe?'
+  const items = client.__test.stripOrder(client.__test.entriesOf([record], [], 's'))
+  const html = client.__test.reportHtmlOf(items, 'session-1', '2026-11-24 20:31')
+  assert.ok(html.startsWith('<!doctype html>'), 'a document, not a fragment')
+  assert.ok(html.includes('#1'), 'the number')
+  assert.ok(html.includes('Is &lt;script&gt;alert(1)&lt;/script&gt; safe?'), 'the question is escaped')
+  assert.equal(html.includes('<script>alert(1)</script>'), false, 'and never lands as markup')
+  assert.ok(html.includes('session-1') && html.includes('2026-11-24 20:31'), 'it says which conversation and when')
+})
+
+/** Render the tab with props the caller controls, and a fetch that answers with `rounds`. */
+async function renderTab(props, rounds) {
+  const runtime = effectReact()
+  const client = loadClient(runtime.React, async () => ({ ok: true, json: async () => ({ rounds: rounds || [] }) }))
+  const tree = await runtime.render(client.__test.RoundPanel, props)
+  return { client, runtime, props, tree }
+}
+
+test('the tab draws a numbered strip with the overview pinned at its right end', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'r-old', 1)]))
+  const props = { sessionId: 's', history, navigate() {}, useTabInfo: () => ({ tab: { navigation: { params: {} } } }) }
+  const { tree, client: panel } = await renderTab(props, [openRoundOf('r-wait', 9, 'Still open?')])
+
+  const strip = findNode(tree, (node) => node.type === panel.__test.Strip)
+  assert.ok(strip, 'a strip is drawn above the round')
+  // The fake React does not invoke function components, so the strip's own
+  // output is rendered by hand — the same way `textOf` reaches it.
+  const stripTree = strip.type(strip.props)
+  const text = textOf(strip)
+  assert.ok(text.includes('#2'), 'the waiting round is numbered')
+  assert.ok(text.includes('#1'), 'and so is the settled one')
+  assert.ok(text.includes('Waiting'), 'the waiting cell says so in words')
+  assert.ok(!text.includes('Needs a decision'), 'and not in the words the gate rejected')
+  assert.ok(text.includes('Overview'), 'and the overview is pinned at its end')
+  assert.equal(strip.props.items[0].roundId, 'r-wait', 'waiting first')
+  assert.ok(findNode(stripTree, (node) => node.type === 'button' && textOf(node).includes('#1')), 'the cells are buttons')
+})
+
+test('a strip cell navigates to its round; the overview chip opens the overview', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'r-old', 1)]))
+  const visited = []
+  const props = { sessionId: 's', history, navigate: (id) => visited.push(id), useTabInfo: () => ({ tab: { navigation: { params: {} } } }) }
+  const { tree, runtime, client: panel } = await renderTab(props, [openRoundOf('r-wait', 9, 'Still open?')])
+
+  const strip = findNode(tree, (node) => node.type === panel.__test.Strip)
+  const stripTree = strip.type(strip.props)
+  const cell = findNode(stripTree, (node) => node.type === 'button' && textOf(node).includes('#1'))
+  cell.props.onClick()
+  assert.deepEqual(visited, ['r-old'], 'the cell asks the tab to navigate to that round')
+
+  const overview = findNode(stripTree, (node) => node.type === 'button' && textOf(node).includes('Overview'))
+  overview.props.onClick()
+  const shown = await runtime.render(panel.__test.RoundPanel, props)
+  const view = findNode(shown, (node) => node.type === panel.__test.Overview)
+  assert.ok(view, 'the same tab now shows the overview')
+  assert.equal(findNode(shown, (node) => node.type === panel.__test.DecisionView), null, 'and not the round')
+})
+
+test('the overview lists every round with its verdict, comments and note, and goes back', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'r-old', 1)]))
+  const props = { sessionId: 's', history, navigate() {}, useTabInfo: () => ({ tab: { navigation: { params: {} } } }) }
+  const { tree, runtime, client: panel } = await renderTab(props, [openRoundOf('r-wait', 9, 'Still open?')])
+
+  const strip = findNode(tree, (node) => node.type === panel.__test.Strip)
+  const stripTree = strip.type(strip.props)
+  findNode(stripTree, (node) => node.type === 'button' && textOf(node).includes('Overview')).props.onClick()
+  const shown = await runtime.render(panel.__test.RoundPanel, props)
+  const view = findNode(shown, (node) => node.type === panel.__test.Overview)
+  const viewTree = view.type(view.props)
+  const text = textOf(view)
+  assert.ok(text.includes('This conversation'), 'what the overview is')
+  assert.ok(text.includes('2 rounds'), 'how many')
+  assert.ok(text.includes('1 decided · 1 waiting'), 'and how they stand')
+  assert.ok(text.includes('Round the button to the card radius.'), 'the comment, spelled out')
+  assert.ok(text.includes('Ship it.'), 'and the note')
+  // The anchor and the words are two lines, not one: the gate read them as one
+  // grey sentence when they shared a row.
+  const anchorLine = findNode(viewTree, (node) => node.type === 'div' && textOf(node) === 'Element · Save')
+  assert.ok(anchorLine, 'the anchor is its own line')
+  const words = findNode(viewTree, (node) => node.type === 'div' && textOf(node) === 'Round the button to the card radius.')
+  assert.ok(words, 'and the words are theirs')
+  assert.ok(text.includes('Copy Markdown') && text.includes('Download HTML'), 'both export actions')
+
+  findNode(viewTree, (node) => node.type === 'button' && textOf(node).includes('Back to this round')).props.onClick()
+  const back = await runtime.render(panel.__test.RoundPanel, props)
+  assert.ok(findNode(back, (node) => node.type === panel.__test.DecisionView), 'back is the round itself')
+})
+
+test('an overview with nothing decided says so instead of drawing an empty list', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([]))
+  const props = { sessionId: 's', history, navigate() {}, useTabInfo: () => ({ tab: { navigation: { params: {} } } }) }
+  const { runtime, client: panel } = await renderTab(props, [])
+  const view = await runtime.render(panel.__test.Overview, { items: [], sessionId: 's', onBack() {} })
+  const text = textOf(view)
+  assert.ok(text.includes('Nothing has been decided in this conversation yet.'))
+  assert.ok(text.includes('0 rounds'))
+})
+
+test('cancelling a round leaves no record behind, so the strip does not renumber after a reload', async () => {
+  // The fold draws no row for a cancelled round (invariant 7). A stand-in would
+  // show it in the strip until the reload and then shift every number after it.
+  const client = loadClient()
+  const open = {
+    id: 'r-live',
+    kind: 'decision',
+    sessionId: 's',
+    decision: 'Which row?',
+    context: '',
+    variants: [{ id: 'a', label: 'A', html: '<h1>A</h1>', source: 'docs/a.html', recommendation: 'Because.', cost: [], real: [], mocked: [], omitted: [], note: '' }],
+    status: 'open',
+    createdAt: 7,
+  }
+  const props = { sessionId: 's', history: historyOf(chatOf([])), navigate() {}, useTabInfo: () => ({ tab: { navigation: { params: { roundId: 'r-live' } } } }) }
+  const { tree, runtime, client: panel } = await renderTab(props, [open])
+  const view = findNode(tree, (node) => node.type === panel.__test.DecisionView)
+  assert.ok(view, 'the round is on screen')
+
+  view.props.onSent({ status: 'cancelled', roundId: 'r-live', reason: 'the user cancelled the round' }, open)
+  const after = await runtime.render(panel.__test.RoundPanel, props)
+  assert.equal(findNode(after, (node) => node.type === panel.__test.RecordView), null, 'nothing to read back')
+  const strip = findNode(after, (node) => node.type === panel.__test.Strip)
+  assert.ok(strip === null || !textOf(strip).includes('#1'), 'and nothing numbered in the strip')
+})
+
+test('a record keeps its own bottom padding, because no decision bar follows it', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'r-old', 1)]))
+  const props = { sessionId: 's', history, navigate() {}, useTabInfo: () => ({ tab: { navigation: { params: {} } } }) }
+  const { tree } = await renderTab(props, [])
+  const root = findNode(
+    tree,
+    (node) => node.type === 'div' && typeof node.props.className === 'string' && node.props.className.includes('clarity-arrival'),
+  )
+  assert.ok(root, 'the record has a root')
+  assert.ok(String(root.props.style.padding).endsWith('18px'), 'and it pads its own foot: ' + root.props.style.padding)
+})
+
+test('a strip cell stays a button: no role replaces the one that says it acts', async () => {
+  const client = loadClient()
+  const history = historyOf(chatOf([foldedRecord(client, 'call-1', 'r-old', 1)]))
+  const props = { sessionId: 's', history, navigate() {}, useTabInfo: () => ({ tab: { navigation: { params: {} } } }) }
+  const { tree, client: panel } = await renderTab(props, [openRoundOf('r-wait', 9, 'Still open?')])
+  const strip = findNode(tree, (node) => node.type === panel.__test.Strip)
+  assert.equal(strip.props.items.length, 2)
+  const stripTree = strip.type(strip.props)
+  const cells = []
+  const collect = (node) => {
+    if (Array.isArray(node)) {
+      node.forEach(collect)
+      return
+    }
+    if (!node || typeof node !== 'object') return
+    if (node.type === 'button' && String(textOf(node)).includes('#')) cells.push(node)
+    if (node.children) node.children.forEach(collect)
+  }
+  collect(stripTree)
+  assert.equal(cells.length, 2, 'one button per round')
+  for (const cell of cells) {
+    assert.notEqual(cell.props.role, 'listitem', 'a button must keep the button role')
+  }
+  const row = findNode(stripTree, (node) => node.props && node.props['aria-label'] === 'Rounds')
+  assert.ok(row, 'the group names itself')
 })
 
 /** A document that records what the plugin puts in its head. */
